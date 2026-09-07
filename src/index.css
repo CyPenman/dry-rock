@@ -1,0 +1,27 @@
+@import 'tailwindcss';
+
+/* Design tokens — spec §7. Dense, instrument-like, dark ground for early-morning use. */
+:root {
+  --dry: #d6cfc2;
+  --wet: #3d4348;
+  --ground: #22262a;
+  --ground-raised: #2a2f34;
+  --text: #e8e4db;
+  --text-dim: #9a958a;
+  --signal: #7fb99a;
+  --warning: #d98c5f;
+  --border: #3a3f44;
+
+  color-scheme: dark;
+  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  background: var(--ground);
+  color: var(--text);
+}
