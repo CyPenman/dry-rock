@@ -3,8 +3,8 @@ import { MODELS, type ModelName } from '../api/request';
 import { buildHourlyInputsForModel } from './buildInputs';
 import { longestQualifyingWindowForDay } from './dryWindow';
 import { bestFrictionBlock, frictionScoreHour } from './friction';
-import { computeScoreBreakdown, dayVerdict, hadFreezeThawCycle, modelAgreement, type ModelAgreement, type Verdict } from './score';
 import { PARAMS } from './params';
+import { computeScoreBreakdown, dayVerdict, hadFreezeThawCycle, modelAgreement, type ModelAgreement, type Verdict } from './score';
 import type { Crag } from './types';
 import {
   climbableHoursForDay,
@@ -21,12 +21,12 @@ export interface CragDayResult {
   dayIndex: number;
   dayStartIdx: number;
   dayEndIdx: number;
-  date: Date; // local midnight of this day, from the primary model's timestamps
+  date: Date; // local midnight of this day, from this model's timestamps
   verdict: Verdict;
   score: number;
   windowScoreValue: number;
   rockDrynessScore: number;
-  dryFromIdx: number | null; // global hour index into the primary model's series
+  dryFromIdx: number | null; // global hour index into this model's series
   dryFromHourOfDay: number | null; // 0-23, for display
   climbableDaylightHours: number;
   totalDaylightHours: number;
@@ -40,7 +40,9 @@ export interface CragForecastResult {
   availableModels: ModelName[];
   hourly: HourResult[]; // primary model's hourly series, for the detail timeline
   inputs: CragHourlyInput[]; // primary model's inputs, for the detail timeline
-  days: CragDayResult[];
+  days: CragDayResult[]; // primary model's day-by-day results, confidence-annotated
+  /** Every resolved model's day-by-day score, for the "compare models" chart (§6 crag detail). */
+  perModelDays: Partial<Record<ModelName, CragDayResult[]>>;
 }
 
 function toModelConfig(crag: Crag): CragModelConfig {
@@ -58,6 +60,88 @@ function toModelConfig(crag: Crag): CragModelConfig {
     Mmax: crag.Mmax,
     infiltrationRate: crag.infiltrationRate,
   };
+}
+
+/** Per-day rollup (§4.9) for one model's hourly series. Confidence is filled in afterwards, once every model's results are in. */
+function computeDaysForModel(
+  crag: Crag,
+  results: HourResult[],
+  inputs: CragHourlyInput[],
+  minWindowHours: number,
+): Omit<CragDayResult, 'confidence'>[] {
+  const climbable = results.map((r) => r.climbable);
+  const trock = results.map((r) => r.Trock);
+  const numDays = Math.floor(results.length / 24);
+  const days: Omit<CragDayResult, 'confidence'>[] = [];
+
+  for (let day = 0; day < numDays; day++) {
+    const dayStart = day * 24;
+    const dayEnd = dayStart + 23;
+
+    const dayResults = results.slice(dayStart, dayEnd + 1);
+    const dayInputs = inputs.slice(dayStart, dayEnd + 1);
+    const isDayFlags = dayInputs.map((i) => i.isDay);
+
+    const { totalClimbableDaylightHours } = climbableHoursForDay(dayResults, isDayFlags);
+    const totalDaylightHours = isDayFlags.filter(Boolean).length;
+
+    const windowHoursForDay = longestQualifyingWindowForDay(climbable, dayStart, dayEnd);
+
+    const frictionScores = dayResults.map((r, idx) =>
+      frictionScoreHour({
+        trockC: r.Trock,
+        idealTempC: crag.idealTempC,
+        dewPointC: dayInputs[idx].dewPointC,
+        windSpeedMs: dayInputs[idx].windSpeedMs,
+        gtiFaceWm2: dayInputs[idx].gtiFaceWm2,
+        aspectDeg: crag.aspectDeg,
+        coastal: crag.coastal,
+        rock: crag.rock,
+      }),
+    );
+    const bestFriction = bestFrictionBlock(frictionScores, isDayFlags);
+
+    const underSnowAnyHour = dayResults.some((r) => r.underSnow);
+    const frozenAllDaylightHours = totalDaylightHours > 0 && dayResults.every((r, idx) => !isDayFlags[idx] || r.frozen);
+    const freezeThaw = hadFreezeThawCycle(trock, dayEnd, 48);
+
+    const verdict = dayVerdict({
+      underSnowAnyHour,
+      frozenAllDaylightHours,
+      softRock: crag.softRock,
+      freezeThawInPreceding48h: freezeThaw,
+    });
+
+    const breakdown = computeScoreBreakdown({
+      windowHours: windowHoursForDay,
+      minWindowHours,
+      climbableDaylightHours: totalClimbableDaylightHours,
+      totalDaylightHours,
+      bestFrictionBlockScore: bestFriction,
+    });
+    const score = verdict === 'scored' ? breakdown.total : 0;
+
+    const dryFromOffset = findDryFrom(dayResults);
+
+    days.push({
+      dayIndex: day,
+      dayStartIdx: dayStart,
+      dayEndIdx: dayEnd,
+      date: new Date(inputs[dayStart].time * 1000),
+      verdict,
+      score,
+      windowScoreValue: breakdown.windowScoreValue,
+      rockDrynessScore: breakdown.rockDrynessScore,
+      dryFromIdx: dryFromOffset != null ? dayStart + dryFromOffset : null,
+      dryFromHourOfDay: dryFromOffset,
+      climbableDaylightHours: totalClimbableDaylightHours,
+      totalDaylightHours,
+      bestFrictionBlockScore: bestFriction,
+      limitingFactor: limitingFactorAt(results, dayEnd),
+    });
+  }
+
+  return days;
 }
 
 /**
@@ -88,99 +172,35 @@ export function computeCragForecast(
   if (availableModels.length === 0) return null;
 
   const primaryModel = availableModels.includes('ukmo_seamless') ? 'ukmo_seamless' : availableModels[0];
-  const primaryResults = perModelResults.get(primaryModel)!;
-  const primaryInputs = perModelInputs.get(primaryModel)!;
-  const primaryClimbable = primaryResults.map((r) => r.climbable);
-  const primaryTrock = primaryResults.map((r) => r.Trock);
 
-  const numDays = Math.floor(primaryResults.length / 24);
-  const days: CragDayResult[] = [];
+  const perModelDaysRaw = new Map<ModelName, Omit<CragDayResult, 'confidence'>[]>();
+  for (const model of availableModels) {
+    perModelDaysRaw.set(model, computeDaysForModel(crag, perModelResults.get(model)!, perModelInputs.get(model)!, minWindowHours));
+  }
 
-  for (let day = 0; day < numDays; day++) {
-    const dayStart = day * 24;
-    const dayEnd = dayStart + 23;
-
-    const dayResults = primaryResults.slice(dayStart, dayEnd + 1);
-    const dayInputs = primaryInputs.slice(dayStart, dayEnd + 1);
-    const isDayFlags = dayInputs.map((i) => i.isDay);
-
-    const { totalClimbableDaylightHours } = climbableHoursForDay(dayResults, isDayFlags);
-    const totalDaylightHours = isDayFlags.filter(Boolean).length;
-
-    const windowHoursForDay = longestQualifyingWindowForDay(primaryClimbable, dayStart, dayEnd);
-
-    const frictionScores = dayResults.map((r, idx) =>
-      frictionScoreHour({
-        trockC: r.Trock,
-        idealTempC: crag.idealTempC,
-        dewPointC: dayInputs[idx].dewPointC,
-        windSpeedMs: dayInputs[idx].windSpeedMs,
-        gtiFaceWm2: dayInputs[idx].gtiFaceWm2,
-        aspectDeg: crag.aspectDeg,
-        coastal: crag.coastal,
-        rock: crag.rock,
-      }),
-    );
-    const bestFriction = bestFrictionBlock(frictionScores, isDayFlags);
-
-    const underSnowAnyHour = dayResults.some((r) => r.underSnow);
-    const frozenAllDaylightHours =
-      totalDaylightHours > 0 && dayResults.every((r, idx) => !isDayFlags[idx] || r.frozen);
-    const freezeThaw = hadFreezeThawCycle(primaryTrock, dayEnd, 48);
-
-    const verdict = dayVerdict({
-      underSnowAnyHour,
-      frozenAllDaylightHours,
-      softRock: crag.softRock,
-      freezeThawInPreceding48h: freezeThaw,
+  function withConfidence(model: ModelName): CragDayResult[] {
+    const raw = perModelDaysRaw.get(model)!;
+    return raw.map((d) => {
+      const perModelDayClimbable = availableModels.map((m) => {
+        const series = perModelResults.get(m)!;
+        const slice = series.slice(d.dayStartIdx, Math.min(d.dayEndIdx + 1, series.length));
+        return slice.some((r) => r.climbable);
+      });
+      return { ...d, confidence: modelAgreement(perModelDayClimbable) };
     });
+  }
 
-    const breakdown = computeScoreBreakdown({
-      windowHours: windowHoursForDay,
-      minWindowHours,
-      climbableDaylightHours: totalClimbableDaylightHours,
-      totalDaylightHours,
-      bestFrictionBlockScore: bestFriction,
-    });
-    const score = verdict === 'scored' ? breakdown.total : 0;
-
-    const dryFromOffset = findDryFrom(dayResults);
-    const dryFromIdx = dryFromOffset != null ? dayStart + dryFromOffset : null;
-    const dryFromHourOfDay = dryFromOffset;
-
-    const limitingFactor = limitingFactorAt(primaryResults, dayEnd);
-
-    const perModelDayClimbable = availableModels.map((model) => {
-      const series = perModelResults.get(model)!;
-      const slice = series.slice(dayStart, Math.min(dayEnd + 1, series.length));
-      return slice.some((r) => r.climbable);
-    });
-    const confidence = modelAgreement(perModelDayClimbable);
-
-    days.push({
-      dayIndex: day,
-      dayStartIdx: dayStart,
-      dayEndIdx: dayEnd,
-      date: new Date(primaryInputs[dayStart].time * 1000),
-      verdict,
-      score,
-      windowScoreValue: breakdown.windowScoreValue,
-      rockDrynessScore: breakdown.rockDrynessScore,
-      dryFromIdx,
-      dryFromHourOfDay,
-      climbableDaylightHours: totalClimbableDaylightHours,
-      totalDaylightHours,
-      bestFrictionBlockScore: bestFriction,
-      limitingFactor,
-      confidence,
-    });
+  const perModelDays: Partial<Record<ModelName, CragDayResult[]>> = {};
+  for (const model of availableModels) {
+    perModelDays[model] = withConfidence(model);
   }
 
   return {
     primaryModel,
     availableModels,
-    hourly: primaryResults,
-    inputs: primaryInputs,
-    days,
+    hourly: perModelResults.get(primaryModel)!,
+    inputs: perModelInputs.get(primaryModel)!,
+    days: perModelDays[primaryModel]!,
+    perModelDays,
   };
 }

@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
-import { PAST_DAYS } from '../api/request';
+import { FORECAST_DAYS, PAST_DAYS } from '../api/request';
 import type { CragWithForecast } from '../hooks/useForecast';
-import { formatAgeWords } from '../lib/format';
-import { computeRangeDayIndices, RANGE_PRESET_LABELS, type RangePreset } from '../model/dateRange';
-import { pickBestDayInRange, rankCragDays, sortByWorthTheDrive, type RankedCragDay } from '../model/ranking';
+import { formatAgeWords, formatDayLabel } from '../lib/format';
+import { dayIndexToDate, resolveDateRange, type DateRangeSelection } from '../model/dateRange';
+import { rankCragDays, sortByWorthTheDrive, type RankedCragDay } from '../model/ranking';
 import type { Settings } from '../state/settings';
+import { CalendarRangePicker } from './CalendarRangePicker';
 import { CragRow } from './CragRow';
 
 type SortMode = 'score' | 'drive';
@@ -20,6 +21,8 @@ export function HomeScreen({
   updateSettings,
   togglePinned,
   onSelectCrag,
+  dateRange,
+  onChangeDateRange,
 }: {
   results: CragWithForecast[];
   loading: boolean;
@@ -31,24 +34,27 @@ export function HomeScreen({
   updateSettings: (patch: Partial<Settings>) => void;
   togglePinned: (id: string) => void;
   onSelectCrag: (cragId: string) => void;
+  dateRange: DateRangeSelection;
+  onChangeDateRange: (range: DateRangeSelection) => void;
 }) {
-  const [preset, setPreset] = useState<RangePreset>('weekend');
   const [sortMode, setSortMode] = useState<SortMode>('score');
+  const [pickerOpen, setPickerOpen] = useState(false);
 
-  const [startIdx, endIdx] = useMemo(() => computeRangeDayIndices(preset, PAST_DAYS), [preset]);
+  const maxDayIndex = PAST_DAYS + FORECAST_DAYS - 1;
+  const [startIdx, endIdx] = useMemo(() => resolveDateRange(dateRange, PAST_DAYS), [dateRange]);
+
+  const rangeLabel =
+    dateRange.kind === 'weekend'
+      ? 'This weekend'
+      : startIdx === endIdx
+        ? formatDayLabel(dayIndexToDate(startIdx, PAST_DAYS))
+        : `${formatDayLabel(dayIndexToDate(startIdx, PAST_DAYS))} to ${formatDayLabel(dayIndexToDate(endIdx, PAST_DAYS))}`;
 
   const home = settings.homeLat != null && settings.homeLon != null ? { lat: settings.homeLat, lon: settings.homeLon } : null;
 
-  const entries = useMemo(
-    () =>
-      results.map(({ crag, forecast }) => ({
-        crag,
-        day: forecast ? pickBestDayInRange(forecast.days, startIdx, endIdx) : null,
-      })),
-    [results, startIdx, endIdx],
-  );
+  const entries = useMemo(() => results.map(({ crag, forecast }) => ({ crag, days: forecast ? forecast.days : null })), [results]);
 
-  const ranked = useMemo(() => rankCragDays(entries, home), [entries, home]);
+  const ranked = useMemo(() => rankCragDays(entries, [startIdx, endIdx], home), [entries, startIdx, endIdx, home]);
   const scored = ranked.filter((r) => r.day.verdict === 'scored');
   const gated = ranked.filter((r) => r.day.verdict !== 'scored');
 
@@ -74,12 +80,12 @@ export function HomeScreen({
         <div className="flex items-baseline justify-between">
           <h1 className="text-xl font-medium tracking-tight">Dry Rock</h1>
           <button type="button" onClick={onRefresh} className="text-sm" style={{ color: 'var(--signal)' }}>
-            {loading ? 'Refreshing…' : 'Refresh'}
+            {loading ? 'Refreshing...' : 'Refresh'}
           </button>
         </div>
         <p className="mt-0.5 text-xs" style={{ color: 'var(--text-dim)' }}>
-          {fetchedAt ? formatAgeWords(fetchedAt) : 'loading…'}
-          {stale && ' · showing cached data, couldn\'t reach the network'}
+          {fetchedAt ? formatAgeWords(fetchedAt) : 'loading...'}
+          {stale && ", showing cached data as we couldn't reach the network"}
         </p>
 
         {home === null && (
@@ -89,28 +95,36 @@ export function HomeScreen({
             className="mt-2 w-full rounded border px-3 py-2 text-left text-sm"
             style={{ borderColor: 'var(--border)', color: 'var(--text-dim)' }}
           >
-            Set home location, to see distance and sort by "worth the drive"
+            Set home location to see distance and sort by "worth the drive"
           </button>
         )}
 
         <div className="mt-3 flex gap-1.5">
-          {(Object.keys(RANGE_PRESET_LABELS) as RangePreset[]).map((p) => (
-            <button
-              key={p}
-              type="button"
-              onClick={() => setPreset(p)}
-              className="rounded-full px-3 py-1 text-xs"
-              style={{
-                background: preset === p ? 'var(--signal)' : 'var(--ground-raised)',
-                color: preset === p ? 'var(--ground)' : 'var(--text)',
-              }}
-            >
-              {RANGE_PRESET_LABELS[p]}
-            </button>
-          ))}
+          <button
+            type="button"
+            onClick={() => onChangeDateRange({ kind: 'weekend' })}
+            className="rounded-full px-3 py-1.5 text-sm"
+            style={{
+              background: dateRange.kind === 'weekend' ? 'var(--signal)' : 'var(--ground-raised)',
+              color: dateRange.kind === 'weekend' ? 'var(--ground)' : 'var(--text)',
+            }}
+          >
+            This weekend
+          </button>
+          <button
+            type="button"
+            onClick={() => setPickerOpen(true)}
+            className="rounded-full px-3 py-1.5 text-sm"
+            style={{
+              background: dateRange.kind === 'custom' ? 'var(--signal)' : 'var(--ground-raised)',
+              color: dateRange.kind === 'custom' ? 'var(--ground)' : 'var(--text)',
+            }}
+          >
+            {dateRange.kind === 'custom' ? rangeLabel : 'Choose dates'}
+          </button>
         </div>
 
-        <div className="mt-2 flex items-center gap-2 text-xs" style={{ color: 'var(--text-dim)' }}>
+        <div className="mt-2 flex items-center gap-2 text-sm" style={{ color: 'var(--text-dim)' }}>
           <label htmlFor="minWindow">Min dry window</label>
           <input
             id="minWindow"
@@ -120,13 +134,13 @@ export function HomeScreen({
             step={12}
             value={settings.minWindowHours}
             onChange={(e) => updateSettings({ minWindowHours: Number(e.target.value) })}
-            className="flex-1"
+            className="h-11 flex-1"
           />
-          <span className="font-mono">{settings.minWindowHours}h</span>
+          <span className="w-10 shrink-0 text-right font-mono">{settings.minWindowHours}h</span>
         </div>
 
         {home && (
-          <div className="mt-2 flex gap-1.5 text-xs">
+          <div className="mt-2 flex gap-1.5 text-sm">
             <button
               type="button"
               onClick={() => setSortMode('score')}
@@ -134,7 +148,7 @@ export function HomeScreen({
             >
               By score
             </button>
-            <span style={{ color: 'var(--text-dim)' }}>·</span>
+            <span style={{ color: 'var(--text-dim)' }}>&middot;</span>
             <button
               type="button"
               onClick={() => setSortMode('drive')}
@@ -169,7 +183,7 @@ export function HomeScreen({
         </h2>
         {!loading && sorted.length === 0 && (
           <p className="px-4 py-6 text-sm" style={{ color: 'var(--text-dim)' }}>
-            Nothing qualifies in this window. Check the sheltered venues below — caves and roofs are their whole
+            Nothing qualifies in this window. Check the sheltered venues below: caves and roofs are their whole
             value when the forecast is bad everywhere.
           </p>
         )}
@@ -199,6 +213,20 @@ export function HomeScreen({
             />
           ))}
         </details>
+      )}
+
+      {pickerOpen && (
+        <CalendarRangePicker
+          todayIndex={PAST_DAYS}
+          maxDayIndex={maxDayIndex}
+          initialStartIdx={dateRange.kind === 'custom' ? dateRange.startIdx : startIdx}
+          initialEndIdx={dateRange.kind === 'custom' ? dateRange.endIdx : endIdx}
+          onCancel={() => setPickerOpen(false)}
+          onApply={(s, e) => {
+            onChangeDateRange({ kind: 'custom', startIdx: s, endIdx: e });
+            setPickerOpen(false);
+          }}
+        />
       )}
     </div>
   );

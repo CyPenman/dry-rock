@@ -25,6 +25,7 @@ type CragSeed = {
   softRock: boolean;
   notes: string;
   accessNote?: string;
+  ukcUrl?: string;
   dryingRate?: number; // default 1.0
   // Overrides — only where a venue is atypical for its rock type
   Smax?: number;
@@ -35,12 +36,12 @@ type CragSeed = {
 const SEEDS: CragSeed[] = [
   {
     id: 'portland-cuttings',
-    name: 'Portland — The Cuttings',
+    name: 'Portland: The Cuttings',
     area: 'Dorset',
     lat: 50.5326,
     lon: -2.4305,
     elevationM: 30,
-    disciplines: ['sport'],
+    disciplines: ['sport', 'trad', 'boulder'],
     rock: 'limestone',
     aspectDeg: 180,
     steepness: 'vertical',
@@ -53,15 +54,16 @@ const SEEDS: CragSeed[] = [
     coastal: true,
     softRock: false,
     notes: 'Fast-drying south-facing limestone sport. Dries within hours of a summer shower.',
+    ukcUrl: 'https://www.ukclimbing.com/logbook/crags/the_cuttings-276/',
   },
   {
     id: 'portland-blacknor',
-    name: 'Portland — Blacknor',
+    name: 'Portland: Blacknor',
     area: 'Dorset',
     lat: 50.548,
     lon: -2.453,
     elevationM: 40,
-    disciplines: ['sport'],
+    disciplines: ['sport', 'boulder'],
     rock: 'limestone',
     aspectDeg: 265,
     steepness: 'steep',
@@ -74,10 +76,11 @@ const SEEDS: CragSeed[] = [
     coastal: true,
     softRock: false,
     notes: 'West-facing, fully exposed. Wind-driven rain in a westerly; otherwise dries fast.',
+    ukcUrl: 'https://www.ukclimbing.com/logbook/crags/blacknor_north-260/',
   },
   {
     id: 'portland-cheyne',
-    name: 'Portland — Cheyne Wears',
+    name: 'Portland: Cheyne Wears',
     area: 'Dorset',
     lat: 50.523,
     lon: -2.426,
@@ -95,10 +98,11 @@ const SEEDS: CragSeed[] = [
     coastal: true,
     softRock: false,
     notes: 'South-east facing steep limestone. Catches the morning sun.',
+    ukcUrl: 'https://www.ukclimbing.com/logbook/crags/cheyne_cliff-275/',
   },
   {
     id: 'cheddar-sun',
-    name: 'Cheddar — sunny side',
+    name: 'Cheddar: sunny side',
     area: 'Somerset',
     lat: 51.281,
     lon: -2.765,
@@ -117,10 +121,11 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: 'Gorge venue, moderate seepage. The sunny wall dries markedly faster than the shady one.',
     accessNote: 'Seasonal bird nesting restrictions on some buttresses, roughly March–August.',
+    ukcUrl: 'https://www.ukclimbing.com/logbook/crags/cheddar_gorge_north-2280/',
   },
   {
     id: 'cheddar-shade',
-    name: 'Cheddar — shady side',
+    name: 'Cheddar: shady side',
     area: 'Somerset',
     lat: 51.279,
     lon: -2.762,
@@ -139,6 +144,7 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: 'North-facing gorge wall. Little direct sun; slower and seepier than the sunny side.',
     accessNote: 'Seasonal bird nesting restrictions on some buttresses, roughly March–August.',
+    ukcUrl: 'https://www.ukclimbing.com/logbook/crags/cheddar_gorge_south-240/',
   },
   {
     id: 'brean',
@@ -160,6 +166,7 @@ const SEEDS: CragSeed[] = [
     coastal: true,
     softRock: false,
     notes: 'Exposed coastal limestone headland. Dries fast; wind-driven rain and spray in onshore weather.',
+    ukcUrl: 'https://www.ukclimbing.com/logbook/crags/brean_down-75/',
   },
   {
     id: 'wyndcliffe',
@@ -168,7 +175,7 @@ const SEEDS: CragSeed[] = [
     lat: 51.641,
     lon: -2.669,
     elevationM: 100,
-    disciplines: ['sport'],
+    disciplines: ['sport', 'trad', 'boulder'],
     rock: 'limestone',
     aspectDeg: 225,
     steepness: 'vertical',
@@ -181,6 +188,7 @@ const SEEDS: CragSeed[] = [
     coastal: false,
     softRock: false,
     notes: 'Wooded gorge: little sun reaches the rock, wind is weak, trees drip for hours after rain.',
+    ukcUrl: 'https://www.ukclimbing.com/logbook/crags/wyndcliff_quarry-2731/',
   },
   {
     id: 'shorncliff',
@@ -189,7 +197,7 @@ const SEEDS: CragSeed[] = [
     lat: 51.68,
     lon: -2.65,
     elevationM: 120,
-    disciplines: ['sport'],
+    disciplines: ['trad'],
     rock: 'limestone',
     aspectDeg: 270,
     steepness: 'vertical',
@@ -202,6 +210,7 @@ const SEEDS: CragSeed[] = [
     coastal: false,
     softRock: false,
     notes: 'Deeply sheltered Wye Valley venue. Among the slowest to dry in the dataset.',
+    ukcUrl: 'https://www.ukclimbing.com/logbook/crags/shorn_cliff-39/',
   },
   {
     id: 'banygor',
@@ -210,7 +219,7 @@ const SEEDS: CragSeed[] = [
     lat: 51.66,
     lon: -2.67,
     elevationM: 80,
-    disciplines: ['sport'],
+    disciplines: ['sport', 'trad'],
     rock: 'limestone',
     aspectDeg: 270,
     steepness: 'steep',
@@ -223,6 +232,7 @@ const SEEDS: CragSeed[] = [
     coastal: false,
     softRock: false,
     notes: 'Wooded gorge venue; steep enough to shed some rain but slow to dry in shade.',
+    ukcUrl: 'https://www.ukclimbing.com/logbook/crags/ban-y-gor-70/',
   },
   {
     id: 'symondsyat',
@@ -231,7 +241,7 @@ const SEEDS: CragSeed[] = [
     lat: 51.838,
     lon: -2.641,
     elevationM: 90,
-    disciplines: ['sport'],
+    disciplines: ['trad'],
     rock: 'limestone',
     aspectDeg: 180,
     steepness: 'vertical',
@@ -245,6 +255,7 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: 'The most open of the Wye Valley venues; still slow relative to the coast.',
     accessNote: 'Seasonal bird nesting restrictions on some buttresses, roughly March–August.',
+    ukcUrl: 'https://www.ukclimbing.com/logbook/crags/symonds_yat-403/',
   },
   {
     id: 'avon',
@@ -266,6 +277,7 @@ const SEEDS: CragSeed[] = [
     coastal: false,
     softRock: false,
     notes: 'Urban gorge, moderate seepage and shelter. Reliable mid-table venue.',
+    ukcUrl: 'https://www.ukclimbing.com/logbook/crags/avon_gorge_main_area-31/',
   },
   {
     id: 'ansteys',
@@ -274,7 +286,7 @@ const SEEDS: CragSeed[] = [
     lat: 50.47,
     lon: -3.512,
     elevationM: 30,
-    disciplines: ['sport'],
+    disciplines: ['sport', 'trad', 'boulder'],
     rock: 'limestone',
     aspectDeg: 160,
     steepness: 'steep',
@@ -287,6 +299,7 @@ const SEEDS: CragSeed[] = [
     coastal: true,
     softRock: false,
     notes: 'Coastal Devon limestone, dries quickly. Salt spray affects friction in onshore humidity.',
+    ukcUrl: 'https://www.ukclimbing.com/logbook/crags/ansteys_cove-285/',
   },
   {
     id: 'chudleigh',
@@ -295,7 +308,7 @@ const SEEDS: CragSeed[] = [
     lat: 50.608,
     lon: -3.601,
     elevationM: 60,
-    disciplines: ['sport'],
+    disciplines: ['sport', 'trad'],
     rock: 'limestone',
     aspectDeg: 200,
     steepness: 'vertical',
@@ -308,6 +321,7 @@ const SEEDS: CragSeed[] = [
     coastal: false,
     softRock: false,
     notes: 'Wooded Devon limestone, moderate drying speed.',
+    ukcUrl: 'https://www.ukclimbing.com/logbook/crags/chudleigh_rocks_-_south_face-291/',
   },
   {
     id: 'horseshoe',
@@ -329,6 +343,7 @@ const SEEDS: CragSeed[] = [
     coastal: false,
     softRock: false,
     notes: 'Open quarry, low seepage. One of the faster-drying Peak limestone venues.',
+    ukcUrl: 'https://www.ukclimbing.com/logbook/crags/horseshoe_quarry-148/',
   },
   {
     id: 'rubicon',
@@ -337,7 +352,7 @@ const SEEDS: CragSeed[] = [
     lat: 53.243,
     lon: -1.755,
     elevationM: 200,
-    disciplines: ['sport'],
+    disciplines: ['sport', 'boulder'],
     rock: 'limestone',
     aspectDeg: 180,
     steepness: 'vertical',
@@ -350,6 +365,7 @@ const SEEDS: CragSeed[] = [
     coastal: false,
     softRock: false,
     notes: 'South-facing Peak limestone, moderate seepage.',
+    ukcUrl: 'https://www.ukclimbing.com/logbook/crags/water-cum-jolly-140/',
   },
   {
     id: 'cornice',
@@ -358,7 +374,7 @@ const SEEDS: CragSeed[] = [
     lat: 53.245,
     lon: -1.757,
     elevationM: 250,
-    disciplines: ['sport'],
+    disciplines: ['sport', 'trad'],
     rock: 'limestone',
     aspectDeg: 350,
     steepness: 'steep',
@@ -370,7 +386,8 @@ const SEEDS: CragSeed[] = [
     catchmentAbove: 0.55,
     coastal: false,
     softRock: false,
-    notes: 'North-facing and notoriously seepy — a summer venue that stays wet deep into the year. The dataset’s seepage calibration anchor.',
+    notes: "North-facing and notoriously seepy: a summer venue that stays wet deep into the year. The dataset's seepage calibration anchor.",
+    ukcUrl: 'https://www.ukclimbing.com/logbook/crags/chee_dale_lower-10866/',
   },
   {
     id: 'raventor',
@@ -379,7 +396,7 @@ const SEEDS: CragSeed[] = [
     lat: 53.253,
     lon: -1.76,
     elevationM: 230,
-    disciplines: ['sport'],
+    disciplines: ['sport', 'trad', 'boulder'],
     rock: 'limestone',
     aspectDeg: 200,
     steepness: 'steep',
@@ -392,6 +409,7 @@ const SEEDS: CragSeed[] = [
     coastal: false,
     softRock: false,
     notes: 'Steep, powerful Peak limestone. Seepy enough to stay wet well after rain in winter.',
+    ukcUrl: 'https://www.ukclimbing.com/logbook/crags/raven_tor_millers_dale-146/',
   },
   {
     id: 'kilnsey',
@@ -400,7 +418,7 @@ const SEEDS: CragSeed[] = [
     lat: 54.084,
     lon: -2.021,
     elevationM: 220,
-    disciplines: ['trad', 'sport'],
+    disciplines: ['trad', 'sport', 'boulder'],
     rock: 'limestone',
     aspectDeg: 210,
     steepness: 'roof',
@@ -414,6 +432,7 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes:
       'The roof sheds active rain well, but high catchment-above and seepage mean it stays wet for a long time after a wet spell. A top pick when the forecast is bad everywhere.',
+    ukcUrl: 'https://www.ukclimbing.com/logbook/crags/kilnsey-608/',
   },
   {
     id: 'malham',
@@ -422,7 +441,7 @@ const SEEDS: CragSeed[] = [
     lat: 54.072,
     lon: -2.156,
     elevationM: 250,
-    disciplines: ['trad'],
+    disciplines: ['trad', 'sport'],
     rock: 'limestone',
     aspectDeg: 180,
     steepness: 'steep',
@@ -435,6 +454,7 @@ const SEEDS: CragSeed[] = [
     coastal: false,
     softRock: false,
     notes: 'Big limestone amphitheatre. The left wing takes drainage over the lip for hours after rain stops.',
+    ukcUrl: 'https://www.ukclimbing.com/logbook/crags/malham_cove-610/',
   },
   {
     id: 'lpt',
@@ -443,7 +463,7 @@ const SEEDS: CragSeed[] = [
     lat: 53.336,
     lon: -3.845,
     elevationM: 15,
-    disciplines: ['sport'],
+    disciplines: ['sport', 'trad'],
     rock: 'limestone',
     aspectDeg: 170,
     steepness: 'vertical',
@@ -456,6 +476,7 @@ const SEEDS: CragSeed[] = [
     coastal: true,
     softRock: false,
     notes: 'Fully exposed coastal limestone. Dries quickly once the rain stops.',
+    ukcUrl: 'https://www.ukclimbing.com/logbook/crags/lower_pen_trwyn-1004/',
   },
   {
     id: 'parisellas',
@@ -477,6 +498,7 @@ const SEEDS: CragSeed[] = [
     coastal: true,
     softRock: false,
     notes: 'A true cave: rain barely reaches it. Surfaces as a top result specifically when the forecast is bad everywhere.',
+    ukcUrl: 'https://www.ukclimbing.com/logbook/crags/parisellas_cave-3422/',
   },
   {
     id: 'slate',
@@ -497,7 +519,7 @@ const SEEDS: CragSeed[] = [
     catchmentAbove: 0.05,
     coastal: false,
     softRock: false,
-    notes: 'Dries almost instantly and never seeps, but gets glassy and unpleasant in strong summer sun — a friction problem, not a wetness one.',
+    notes: 'Dries almost instantly and never seeps, but gets glassy and unpleasant in strong summer sun, a friction problem rather than a wetness one.',
   },
   {
     id: 'trevor',
@@ -506,7 +528,7 @@ const SEEDS: CragSeed[] = [
     lat: 52.985,
     lon: -3.147,
     elevationM: 220,
-    disciplines: ['sport'],
+    disciplines: ['sport', 'trad'],
     rock: 'limestone',
     aspectDeg: 175,
     steepness: 'vertical',
@@ -519,6 +541,7 @@ const SEEDS: CragSeed[] = [
     coastal: false,
     softRock: false,
     notes: 'Open, quick-drying North Wales limestone.',
+    ukcUrl: 'https://www.ukclimbing.com/logbook/crags/trevor_quarry-427/',
   },
   {
     id: 'stanage',
@@ -540,6 +563,7 @@ const SEEDS: CragSeed[] = [
     coastal: false,
     softRock: false,
     notes: 'Fully exposed grit edge, thin thermal mass. Dries fast but condenses readily on clear still nights.',
+    ukcUrl: 'https://www.ukclimbing.com/logbook/crags/stanage_plantation-101/',
   },
   {
     id: 'curbar',
@@ -560,7 +584,8 @@ const SEEDS: CragSeed[] = [
     catchmentAbove: 0.1,
     coastal: false,
     softRock: false,
-    notes: 'Exposed grit edge, east/south-east facing — catches morning sun.',
+    notes: 'Exposed grit edge, east/south-east facing, catches morning sun.',
+    ukcUrl: 'https://www.ukclimbing.com/logbook/crags/curbar_edge-21/',
   },
   {
     id: 'roaches',
@@ -582,6 +607,7 @@ const SEEDS: CragSeed[] = [
     coastal: false,
     softRock: false,
     notes: 'Exposed gritstone edge, south-west facing.',
+    ukcUrl: 'https://www.ukclimbing.com/logbook/crags/roaches_upper_tier-797/',
   },
   {
     id: 'almscliff',
@@ -590,7 +616,7 @@ const SEEDS: CragSeed[] = [
     lat: 53.921,
     lon: -1.598,
     elevationM: 200,
-    disciplines: ['boulder'],
+    disciplines: ['boulder', 'trad'],
     rock: 'gritstone',
     aspectDeg: 180,
     steepness: 'steep',
@@ -603,6 +629,7 @@ const SEEDS: CragSeed[] = [
     coastal: false,
     softRock: false,
     notes: 'Isolated gritstone bouldering outcrop, fully exposed. Very fast drying.',
+    ukcUrl: 'https://www.ukclimbing.com/logbook/crags/almscliff-373/',
   },
   {
     id: 'harrisons',
@@ -611,7 +638,7 @@ const SEEDS: CragSeed[] = [
     lat: 51.096,
     lon: 0.155,
     elevationM: 100,
-    disciplines: ['boulder'],
+    disciplines: ['boulder', 'trad'],
     rock: 'sandstone',
     aspectDeg: 300,
     steepness: 'vertical',
@@ -624,7 +651,8 @@ const SEEDS: CragSeed[] = [
     coastal: false,
     softRock: true,
     notes:
-      'Soft sandstone — climbing it wet or shortly after a freeze-thaw cycle permanently damages holds. Longest drying requirement in the dataset; hard-blocked, never just low-scored.',
+      'Soft sandstone: climbing it wet or shortly after a freeze-thaw cycle permanently damages holds. Longest drying requirement in the dataset; hard-blocked, never just low-scored.',
+    ukcUrl: 'https://www.ukclimbing.com/logbook/crags/harrisons_rocks-57/',
   },
   {
     id: 'bowles',
@@ -633,7 +661,7 @@ const SEEDS: CragSeed[] = [
     lat: 51.085,
     lon: 0.183,
     elevationM: 110,
-    disciplines: ['boulder'],
+    disciplines: ['boulder', 'trad'],
     rock: 'sandstone',
     aspectDeg: 200,
     steepness: 'vertical',
@@ -646,7 +674,8 @@ const SEEDS: CragSeed[] = [
     coastal: false,
     softRock: true,
     notes:
-      'Soft sandstone — same rules as Harrison’s. Hard-blocked when wet or after a freeze-thaw cycle, regardless of surface dryness.',
+      "Soft sandstone: same rules as Harrison's. Hard-blocked when wet or after a freeze-thaw cycle, regardless of surface dryness.",
+    ukcUrl: 'https://www.ukclimbing.com/logbook/crags/bowles_rocks-54/',
   },
 ];
 
@@ -678,6 +707,7 @@ function resolveCrag(seed: CragSeed): Crag {
     softRock: seed.softRock,
     notes: seed.notes,
     accessNote: seed.accessNote,
+    ukcUrl: seed.ukcUrl,
   };
 }
 

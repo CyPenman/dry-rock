@@ -79,7 +79,7 @@ export function verdictMessage(verdict: Verdict): string {
     case 'frozen':
       return 'Frozen / verglas';
     case 'rock_damage':
-      return 'Do not climb — rock damage (wet or freeze-thaw on soft rock)';
+      return 'Do not climb: rock damage (wet or freeze-thaw on soft rock)';
     case 'scored':
       return '';
   }

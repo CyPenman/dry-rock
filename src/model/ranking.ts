@@ -4,7 +4,8 @@ import type { Crag } from './types';
 
 export interface RankedCragDay {
   crag: Crag;
-  day: CragDayResult;
+  day: CragDayResult; // best day within the selected range
+  daysInRange: CragDayResult[]; // every day in the range, for the day-by-day strip
   distanceKm: number | null;
 }
 
@@ -33,18 +34,26 @@ function confidenceTier(fraction: number): number {
  * score within the tier.
  */
 export function rankCragDays(
-  entries: { crag: Crag; day: CragDayResult | null }[],
+  entries: { crag: Crag; days: CragDayResult[] | null }[],
+  range: [number, number],
   home: { lat: number; lon: number } | null,
 ): RankedCragDay[] {
-  const withDistance = entries
-    .filter((e): e is { crag: Crag; day: CragDayResult } => e.day !== null)
-    .map((e) => ({
-      crag: e.crag,
-      day: e.day,
-      distanceKm: home ? greatCircleDistanceKm(home.lat, home.lon, e.crag.lat, e.crag.lon) : null,
-    }));
+  const [startIdx, endIdx] = range;
 
-  return withDistance.sort((a, b) => {
+  const ranked: RankedCragDay[] = [];
+  for (const entry of entries) {
+    if (!entry.days) continue;
+    const best = pickBestDayInRange(entry.days, startIdx, endIdx);
+    if (!best) continue;
+    ranked.push({
+      crag: entry.crag,
+      day: best,
+      daysInRange: entry.days.slice(startIdx, Math.min(endIdx + 1, entry.days.length)),
+      distanceKm: home ? greatCircleDistanceKm(home.lat, home.lon, entry.crag.lat, entry.crag.lon) : null,
+    });
+  }
+
+  return ranked.sort((a, b) => {
     const tierDiff = confidenceTier(b.day.confidence.fraction) - confidenceTier(a.day.confidence.fraction);
     if (tierDiff !== 0) return tierDiff;
     return b.day.score - a.day.score;

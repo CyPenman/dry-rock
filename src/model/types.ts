@@ -46,4 +46,5 @@ export interface Crag {
   softRock: boolean;
   notes: string;
   accessNote?: string;
+  ukcUrl?: string;
 }
