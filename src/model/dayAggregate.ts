@@ -182,7 +182,13 @@ export function computeCragForecast(
   const availableModels = [...perModelResults.keys()];
   if (availableModels.length === 0) return null;
 
-  const primaryModel = availableModels.includes('ukmo_seamless') ? 'ukmo_seamless' : availableModels[0];
+  // Prefer UKMO (§3.3's default), but only among whichever models actually
+  // cover the longest stretch of the requested range — a model whose real
+  // forecast horizon is shorter than `forecast_days` (buildInputs.ts truncates
+  // it there rather than feed it null-derived garbage) must not be chosen as
+  // primary, or every day past its horizon would have no data to show at all.
+  const maxHours = Math.max(...availableModels.map((m) => perModelResults.get(m)!.length));
+  const primaryModel = availableModels.find((m) => perModelResults.get(m)!.length === maxHours) ?? availableModels[0];
 
   const perModelDaysRaw = new Map<ModelName, Omit<CragDayResult, 'confidence'>[]>();
   for (const model of availableModels) {

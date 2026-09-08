@@ -48,11 +48,13 @@ function median(values: number[]): number {
 export function DayScoreChart({
   perModelDays,
   availableModels,
+  primaryModel,
   startIdx,
   endIdx,
 }: {
   perModelDays: Partial<Record<ModelName, CragDayResult[]>>;
   availableModels: ModelName[];
+  primaryModel: ModelName;
   startIdx: number;
   endIdx: number;
 }) {
@@ -61,30 +63,48 @@ export function DayScoreChart({
   const dayCount = endIdx - startIdx + 1;
   if (dayCount < 1 || availableModels.length === 0) return null;
 
-  const referenceDays = (perModelDays[availableModels[0]] ?? []).slice(startIdx, endIdx + 1);
+  // Dates and the gating verdict come from the primary model — the one
+  // `dayAggregate.ts` already picked for having the longest real coverage —
+  // not just availableModels[0], which can be a shorter-horizon model (e.g.
+  // UKMO/ICON commonly resolve only ~7 days ahead; buildInputs.ts truncates
+  // them there rather than feed the physics model null-derived garbage).
+  const referenceDays = (perModelDays[primaryModel] ?? []).slice(startIdx, endIdx + 1);
   const days = referenceDays.map((refDay, i) => {
-    const modelScores = availableModels.map((m) => {
+    // A model with no day at this index simply hasn't resolved that far
+    // (excluded from the spread entirely) — distinct from a model that
+    // resolved the day and gated it (a real 0, part of the spread, hatched).
+    const scores: Partial<Record<ModelName, number>> = {};
+    for (const m of availableModels) {
       const d = (perModelDays[m] ?? [])[startIdx + i];
-      return d && d.verdict === 'scored' ? d.score : 0;
-    });
-    return { date: refDay.date, verdict: refDay.verdict, modelScores };
+      if (d) scores[m] = d.verdict === 'scored' ? d.score : 0;
+    }
+    return { date: refDay.date, verdict: refDay.verdict, scores };
   });
 
+  function valuesFor(scores: Partial<Record<ModelName, number>>): number[] {
+    const v = Object.values(scores).filter((x): x is number => x != null);
+    return v.length > 0 ? v : [0];
+  }
+
   const n = days.length;
-  const lo = days.map((d) => Math.min(...d.modelScores));
-  const hi = days.map((d) => Math.max(...d.modelScores));
-  const med = days.map((d) => median(d.modelScores));
+  const lo = days.map((d) => Math.min(...valuesFor(d.scores)));
+  const hi = days.map((d) => Math.max(...valuesFor(d.scores)));
+  const med = days.map((d) => median(valuesFor(d.scores)));
 
   const H = 130;
   const top = 6;
   const pb = H - 4;
   const Y = (s: number) => pb - s * (pb - top);
   const slot = VW / n;
-  const highlightIdx = highlight ? availableModels.indexOf(highlight) : -1;
 
   const band = `${poly(hi.map((v, i) => [sx(i, n), Y(v) - 2]))} ${poly(
     lo.map((v, i) => [sx(i, n), Y(v) + 2]).reverse(),
   )}`;
+  const highlightPoints = highlight
+    ? days
+        .map((d, i) => (d.scores[highlight] != null ? ([sx(i, n), Y(d.scores[highlight]!)] as [number, number]) : null))
+        .filter((p): p is [number, number] => p != null)
+    : [];
 
   return (
     <div>
@@ -120,28 +140,30 @@ export function DayScoreChart({
                   </div>
                 ) : null,
               )}
-              {days.map((d, i) =>
-                d.verdict === 'scored'
-                  ? dot(sx(i, n) / VW, Y(highlightIdx >= 0 ? d.modelScores[highlightIdx] : med[i]), highlightIdx >= 0 ? MODEL_COLOURS[availableModels[highlightIdx]] : 'var(--chart-model-1)', 10, `d${i}`)
-                  : null,
-              )}
-              {days.map((d, i) =>
-                d.verdict === 'scored' ? (
+              {days.map((d, i) => {
+                const v = highlight ? d.scores[highlight] : med[i];
+                return d.verdict === 'scored' && v != null
+                  ? dot(sx(i, n) / VW, Y(v), highlight ? MODEL_COLOURS[highlight] : 'var(--chart-model-1)', 10, `d${i}`)
+                  : null;
+              })}
+              {days.map((d, i) => {
+                const v = highlight ? d.scores[highlight] : med[i];
+                return d.verdict === 'scored' && v != null ? (
                   <div
                     key={`v${i}`}
                     style={{
                       position: 'absolute',
                       left: `${(sx(i, n) / VW) * 100}%`,
-                      top: Y(highlightIdx >= 0 ? d.modelScores[highlightIdx] : med[i]) - 14,
+                      top: Y(v) - 14,
                       transform: 'translate(-50%,-100%)',
                       font: '600 12px/1 ui-monospace,Menlo,monospace',
                       color: 'var(--text)',
                     }}
                   >
-                    {Math.round((highlightIdx >= 0 ? d.modelScores[highlightIdx] : med[i]) * 100)}
+                    {Math.round(v * 100)}
                   </div>
-                ) : null,
-              )}
+                ) : null;
+              })}
             </>
           }
         >
@@ -151,20 +173,13 @@ export function DayScoreChart({
               <rect key={`g${i}`} x={sx(i, n) - slot / 2} y={top} width={slot} height={pb - top} fill="var(--warning)" opacity={0.14} />
             ) : null,
           )}
-          {highlightIdx < 0 ? (
+          {!highlight ? (
             <polygon points={band} fill="var(--chart-model-1)" opacity={0.32} />
           ) : null}
-          {highlightIdx < 0 ? (
+          {!highlight ? (
             <polyline points={poly(med.map((v, i) => [sx(i, n), Y(v)]))} fill="none" stroke="var(--chart-model-1)" strokeWidth={3} strokeLinejoin="round" {...STROKE} />
           ) : (
-            <polyline
-              points={poly(days.map((d, i) => [sx(i, n), Y(d.modelScores[highlightIdx])]))}
-              fill="none"
-              stroke={MODEL_COLOURS[availableModels[highlightIdx]]}
-              strokeWidth={3}
-              strokeLinejoin="round"
-              {...STROKE}
-            />
+            <polyline points={poly(highlightPoints)} fill="none" stroke={MODEL_COLOURS[highlight]} strokeWidth={3} strokeLinejoin="round" {...STROKE} />
           )}
         </Plot>
       </div>
@@ -178,7 +193,7 @@ export function DayScoreChart({
             key={m}
             type="button"
             onClick={() => setHighlight(m)}
-            style={{ ...pillStyle(highlight === m), borderLeft: `4px solid ${MODEL_COLOURS[m]}` }}
+            style={{ ...pillStyle(highlight === m), borderLeftWidth: 4, borderLeftStyle: 'solid', borderLeftColor: MODEL_COLOURS[m] }}
           >
             {MODEL_LABELS[m]}
           </button>

@@ -14,8 +14,27 @@ export function buildHourlyInputsForModel(crag: Crag, cell: CellForecast, model:
   const vars = cell.models[model];
   if (!vars || !vars.temperature_2m || !vars.dew_point_2m) return null;
 
+  // Some models resolve a shorter forecast horizon than the requested
+  // `forecast_days` (§3.1) — UKMO and ICON in particular commonly run out
+  // days before ECMWF/GFS do. Open-Meteo doesn't omit those trailing hours,
+  // it fills them with `null`. Left unchecked, a null temperature or dew
+  // point flows straight into the physics model's arithmetic (e.g. §4.2's
+  // `airTemp + solarGain - nightLoss`), where JS silently coerces `null` to
+  // `0` — quietly treating an unresolved hour as 0degC air temperature and
+  // dragging the rock-temperature simulation toward a false "frozen" verdict
+  // for every crag once the primary model's real horizon is exceeded.
+  // Truncate to the model's actually-resolved prefix instead.
+  let resolvedLength = cell.time.length;
+  for (let i = 0; i < cell.time.length; i++) {
+    if (vars.temperature_2m[i] == null || vars.dew_point_2m[i] == null) {
+      resolvedLength = i;
+      break;
+    }
+  }
+  if (resolvedLength === 0) return null;
+
   const soilMoistureDeepSeries = getSoilMoistureDeep(vars);
-  const n = cell.time.length;
+  const n = resolvedLength;
   const inputs: CragHourlyInput[] = new Array(n);
 
   for (let i = 0; i < n; i++) {

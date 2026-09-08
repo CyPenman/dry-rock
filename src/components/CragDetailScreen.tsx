@@ -232,6 +232,7 @@ export function CragDetailScreen({
             <DayScoreChart
               perModelDays={forecast.perModelDays}
               availableModels={forecast.availableModels}
+              primaryModel={forecast.primaryModel}
               startIdx={rangeStart}
               endIdx={rangeEnd}
             />

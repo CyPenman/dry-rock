@@ -222,13 +222,30 @@ export function ClimbableRibbon({ climbable, h = 14 }: { climbable: boolean[]; h
 }
 
 export function pillStyle(on: boolean): CSSProperties {
+  // All four sides spelled out as longhand (never the `border` shorthand,
+  // nor the per-axis borderWidth/Style/Color shorthands) so a caller can
+  // safely override just borderLeft* — React warns when a shorthand and its
+  // longhand counterpart are both set across a rerender (DayScoreChart's
+  // per-model accent pills do exactly that).
+  const colour = on ? 'var(--signal)' : 'var(--border)';
   return {
     borderRadius: 3,
     padding: '7px 11px',
     font: '600 12px/1 system-ui,sans-serif',
     background: on ? 'var(--signal)' : 'var(--ground-raised)',
     color: on ? 'var(--ground)' : 'var(--text)',
-    border: `1px solid ${on ? 'var(--signal)' : 'var(--border)'}`,
+    borderTopWidth: 1,
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+    borderLeftWidth: 1,
+    borderTopStyle: 'solid',
+    borderRightStyle: 'solid',
+    borderBottomStyle: 'solid',
+    borderLeftStyle: 'solid',
+    borderTopColor: colour,
+    borderRightColor: colour,
+    borderBottomColor: colour,
+    borderLeftColor: colour,
     cursor: 'pointer',
   };
 }
