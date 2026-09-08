@@ -6,16 +6,21 @@ import { Explain } from './Explain';
 
 const DAY_LABEL = new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric' });
 
-// How far ahead of today each option looks - this is a forecast-planning tool,
-// so "water in" needs to show what's coming, not just what already happened.
-// History is separately capped at HISTORY_DAYS regardless of which option is
-// selected, so the bars stay dominated by the days actually being planned for.
+// The window always *contains* the date range selected on the home screen -
+// this used to run independently from "today" out to a fixed number of days,
+// which meant it silently covered different days than the Hourly conditions
+// panel above it (built from that same selected range). A day with real rain
+// in one chart and nothing in the other, purely because they were windowed
+// differently, reads as a data bug even though both numbers were individually
+// correct - so the two must always agree on which days they're showing.
+// History is separately capped at HISTORY_DAYS before the range start, so the
+// bars stay dominated by the days actually being planned for.
 const HISTORY_DAYS = 3;
 const PERIOD_OPTIONS = [
-  { label: '+1 day', forwardDays: 1 },
-  { label: '+2 days', forwardDays: 2 },
-  { label: '+6 days', forwardDays: 6 },
-  { label: '+13 days', forwardDays: 13 },
+  { label: 'Selected range', extraDays: 0 },
+  { label: '+1 day', extraDays: 1 },
+  { label: '+5 days', extraDays: 5 },
+  { label: '+12 days', extraDays: 12 },
 ] as const;
 
 // Fixed categorical order for the four water fluxes - validated against the
@@ -57,19 +62,33 @@ interface DayBucket {
  * totals comparable; each source also gets an always-visible hourly shape
  * and total, and tapping a row isolates that source in the bars above.
  *
- * This is a planning tool, so the window always looks forward from today by
- * the selected option's day count - it isn't purely a look-back at history.
- * Up to HISTORY_DAYS of preceding days are kept for context (so a still-wet
- * crag from yesterday's rain doesn't look inexplicably dry today), capped
- * regardless of option so the bars stay dominated by the days ahead.
+ * The window always covers the date range selected on the home screen -
+ * `rangeStart`/`rangeEnd`, the same range the Hourly conditions panel above
+ * it uses - so the two never disagree about which days they're showing.
+ * "Selected range" shows exactly that; the other options add extra days
+ * beyond the range end, for planning further ahead than what's currently
+ * selected. Up to HISTORY_DAYS before the range start are kept for context
+ * (so a still-wet crag from a recent rainy spell doesn't look inexplicably
+ * dry at the start of the window).
  */
-export function WaterBudgetChart({ hourly, todayIndex }: { hourly: HourResult[]; todayIndex: number }) {
-  const [forwardDays, setForwardDays] = useState<number>(PERIOD_OPTIONS[0].forwardDays);
+export function WaterBudgetChart({
+  hourly,
+  todayIndex,
+  rangeStart,
+  rangeEnd,
+}: {
+  hourly: HourResult[];
+  todayIndex: number;
+  rangeStart: number;
+  rangeEnd: number;
+}) {
+  const [extraDays, setExtraDays] = useState<number>(PERIOD_OPTIONS[0].extraDays);
   const [isolate, setIsolate] = useState<SeriesKey | null>(null);
 
-  const historyDays = Math.min(HISTORY_DAYS, todayIndex);
-  const startHour = (todayIndex - historyDays) * 24;
-  const endHour = Math.min(hourly.length, (todayIndex + forwardDays + 1) * 24);
+  const historyDays = Math.min(HISTORY_DAYS, rangeStart);
+  const windowStartIdx = rangeStart - historyDays;
+  const startHour = windowStartIdx * 24;
+  const endHour = Math.min(hourly.length, (rangeEnd + 1 + extraDays) * 24);
   const slice = useMemo(() => hourly.slice(Math.max(0, startHour), endHour), [hourly, startHour, endHour]);
 
   const buckets: DayBucket[] = useMemo(() => {
@@ -77,16 +96,16 @@ export function WaterBudgetChart({ hourly, todayIndex }: { hourly: HourResult[];
     for (let i = 0; i < slice.length; i += 24) {
       const chunk = slice.slice(i, i + 24);
       if (chunk.length === 0) continue;
-      const dayOffset = -historyDays + Math.floor(i / 24);
+      const dayIndex = windowStartIdx + Math.floor(i / 24);
       out.push({
         label: DAY_LABEL.format(new Date(chunk[0].time * 1000)),
         totals: sumFluxes(chunk),
-        isToday: dayOffset === 0,
-        isPast: dayOffset < 0,
+        isToday: dayIndex === todayIndex,
+        isPast: dayIndex < todayIndex,
       });
     }
     return out;
-  }, [slice, historyDays]);
+  }, [slice, windowStartIdx, todayIndex]);
 
   if (slice.length === 0 || buckets.length === 0) {
     return (
@@ -123,27 +142,26 @@ export function WaterBudgetChart({ hourly, todayIndex }: { hourly: HourResult[];
       <div className="flex flex-wrap gap-1.5">
         {PERIOD_OPTIONS.map((opt) => (
           <button
-            key={opt.forwardDays}
+            key={opt.extraDays}
             type="button"
             onClick={() => {
-              setForwardDays(opt.forwardDays);
+              setExtraDays(opt.extraDays);
               setIsolate(null);
             }}
             className="rounded-full px-3 py-1.5 text-sm"
             style={{
-              background: forwardDays === opt.forwardDays ? 'var(--signal)' : 'var(--ground-raised)',
-              color: forwardDays === opt.forwardDays ? 'var(--ground)' : 'var(--text)',
+              background: extraDays === opt.extraDays ? 'var(--signal)' : 'var(--ground-raised)',
+              color: extraDays === opt.extraDays ? 'var(--ground)' : 'var(--text)',
             }}
           >
             {opt.label}
           </button>
         ))}
       </div>
-      {historyDays > 0 && (
-        <p style={{ margin: '6px 2px 0', font: '11px/1.4 system-ui,sans-serif', color: 'var(--text-faint)' }}>
-          Includes the {historyDays} day{historyDays === 1 ? '' : 's'} before today for context - today is marked below.
-        </p>
-      )}
+      <p style={{ margin: '6px 2px 0', font: '11px/1.4 system-ui,sans-serif', color: 'var(--text-faint)' }}>
+        {historyDays > 0 && `Includes the ${historyDays} day${historyDays === 1 ? '' : 's'} before the selected range for context. `}
+        Matches the date range picked above (the same range the hourly rain chart uses) - today is marked below.
+      </p>
 
       <div style={{ marginTop: 12 }}>
         <Plot

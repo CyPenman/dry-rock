@@ -232,7 +232,7 @@ export function CragDetailScreen({
             <h2 className="pb-2 text-xs uppercase tracking-wide" style={{ color: 'var(--text-dim)' }}>
               Water in
             </h2>
-            <WaterBudgetChart hourly={forecast.hourly} todayIndex={todayIndex} />
+            <WaterBudgetChart hourly={forecast.hourly} todayIndex={todayIndex} rangeStart={rangeStart} rangeEnd={rangeEnd} />
           </div>
 
           {smPercentileText && (
