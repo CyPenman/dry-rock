@@ -10,6 +10,9 @@ const BASE_PATH = '/dry-rock/'
 // https://vite.dev/config/
 export default defineConfig({
   base: BASE_PATH,
+  server: {
+    port: process.env.PORT ? Number(process.env.PORT) : 5173,
+  },
   plugins: [
     react(),
     tailwindcss(),

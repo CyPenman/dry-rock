@@ -5,6 +5,7 @@ import { useCallback, useState } from 'react';
 export interface Settings {
   homeLat: number | null;
   homeLon: number | null;
+  homeAddress: string | null;
   pinnedCragIds: string[];
 }
 
@@ -14,6 +15,7 @@ const MAX_PINNED = 5;
 const DEFAULT_SETTINGS: Settings = {
   homeLat: null,
   homeLon: null,
+  homeAddress: null,
   pinnedCragIds: [],
 };
 

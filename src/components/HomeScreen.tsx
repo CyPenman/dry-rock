@@ -7,6 +7,7 @@ import { rankCragDays, sortByDistance, sortByName, sortByWorthTheDrive, type Ran
 import type { Settings } from '../state/settings';
 import { CalendarRangePicker } from './CalendarRangePicker';
 import { CragRow } from './CragRow';
+import { HomeAddressSection } from './HomeAddressSection';
 
 type SortMode = 'score' | 'drive' | 'az' | 'za' | 'distance';
 
@@ -85,16 +86,6 @@ export function HomeScreen({
     .map((id) => ranked.find((r) => r.crag.id === id))
     .filter((r): r is RankedCragDay => r !== undefined);
 
-  function requestLocation() {
-    if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(
-      (pos) => updateSettings({ homeLat: pos.coords.latitude, homeLon: pos.coords.longitude }),
-      () => {
-        /* denied or unavailable - leave home unset */
-      },
-    );
-  }
-
   return (
     <div className="mx-auto max-w-screen-sm pb-8">
       <header className="sticky top-0 z-10 px-4 pb-3 pt-4" style={{ background: 'var(--ground)' }}>
@@ -109,16 +100,7 @@ export function HomeScreen({
           {stale && ", showing cached data as we couldn't reach the network"}
         </p>
 
-        {home === null && (
-          <button
-            type="button"
-            onClick={requestLocation}
-            className="mt-2 w-full rounded border px-3 py-2 text-left text-sm"
-            style={{ borderColor: 'var(--border)', color: 'var(--text-dim)' }}
-          >
-            Set home location to see distance and sort by "worth the drive"
-          </button>
-        )}
+        <HomeAddressSection settings={settings} updateSettings={updateSettings} />
 
         <div className="mt-3 flex gap-1.5">
           <button
