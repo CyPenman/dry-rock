@@ -24,29 +24,7 @@ function App() {
   const { loading, error, fetchedAt, stale, results, refresh } = useForecast(CRAGS);
   const touchRef = useRef<{ x: number; y: number; onMap: boolean } | null>(null);
 
-  if (view.name === 'search') {
-    return (
-      <SearchScreen
-        onBack={() => setView({ name: 'home' })}
-        onSelectCrag={(id) => setView({ name: 'detail', cragId: id })}
-      />
-    );
-  }
-
-  if (view.name === 'detail') {
-    const entry = results.find((r) => r.crag.id === view.cragId);
-    if (!entry) return null;
-    return (
-      <CragDetailScreen
-        entry={entry}
-        pinned={settings.pinnedCragIds.includes(view.cragId)}
-        onTogglePin={() => togglePinned(view.cragId)}
-        onBack={() => setView({ name: 'home' })}
-        dateRange={dateRange}
-        todayIndex={PAST_DAYS}
-      />
-    );
-  }
+  const detailEntry = view.name === 'detail' ? results.find((r) => r.crag.id === view.cragId) : undefined;
 
   function handleTouchStart(e: React.TouchEvent) {
     const t = e.touches[0];
@@ -68,64 +46,90 @@ function App() {
   }
 
   return (
-    <div
-      className="mx-auto flex h-screen max-w-screen-sm flex-col overflow-hidden"
-      style={{ background: 'var(--ground)' }}
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-    >
-      <div className="flex shrink-0 justify-end px-4 pt-2">
-        <button type="button" onClick={() => setView({ name: 'search' })} className="text-sm" style={{ color: 'var(--signal)' }}>
-          Search
-        </button>
-      </div>
+    <>
+      <div
+        className="mx-auto flex max-w-screen-sm flex-col overflow-hidden"
+        // 100dvh (not 100vh/h-screen): on Chrome for Android the URL bar stays
+        // docked at the top and 100vh sizes against the viewport with the bar
+        // hidden, pushing the bottom tab bar off-screen below the fold.
+        style={{ background: 'var(--ground)', height: '100dvh', touchAction: 'pan-y', overscrollBehavior: 'none' }}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
+        <div className="flex shrink-0 justify-end px-4 pt-2">
+          <button type="button" onClick={() => setView({ name: 'search' })} className="text-sm" style={{ color: 'var(--signal)' }}>
+            Search
+          </button>
+        </div>
 
-      <div className="relative min-h-0 flex-1 overflow-hidden">
-        <div
-          className="flex h-full"
-          style={{ width: '200%', transform: activeTab === 'map' ? 'translateX(-50%)' : 'translateX(0)', transition: 'transform 280ms ease' }}
-        >
-          <div className="h-full w-1/2 min-w-0 overflow-y-auto">
-            <HomeScreen
-              results={results}
-              loading={loading}
-              error={error}
-              fetchedAt={fetchedAt}
-              stale={stale}
-              onRefresh={refresh}
-              settings={settings}
-              updateSettings={update}
-              togglePinned={togglePinned}
-              onSelectCrag={(id) => setView({ name: 'detail', cragId: id })}
-              dateRange={dateRange}
-              onChangeDateRange={setDateRange}
-            />
-          </div>
-          <div className="h-full w-1/2 min-w-0 overflow-hidden">
-            <CragsMap results={results} dateRange={dateRange} active={activeTab === 'map'} />
+        <div className="relative min-h-0 flex-1 overflow-hidden">
+          <div
+            className="flex h-full"
+            style={{ width: '200%', transform: activeTab === 'map' ? 'translateX(-50%)' : 'translateX(0)', transition: 'transform 280ms ease' }}
+          >
+            <div className="h-full w-1/2 min-w-0 overflow-y-auto">
+              <HomeScreen
+                results={results}
+                loading={loading}
+                error={error}
+                fetchedAt={fetchedAt}
+                stale={stale}
+                onRefresh={refresh}
+                settings={settings}
+                updateSettings={update}
+                togglePinned={togglePinned}
+                onSelectCrag={(id) => setView({ name: 'detail', cragId: id })}
+                dateRange={dateRange}
+                onChangeDateRange={setDateRange}
+              />
+            </div>
+            <div className="h-full w-1/2 min-w-0 overflow-hidden">
+              <CragsMap results={results} dateRange={dateRange} active={activeTab === 'map'} />
+            </div>
           </div>
         </div>
+
+        <nav className="flex shrink-0 border-t" style={{ background: 'var(--ground-raised)', borderColor: 'var(--border)' }}>
+          <button
+            type="button"
+            onClick={() => setActiveTab('crags')}
+            className="min-h-11 flex-1 py-3 text-sm"
+            style={{ color: activeTab === 'crags' ? 'var(--signal)' : 'var(--text-dim)', fontWeight: activeTab === 'crags' ? 500 : 400 }}
+          >
+            Crags
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('map')}
+            className="min-h-11 flex-1 py-3 text-sm"
+            style={{ color: activeTab === 'map' ? 'var(--signal)' : 'var(--text-dim)', fontWeight: activeTab === 'map' ? 500 : 400 }}
+          >
+            Map
+          </button>
+        </nav>
       </div>
 
-      <nav className="flex shrink-0 border-t" style={{ background: 'var(--ground-raised)', borderColor: 'var(--border)' }}>
-        <button
-          type="button"
-          onClick={() => setActiveTab('crags')}
-          className="min-h-11 flex-1 py-3 text-sm"
-          style={{ color: activeTab === 'crags' ? 'var(--signal)' : 'var(--text-dim)', fontWeight: activeTab === 'crags' ? 500 : 400 }}
-        >
-          Crags
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab('map')}
-          className="min-h-11 flex-1 py-3 text-sm"
-          style={{ color: activeTab === 'map' ? 'var(--signal)' : 'var(--text-dim)', fontWeight: activeTab === 'map' ? 500 : 400 }}
-        >
-          Map
-        </button>
-      </nav>
-    </div>
+      {/* Overlaid rather than swapped in, so the Crags/Map tree behind - its scroll
+          position, tab, and map viewport - is never unmounted and is exactly as the
+          user left it when they come back. */}
+      {view.name === 'search' && (
+        <div className="fixed inset-0 z-50 overflow-y-auto" style={{ background: 'var(--ground)' }}>
+          <SearchScreen onBack={() => setView({ name: 'home' })} onSelectCrag={(id) => setView({ name: 'detail', cragId: id })} />
+        </div>
+      )}
+      {view.name === 'detail' && detailEntry && (
+        <div className="fixed inset-0 z-50 overflow-y-auto" style={{ background: 'var(--ground)' }}>
+          <CragDetailScreen
+            entry={detailEntry}
+            pinned={settings.pinnedCragIds.includes(view.cragId)}
+            onTogglePin={() => togglePinned(view.cragId)}
+            onBack={() => setView({ name: 'home' })}
+            dateRange={dateRange}
+            todayIndex={PAST_DAYS}
+          />
+        </div>
+      )}
+    </>
   );
 }
 

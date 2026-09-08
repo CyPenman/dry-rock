@@ -46,6 +46,16 @@ body,
   color: var(--text);
 }
 
+html,
+body {
+  /* No native horizontal scroll/rubber-band anywhere - the Crags/Map tab
+   * switch is a controlled transform driven by touch handlers in App.tsx,
+   * not real scrolling, so any native horizontal play here would show as
+   * "wiggle room" alongside (or fighting) that gesture. */
+  overflow-x: hidden;
+  overscroll-behavior-x: none;
+}
+
 /* Crags map (§6) - dark-mode tile treatment so OSM tiles sit inside the
  * app's dark ground, plus restyled Leaflet chrome to match app tokens. */
 .leaflet-tile {
