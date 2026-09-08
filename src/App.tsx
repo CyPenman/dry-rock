@@ -22,20 +22,28 @@ function App() {
   const [dateRange, setDateRange] = useState<DateRangeSelection>(DEFAULT_DATE_RANGE);
   const { settings, update, togglePinned } = useSettings();
   const { loading, error, fetchedAt, stale, results, refresh } = useForecast(CRAGS);
-  const touchRef = useRef<{ x: number; y: number; onMap: boolean } | null>(null);
+  const touchRef = useRef<{ x: number; y: number } | null>(null);
 
   const detailEntry = view.name === 'detail' ? results.find((r) => r.crag.id === view.cragId) : undefined;
 
   function handleTouchStart(e: React.TouchEvent) {
+    const target = e.target as HTMLElement;
+    // Ignored entirely for a gesture starting on the map (Leaflet keeps native pan/pinch, spec
+    // §6) or on the bottom nav bar - a tap on Crags/Map is a real button press, not a candidate
+    // swipe, and letting the swipe tracker touch it at all risks eating the tap's click on some
+    // mobile browsers if the finger drifts even slightly between touchstart and touchend.
+    if (target.closest('.leaflet-container') || target.closest('nav')) {
+      touchRef.current = null;
+      return;
+    }
     const t = e.touches[0];
-    touchRef.current = { x: t.clientX, y: t.clientY, onMap: (e.target as HTMLElement).closest('.leaflet-container') != null };
+    touchRef.current = { x: t.clientX, y: t.clientY };
   }
 
   function handleTouchEnd(e: React.TouchEvent) {
     const start = touchRef.current;
     touchRef.current = null;
-    // Ignored when the gesture started on the map, so Leaflet's own pan/pinch keeps full control there - spec §6.
-    if (!start || start.onMap) return;
+    if (!start) return;
     const t = e.changedTouches[0];
     const dx = t.clientX - start.x;
     const dy = t.clientY - start.y;
@@ -97,7 +105,7 @@ function App() {
           </div>
         </div>
 
-        <nav className="flex shrink-0 border-t" style={{ background: 'var(--ground-raised)', borderColor: 'var(--border)' }}>
+        <nav className="flex shrink-0 border-t" style={{ background: 'var(--ground-raised)', borderColor: 'var(--border)', touchAction: 'manipulation' }}>
           <button
             type="button"
             onClick={() => setActiveTab('crags')}
