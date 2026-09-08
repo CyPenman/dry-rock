@@ -13,13 +13,13 @@ import {
 import type { Steepness } from './types';
 import { computePface, computeRunoffAbove, updatePfaceEwma } from './waterInputs';
 
-// §4.2 — fixed constant for the drainage-from-above EWMA; not per-crag.
+// §4.2 - fixed constant for the drainage-from-above EWMA; not per-crag.
 const PFACE_EWMA_TAU_HOURS = 8;
 
 export interface CragHourlyInput {
   time: number; // unixtime
   precipitationMm: number;
-  /** Convective share of precipitationMm — §4.10 confidence widening. Optional so
+  /** Convective share of precipitationMm - §4.10 confidence widening. Optional so
    * existing fixtures without it still compile; treated as 0 (frontal) when absent. */
   showersMm?: number;
   snowDepthM: number;
@@ -80,7 +80,7 @@ export interface HourResult {
 }
 
 /**
- * Initial state for a spin-up run — spec §4.5 "free bonus": deep soil moisture at
+ * Initial state for a spin-up run - spec §4.5 "free bonus": deep soil moisture at
  * the start of the run gives the initial condition for M, removing v1's arbitrary
  * fixed starting value. Falls back to a documented mid-range estimate (matching
  * v1's own fallback) when soil moisture isn't available yet.
@@ -101,7 +101,7 @@ export function initialState(
   };
 }
 
-/** One hourly update — spec §4.6. Order matters: gains before losses, surface before matrix. */
+/** One hourly update - spec §4.6. Order matters: gains before losses, surface before matrix. */
 export function stepHour(
   state: CragState,
   input: CragHourlyInput,
@@ -117,7 +117,7 @@ export function stepHour(
     tauRock: config.tauRock,
   });
 
-  // 2. Snow gate — lying snow means "not climbable", full stop.
+  // 2. Snow gate - lying snow means "not climbable", full stop.
   const underSnow = input.snowDepthM > 0.01;
   if (underSnow) {
     return {
@@ -139,7 +139,7 @@ export function stepHour(
   let M = state.M;
 
   // Residual snowmelt: only meaningful while the API still reports some lying
-  // snow (however thin) — otherwise this term would spuriously add water on any
+  // snow (however thin) - otherwise this term would spuriously add water on any
   // sunny day with no snow at all.
   const melt = input.snowDepthM > 0 ? Math.max(0, trock) * PARAMS.meltRate : 0;
   S += melt;
@@ -167,13 +167,13 @@ export function stepHour(
       : computeSeepFluxFallback(precipEwma, config.seepIndex);
   S += seepFlux;
 
-  // 4. Infiltration — surface water soaks in, but only into space that exists
+  // 4. Infiltration - surface water soaks in, but only into space that exists
   const availableCapacity = Math.max(0, 1 - M / config.Mmax);
   const infil = Math.min(S, config.infiltrationRate * availableCapacity);
   S -= infil;
   M += infil;
 
-  // 5. Runoff — the surface can only hold so much film before water sheets off
+  // 5. Runoff - the surface can only hold so much film before water sheets off
   if (S > config.Smax) S = config.Smax;
 
   // 6. Evaporation, two-stage
@@ -291,7 +291,7 @@ export function climbableHoursForDay(
 }
 
 /**
- * Which term is keeping the crag wet at hour `idx` — spec §4.7. Snow and frozen
+ * Which term is keeping the crag wet at hour `idx` - spec §4.7. Snow and frozen
  * are hard states reported directly; otherwise report whichever flux
  * contributed the most water over the preceding 24 hours.
  */

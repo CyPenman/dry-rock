@@ -66,7 +66,7 @@ function EnsembleSection({
           <Explain>
             <p>
               Each member is a full run of the same wetness model against a slightly different, equally plausible
-              weather sequence (icon_eu, ~40 members). This is a real probability across that spread, not a hedge —
+              weather sequence (icon_eu, ~40 members). This is a real probability across that spread, not a hedge -
               wider agreement between members means the outcome is less sensitive to exactly how the weather plays
               out.
             </p>
@@ -97,7 +97,7 @@ export function CragDetailScreen({
   const [rangeStart, rangeEnd] = useMemo(() => resolveDateRange(dateRange, todayIndex), [dateRange, todayIndex]);
 
   // The headline card and the pre-expanded table row show the best day *within
-  // the user-selected range*, not always "today" — fixes a bug where the
+  // the user-selected range*, not always "today" - fixes a bug where the
   // headline ignored the range picker entirely (§6: "the best day").
   const daysInRange = useMemo(() => {
     if (!forecast) return [];

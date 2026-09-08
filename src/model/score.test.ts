@@ -157,12 +157,12 @@ describe('confidence (§4.10)', () => {
   });
 });
 
-describe('§8.4 case 8 — Harrison\'s soft rock: blocked with a rock-damage explanation', () => {
+describe('§8.4 case 8 - Harrison\'s soft rock: blocked with a rock-damage explanation', () => {
   it('blocks climbing 36h after rain when a freeze-thaw cycle occurred, even if the surface reads dry', () => {
     const c = crag('harrisons');
     const config = toConfig(c);
 
-    // Rain, then a freeze-thaw dip, then it dries out per the wetness model —
+    // Rain, then a freeze-thaw dip, then it dries out per the wetness model -
     // the point of this case is that the hard gate still blocks it.
     const inputs: CragHourlyInput[] = [];
     for (let h = 0; h < 6; h++) {

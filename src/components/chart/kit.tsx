@@ -3,7 +3,7 @@ import type { CSSProperties, PointerEvent, ReactNode } from 'react';
 /**
  * Shared drawing primitives for the redesigned charts (design study "Crag
  * Charts", turn 2). The legibility fix that motivated the redesign: SVG
- * carries geometry only — every tick label, day label and data dot is real
+ * carries geometry only - every tick label, day label and data dot is real
  * HTML at real pixel sizes, so nothing shrinks when the plot stretches to
  * card width. Strokes use vector-effect non-scaling-stroke so a 2px line
  * stays 2px at any width.
@@ -147,7 +147,7 @@ export function gridlines(ticks: number[], y: (v: number) => number, _h: number)
   ));
 }
 
-/** Alternating day columns — the cheapest way to make "which day is this" read. */
+/** Alternating day columns - the cheapest way to make "which day is this" read. */
 export function dayBands(n: number, h: number, y0 = 0, hoursPerDay = 24): ReactNode[] {
   const out: ReactNode[] = [];
   const days = Math.ceil(n / hoursPerDay);
@@ -168,7 +168,7 @@ export function nightBands(isDayFlags: boolean[], h: number): ReactNode[] {
     .filter(Boolean);
 }
 
-/** HTML dot — never an SVG circle, which would go elliptical under x-stretch. */
+/** HTML dot - never an SVG circle, which would go elliptical under x-stretch. */
 export function dot(f: number, top: number, colour: string, size = 9, key?: string, ring = true): ReactNode {
   return (
     <div
@@ -224,7 +224,7 @@ export function ClimbableRibbon({ climbable, h = 14 }: { climbable: boolean[]; h
 export function pillStyle(on: boolean): CSSProperties {
   // All four sides spelled out as longhand (never the `border` shorthand,
   // nor the per-axis borderWidth/Style/Color shorthands) so a caller can
-  // safely override just borderLeft* — React warns when a shorthand and its
+  // safely override just borderLeft* - React warns when a shorthand and its
   // longhand counterpart are both set across a rerender (DayScoreChart's
   // per-model accent pills do exactly that).
   const colour = on ? 'var(--signal)' : 'var(--border)';

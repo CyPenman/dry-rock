@@ -1,4 +1,4 @@
-// Open-Meteo forecast request — spec §3.1.
+// Open-Meteo forecast request - spec §3.1.
 
 export const HOURLY_VARS = [
   'precipitation',
@@ -20,7 +20,7 @@ export const HOURLY_VARS = [
   // Soil moisture depth naming varies by model (§3.5): request both the
   // ECMWF/GFS/UKMO-family deep band and the ICON-native band that's closest to
   // it, so the adapter has something to work with regardless of which model
-  // resolved. Whichever the response doesn't contain is simply absent — the
+  // resolved. Whichever the response doesn't contain is simply absent - the
   // adapter fails soft to the §4.5 fallback per model.
   'soil_moisture_7_to_28cm',
   'soil_moisture_28_to_100cm',
@@ -36,7 +36,7 @@ export const DAILY_VARS = ['precipitation_sum', 'sunrise', 'sunset'] as const;
 export const PAST_DAYS = 16;
 export const FORECAST_DAYS = 16;
 
-// §3.3 — deterministic multi-model default. Disagreement between these four is the
+// §3.3 - deterministic multi-model default. Disagreement between these four is the
 // confidence signal (§4.10); the Ensemble API is a separate, opt-in request.
 export const MODELS = ['ukmo_seamless', 'ecmwf_ifs025', 'icon_seamless', 'gfs_seamless'] as const;
 export type ModelName = (typeof MODELS)[number];
@@ -55,7 +55,7 @@ export function buildForecastUrl(cells: RequestCoordinate[]): string {
     hourly: HOURLY_VARS.join(','),
     daily: DAILY_VARS.join(','),
     models: MODELS.join(','),
-    past_days: String(PAST_DAYS), // §3.1 — 14-day seepage lookback plus reservoir spin-up
+    past_days: String(PAST_DAYS), // §3.1 - 14-day seepage lookback plus reservoir spin-up
     forecast_days: String(FORECAST_DAYS),
     timezone: 'Europe/London',
     wind_speed_unit: 'ms',

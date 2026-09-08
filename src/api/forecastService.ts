@@ -10,7 +10,7 @@ export interface ForecastBundle {
 
 /**
  * Refresh on app open if cached data is older than 2h, or on explicit refresh
- * (§3.6). If the network fetch fails — one bar in a crag car park — fall back to
+ * (§3.6). If the network fetch fails - one bar in a crag car park - fall back to
  * whatever is cached, however old, flagged stale so the UI can show its age (§2).
  */
 export async function getForecast(

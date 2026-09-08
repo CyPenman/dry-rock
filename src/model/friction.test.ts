@@ -7,7 +7,7 @@ const base = {
   dewPointC: 8,
   windSpeedMs: 2,
   gtiFaceWm2: 100,
-  aspectDeg: 0, // north-facing — avoids the south-sun overheating rule
+  aspectDeg: 0, // north-facing - avoids the south-sun overheating rule
   coastal: false,
   rock: 'limestone' as const,
 };
@@ -58,14 +58,14 @@ describe('frictionScoreHour (§4.8)', () => {
 
   it('does not apply the coastal penalty when the wind is offshore', () => {
     // aspectDeg 0 (north-facing); wind FROM the south (180) blows off the back of
-    // the face, not onto it — alignment = cos(180-0) = -1, offshore.
+    // the face, not onto it - alignment = cos(180-0) = -1, offshore.
     const offshoreCoastal = frictionScoreHour({ ...base, coastal: true, dewPointC: 12, aspectDeg: 0, windDirectionDeg: 180 });
     const notCoastal = frictionScoreHour({ ...base, coastal: false, dewPointC: 12, aspectDeg: 0, windDirectionDeg: 180 });
     expect(offshoreCoastal).toBeCloseTo(notCoastal, 5);
   });
 
   it('applies the coastal penalty when the wind is onshore', () => {
-    // aspectDeg 0, wind FROM the north (0) blows straight onto the face — onshore.
+    // aspectDeg 0, wind FROM the north (0) blows straight onto the face - onshore.
     const onshoreHumid = frictionScoreHour({ ...base, coastal: true, dewPointC: 12, aspectDeg: 0, windDirectionDeg: 0 });
     const onshoreDry = frictionScoreHour({ ...base, coastal: true, dewPointC: 4, aspectDeg: 0, windDirectionDeg: 0 });
     expect(onshoreHumid).toBeLessThan(onshoreDry);

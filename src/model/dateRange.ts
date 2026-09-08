@@ -2,8 +2,8 @@ export type DateRangeSelection = { kind: 'weekend' } | { kind: 'custom'; startId
 
 export const DEFAULT_DATE_RANGE: DateRangeSelection = { kind: 'weekend' };
 
-/** "This weekend" — the coming Saturday and Sunday (today counts if it's
- * already one of them). If today is Sunday, Saturday has already passed —
+/** "This weekend" - the coming Saturday and Sunday (today counts if it's
+ * already one of them). If today is Sunday, Saturday has already passed -
  * there's nothing left to look forward to but today. */
 export function computeWeekendRange(todayIndex: number, now: Date = new Date()): [number, number] {
   const dow = now.getDay(); // 0 = Sunday .. 6 = Saturday
@@ -30,7 +30,7 @@ export function dayIndexToDate(dayIndex: number, todayIndex: number, now: Date =
   return base;
 }
 
-/** Inverse of dayIndexToDate — the day index a calendar date falls on. */
+/** Inverse of dayIndexToDate - the day index a calendar date falls on. */
 export function dateToDayIndex(date: Date, todayIndex: number, now: Date = new Date()): number {
   const base = localMidnight(now);
   const target = localMidnight(date);

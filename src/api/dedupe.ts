@@ -1,6 +1,6 @@
 import type { Crag } from '../model/types';
 
-// §3.2 — several crags share a forecast grid cell (e.g. LPT and Parisella's are
+// §3.2 - several crags share a forecast grid cell (e.g. LPT and Parisella's are
 // ~15m apart). Build the request from unique rounded coordinates and map results
 // back to crags, rather than one request per crag.
 export interface GridCell {

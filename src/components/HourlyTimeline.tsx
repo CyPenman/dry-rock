@@ -8,7 +8,7 @@ import { Explain } from './Explain';
 const TIME_LABEL = new Intl.DateTimeFormat('en-GB', { weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
 
 /**
- * Hourly conditions — scrubbed small multiples (design study "Crag Charts",
+ * Hourly conditions - scrubbed small multiples (design study "Crag Charts",
  * option 2a). Drag anywhere on either panel to move a fixed readout bar
  * above the plot, so the current hour's numbers are never covered by your
  * thumb. Replaces the old fixed-size combination chart, whose SVG text and
@@ -58,12 +58,12 @@ export function HourlyTimeline({
   const statusText = cur.climbable
     ? 'Climbable at this hour'
     : cur.S >= PARAMS.S_dry
-      ? 'Wet — water on the surface'
-      : 'Wet — still damp inside the rock';
+      ? 'Wet - water on the surface'
+      : 'Wet - still damp inside the rock';
 
   return (
     <div>
-      {/* fixed readout bar — above the plot, never under the finger */}
+      {/* fixed readout bar - above the plot, never under the finger */}
       <div style={{ border: '1px solid var(--border)', marginBottom: 10 }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(0,1fr))', gap: 1, background: 'var(--border)' }}>
           {(
@@ -189,7 +189,7 @@ export function HourlyTimeline({
 
       <Explain>
         <p>
-          <strong>Climbable</strong> — the green ribbon marks exactly which hours qualify. Drag anywhere on either panel
+          <strong>Climbable</strong> - the green ribbon marks exactly which hours qualify. Drag anywhere on either panel
           below to move the readout bar at the top to that hour.
         </p>
         <p>
@@ -197,7 +197,7 @@ export function HourlyTimeline({
         </p>
         <p>
           <strong>Rock wetness</strong> has two layers, both in millimetres: <strong>surface film</strong> (the bright
-          line) is water sitting directly on the surface — what your hands touch. <strong>Inside the rock</strong>{' '}
+          line) is water sitting directly on the surface - what your hands touch. <strong>Inside the rock</strong>{' '}
           (the pale fill) is water held deeper in the outer skin. Both need to be low before the rock reads as
           climbable.
         </p>

@@ -3,12 +3,20 @@ import { FORECAST_DAYS, PAST_DAYS } from '../api/request';
 import type { CragWithForecast } from '../hooks/useForecast';
 import { formatAgeWords, formatDayLabel } from '../lib/format';
 import { dayIndexToDate, resolveDateRange, type DateRangeSelection } from '../model/dateRange';
-import { rankCragDays, sortByWorthTheDrive, type RankedCragDay } from '../model/ranking';
+import { rankCragDays, sortByDistance, sortByName, sortByWorthTheDrive, type RankedCragDay } from '../model/ranking';
 import type { Settings } from '../state/settings';
 import { CalendarRangePicker } from './CalendarRangePicker';
 import { CragRow } from './CragRow';
 
-type SortMode = 'score' | 'drive';
+type SortMode = 'score' | 'drive' | 'az' | 'za' | 'distance';
+
+const SORT_LABEL: Record<SortMode, string> = {
+  score: 'Score',
+  drive: 'Worth the drive',
+  az: 'Name A → Z',
+  za: 'Name Z → A',
+  distance: 'Distance: near to far',
+};
 
 export function HomeScreen({
   results,
@@ -58,7 +66,20 @@ export function HomeScreen({
   const scored = ranked.filter((r) => r.day.verdict === 'scored');
   const gated = ranked.filter((r) => r.day.verdict !== 'scored');
 
-  const sorted: RankedCragDay[] = sortMode === 'drive' ? sortByWorthTheDrive(scored) : scored;
+  const sorted: RankedCragDay[] = useMemo(() => {
+    switch (sortMode) {
+      case 'drive':
+        return sortByWorthTheDrive(scored);
+      case 'az':
+        return sortByName(scored, 'asc');
+      case 'za':
+        return sortByName(scored, 'desc');
+      case 'distance':
+        return sortByDistance(scored);
+      default:
+        return scored;
+    }
+  }, [sortMode, scored]);
 
   const pinnedRows = settings.pinnedCragIds
     .map((id) => ranked.find((r) => r.crag.id === id))
@@ -69,7 +90,7 @@ export function HomeScreen({
     navigator.geolocation.getCurrentPosition(
       (pos) => updateSettings({ homeLat: pos.coords.latitude, homeLon: pos.coords.longitude }),
       () => {
-        /* denied or unavailable — leave home unset */
+        /* denied or unavailable - leave home unset */
       },
     );
   }
@@ -124,25 +145,24 @@ export function HomeScreen({
           </button>
         </div>
 
-        {home && (
-          <div className="mt-2 flex gap-1.5 text-sm">
-            <button
-              type="button"
-              onClick={() => setSortMode('score')}
-              style={{ color: sortMode === 'score' ? 'var(--signal)' : 'var(--text-dim)' }}
-            >
-              By score
-            </button>
-            <span style={{ color: 'var(--text-dim)' }}>&middot;</span>
-            <button
-              type="button"
-              onClick={() => setSortMode('drive')}
-              style={{ color: sortMode === 'drive' ? 'var(--signal)' : 'var(--text-dim)' }}
-            >
-              Worth the drive
-            </button>
-          </div>
-        )}
+        <div className="mt-2 flex items-center gap-2 text-sm" style={{ color: 'var(--text-dim)' }}>
+          <label htmlFor="sortMode" className="shrink-0">
+            Sort by
+          </label>
+          <select
+            id="sortMode"
+            value={sortMode}
+            onChange={(e) => setSortMode(e.target.value as SortMode)}
+            className="min-w-0 flex-1 rounded border px-2 py-1.5 text-sm"
+            style={{ borderColor: 'var(--border)', background: 'var(--ground-raised)', color: 'var(--text)' }}
+          >
+            <option value="score">{SORT_LABEL.score}</option>
+            <option value="az">{SORT_LABEL.az}</option>
+            <option value="za">{SORT_LABEL.za}</option>
+            {home && <option value="drive">{SORT_LABEL.drive}</option>}
+            {home && <option value="distance">{SORT_LABEL.distance}</option>}
+          </select>
+        </div>
       </header>
 
       {error && (

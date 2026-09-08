@@ -7,7 +7,7 @@ const TIME_LABEL = new Intl.DateTimeFormat('en-GB', { weekday: 'short', hour: '2
 
 /**
  * Rock temperature against the ideal friction band, scrubbed (design study
- * "Crag Charts", option 2j) — new chart, spec §4.8/§11. Night hours are
+ * "Crag Charts", option 2j) - new chart, spec §4.8/§11. Night hours are
  * shaded so the overnight cooling that drives dawn condensation is visible
  * directly on the curve, and the ideal band is the same [lo, hi] range that
  * drives the friction score, per rock type.
@@ -48,7 +48,7 @@ export function RockTempChart({
   const f = sx(i, n) / VW;
   const isDayFlags = inputs.map((x) => x.isDay);
 
-  const frictionLabel = inBand ? 'in the ideal band' : cur.Trock > idealHi ? 'warm — greasy' : 'cold — hard skin';
+  const frictionLabel = inBand ? 'in the ideal band' : cur.Trock > idealHi ? 'warm - greasy' : 'cold - hard skin';
 
   return (
     <div>
@@ -144,7 +144,7 @@ export function RockTempChart({
 
       <Explain>
         <p>
-          <strong>Rock temperature</strong> drives friction more than air temperature does — it's what your skin
+          <strong>Rock temperature</strong> drives friction more than air temperature does - it's what your skin
           actually touches. The shaded band is this rock type's ideal range for grip.
         </p>
         <p>

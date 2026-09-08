@@ -1,7 +1,7 @@
 import { IDEAL_TEMP_C, ROCK_DEFAULTS } from '../model/rockDefaults';
 import type { Crag, Discipline, RockType, Steepness } from '../model/types';
 
-// Raw seed data — spec §5.4. Coordinates and elevations are approximate (to the
+// Raw seed data - spec §5.4. Coordinates and elevations are approximate (to the
 // parking or crag centre); good enough to select the right forecast grid cell,
 // but worth verifying against a map before relying on them.
 type CragSeed = {
@@ -27,7 +27,7 @@ type CragSeed = {
   accessNote?: string;
   ukcUrl?: string;
   dryingRate?: number; // default 1.0
-  // Overrides — only where a venue is atypical for its rock type
+  // Overrides - only where a venue is atypical for its rock type
   Smax?: number;
   Mmax?: number;
   infiltrationRate?: number;

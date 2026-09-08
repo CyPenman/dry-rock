@@ -5,7 +5,7 @@ export interface FrictionHourInputs {
   idealTempC: [number, number];
   dewPointC: number;
   windSpeedMs: number;
-  /** Meteorological convention: direction the wind comes FROM. Optional — when
+  /** Meteorological convention: direction the wind comes FROM. Optional - when
    * absent (e.g. older fixtures), the coastal salt penalty falls back to applying
    * on humidity alone rather than assuming offshore. */
   windDirectionDeg?: number;
@@ -23,7 +23,7 @@ function deg2rad(d: number): number {
  * Smooth 0→1 ramp between `lo` and `hi` (cubic Hermite / "smoothstep"). Used in
  * place of hard thresholds throughout this module: a forecast landing a
  * fraction of a degree either side of a spec anchor (e.g. dew point 12°C, wind
- * 11 m/s) should not flip a discrete penalty on or off — that's a modelling
+ * 11 m/s) should not flip a discrete penalty on or off - that's a modelling
  * artefact, not a real signal, and the same "no cliff edge" reasoning the
  * seepage fallback already applies (§4.5).
  */
@@ -43,13 +43,13 @@ function tempPenalty(trockC: number, idealTempC: [number, number]): number {
 }
 
 /**
- * Friction score for one daylight hour — spec §4.8. Dry is necessary, not
+ * Friction score for one daylight hour - spec §4.8. Dry is necessary, not
  * sufficient: grit in a damp heatwave is greasy even bone dry. Judged on rock
  * temperature (what your skin touches) and dew point (what climbers actually
  * judge conditions by), not air temperature or relative humidity.
  *
  * Every modifier below is a smooth ramp centred on the spec's own anchor value
- * (§4.8), not a step function — see `smoothstep` — so the score varies
+ * (§4.8), not a step function - see `smoothstep` - so the score varies
  * continuously with conditions instead of jumping at an arbitrary threshold.
  */
 export function frictionScoreHour(inputs: FrictionHourInputs): number {
@@ -57,13 +57,13 @@ export function frictionScoreHour(inputs: FrictionHourInputs): number {
 
   let score = 1 - tempPenalty(trockC, idealTempC);
 
-  // Dew point: greasy above ~12C, crisp below ~5C — ramped across a band
+  // Dew point: greasy above ~12C, crisp below ~5C - ramped across a band
   // centred on each anchor rather than snapping at it.
   const muggyPenalty = 0.3 * smoothstep(dewPointC, 10, 14);
   const crispBonus = 0.05 * (1 - smoothstep(dewPointC, 3, 7));
   score += crispBonus - muggyPenalty;
 
-  // Condensation onset: heavy penalty as Trock closes in on the dew point —
+  // Condensation onset: heavy penalty as Trock closes in on the dew point -
   // the rock is on the edge of sweating, regardless of the absolute dew point.
   const spread = trockC - dewPointC;
   score -= 0.4 * (1 - smoothstep(spread, 0, 4));
@@ -79,7 +79,7 @@ export function frictionScoreHour(inputs: FrictionHourInputs): number {
   const sunHeat = smoothstep(gtiFaceWm2, 400, 600) * smoothstep(trockC, 18, 22);
   if (facingSouth) score -= 0.3 * sunHeat;
 
-  // Coastal salt is hygroscopic and holds damp in a humid onshore breeze — a
+  // Coastal salt is hygroscopic and holds damp in a humid onshore breeze - a
   // friction effect even when the rock is dry by any direct measurement (§4.8:
   // "high humidity AND the wind is onshore"). Onshore = wind blowing toward the
   // face, same alignment test as wind-driven rain (§4.2). Without a wind
@@ -90,7 +90,7 @@ export function frictionScoreHour(inputs: FrictionHourInputs): number {
     if (onshore) score -= 0.15 * smoothstep(dewPointC, 8, 12);
   }
 
-  // Slate gets glassy in strong sun and heat — a friction problem, not a wetness one.
+  // Slate gets glassy in strong sun and heat - a friction problem, not a wetness one.
   if (rock === 'slate') score -= 0.3 * sunHeat;
 
   return Math.max(0, Math.min(1, score));

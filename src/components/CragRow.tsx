@@ -1,15 +1,15 @@
-import { formatDayLabel, formatDistanceKm, LIMITING_FACTOR_LABEL } from '../lib/format';
+import { formatDayLabel, formatDistanceMiles, LIMITING_FACTOR_LABEL } from '../lib/format';
 import type { RankedCragDay } from '../model/ranking';
 import { confidenceSentence, verdictMessage } from '../model/score';
 
-const DAY_LETTER = new Intl.DateTimeFormat('en-GB', { weekday: 'narrow' });
+const DAY_LETTER = new Intl.DateTimeFormat('en-GB', { weekday: 'short' });
 
 function formatHourOfDay(hour: number): string {
   return `${String(hour).padStart(2, '0')}:00`;
 }
 
 /**
- * Day-by-day score strip — score cells (design study "Crag Charts", option
+ * Day-by-day score strip - score cells (design study "Crag Charts", option
  * 2m). The number is legible at a glance, the best day in range is filled
  * solid, and a gated (ruled-out) day reads as a cross rather than an empty
  * bar, so the whole selected range is visible without counting cells.
@@ -134,7 +134,7 @@ export function CragRow({
             {distanceKm != null && (
               <>
                 <span>&middot;</span>
-                <span>{formatDistanceKm(distanceKm)}</span>
+                <span>{formatDistanceMiles(distanceKm)}</span>
               </>
             )}
             <span>&middot;</span>

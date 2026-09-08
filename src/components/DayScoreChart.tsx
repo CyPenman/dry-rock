@@ -38,7 +38,7 @@ function median(values: number[]): number {
 }
 
 /**
- * Score by day — consensus band across every resolved model (design study
+ * Score by day - consensus band across every resolved model (design study
  * "Crag Charts", option 2g). The spread between models becomes the
  * confidence signal instead of four crossing lines: a wide shaded band means
  * low confidence whatever the number says. Tap a model to pull it out of the
@@ -63,15 +63,15 @@ export function DayScoreChart({
   const dayCount = endIdx - startIdx + 1;
   if (dayCount < 1 || availableModels.length === 0) return null;
 
-  // Dates and the gating verdict come from the primary model — the one
-  // `dayAggregate.ts` already picked for having the longest real coverage —
+  // Dates and the gating verdict come from the primary model - the one
+  // `dayAggregate.ts` already picked for having the longest real coverage -
   // not just availableModels[0], which can be a shorter-horizon model (e.g.
   // UKMO/ICON commonly resolve only ~7 days ahead; buildInputs.ts truncates
   // them there rather than feed the physics model null-derived garbage).
   const referenceDays = (perModelDays[primaryModel] ?? []).slice(startIdx, endIdx + 1);
   const days = referenceDays.map((refDay, i) => {
     // A model with no day at this index simply hasn't resolved that far
-    // (excluded from the spread entirely) — distinct from a model that
+    // (excluded from the spread entirely) - distinct from a model that
     // resolved the day and gated it (a real 0, part of the spread, hatched).
     const scores: Partial<Record<ModelName, number>> = {};
     for (const m of availableModels) {
@@ -206,15 +206,15 @@ export function DayScoreChart({
 
       <Explain>
         <p>
-          <strong>Score</strong> is 0 to 100, higher is better — see the score breakdown table above for what makes up
+          <strong>Score</strong> is 0 to 100, higher is better - see the score breakdown table above for what makes up
           each day's number.
         </p>
         <p>
-          <strong>Band width</strong> — where the band is wide, the models disagree, which is itself useful
+          <strong>Band width</strong> - where the band is wide, the models disagree, which is itself useful
           information regardless of what the median says.
         </p>
         <p>
-          <strong>Gated days</strong> — hatched with a label (frozen, under snow, or rock damage) mean that day is
+          <strong>Gated days</strong> - hatched with a label (frozen, under snow, or rock damage) mean that day is
           ruled out entirely for at least one model, not just scored low.
         </p>
       </Explain>

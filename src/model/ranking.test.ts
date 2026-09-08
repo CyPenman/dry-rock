@@ -84,7 +84,7 @@ describe('rankCragDays', () => {
     ];
     const ranked = rankCragDays(entries, [0, 0], null);
     // Both would land in the "high confidence" tier on raw fraction alone, but
-    // the showery day is capped to "medium" — the frontal, uncapped day should rank first.
+    // the showery day is capped to "medium" - the frontal, uncapped day should rank first.
     expect(ranked[0].crag.id).toBe('stanage');
   });
 

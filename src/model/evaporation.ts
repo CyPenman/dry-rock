@@ -12,9 +12,9 @@ export interface EvaporationInputs {
 }
 
 /**
- * Evaporation potential — spec §4.3. A Penman-style decomposition into a
+ * Evaporation potential - spec §4.3. A Penman-style decomposition into a
  * radiative term (zero at night) and an aerodynamic term (works in the dark and
- * cold — this is what makes a cold dry northerly dry rock fast).
+ * cold - this is what makes a cold dry northerly dry rock fast).
  */
 export function computeE0(inputs: EvaporationInputs): number {
   const { gtiFaceWm2, vpdKpa, windSpeedMs, canopyLight, windShelter, dryingRate, trockC, visibilityM } = inputs;
@@ -25,7 +25,7 @@ export function computeE0(inputs: EvaporationInputs): number {
 
   let E0 = (Erad * canopyLight + Eaero) * dryingRate;
 
-  if (trockC < 0) E0 *= 0.05; // frozen rock — ice sublimates, slowly
+  if (trockC < 0) E0 *= 0.05; // frozen rock - ice sublimates, slowly
   if (visibilityM < 1000) E0 *= 0.2; // fog / valley inversion stops drying dead
 
   return Math.max(0, E0);

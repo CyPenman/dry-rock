@@ -1,6 +1,6 @@
 import { openDB, type IDBPDatabase } from 'idb';
 
-// §3.6 / §2 — cache raw forecast responses in IndexedDB (not derived scores; the
+// §3.6 / §2 - cache raw forecast responses in IndexedDB (not derived scores; the
 // simulation is cheap enough to recompute on every parameter change).
 export interface CachedForecast<T> {
   fetchedAt: number; // ms since epoch
@@ -10,7 +10,7 @@ export interface CachedForecast<T> {
 const DB_NAME = 'dry-rock';
 const STORE_NAME = 'forecastCache';
 const CACHE_KEY = 'forecast';
-const DEFAULT_MAX_AGE_MS = 2 * 60 * 60 * 1000; // 2 hours — Open-Meteo updates hourly
+const DEFAULT_MAX_AGE_MS = 2 * 60 * 60 * 1000; // 2 hours - Open-Meteo updates hourly
 
 let dbPromise: Promise<IDBPDatabase> | null = null;
 

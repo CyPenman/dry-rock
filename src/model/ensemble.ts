@@ -55,7 +55,7 @@ export interface EnsembleDayResult {
 /**
  * Run the full wetness simulation once per ensemble member (§3.3) and report the
  * fraction of members in which the crag is climbable at any point in the given
- * hour range — a real probability, not a hedge (§4.10). Reuses the same
+ * hour range - a real probability, not a hedge (§4.10). Reuses the same
  * `runSimulation` the deterministic multi-model path uses; only the inputs
  * differ (per-member weather instead of per-model).
  */

@@ -1,4 +1,4 @@
-// Crag schema — spec §5.2
+// Crag schema - spec §5.2
 
 export type Discipline = 'sport' | 'boulder' | 'trad';
 export type RockType =

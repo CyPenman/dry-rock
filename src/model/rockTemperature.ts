@@ -10,7 +10,7 @@ export interface RockTempInputs {
 }
 
 /**
- * Hourly rock-surface temperature update — spec §4.2. Rock has thermal mass, so it
+ * Hourly rock-surface temperature update - spec §4.2. Rock has thermal mass, so it
  * lags the air; this is why a sunlit face runs hot in the afternoon and cold before
  * dawn, and it matters more than air temperature for friction (§4.8).
  */

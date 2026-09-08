@@ -13,7 +13,7 @@ const PERIOD_OPTIONS = [
   { label: '14 days', hours: 24 * 14 },
 ] as const;
 
-// Fixed categorical order for the four water fluxes — validated against the
+// Fixed categorical order for the four water fluxes - validated against the
 // app's dark surface with the dataviz skill's palette checker (adjacent CVD
 // Delta E, contrast). Deliberately distinct from --signal/--warning, which
 // carry fixed status meaning elsewhere and must never double as series colour.
@@ -45,7 +45,7 @@ interface DayBucket {
 }
 
 /**
- * Water budget — stacked daily totals plus a persistent per-source sparkline
+ * Water budget - stacked daily totals plus a persistent per-source sparkline
  * strip (design study "Crag Charts", option 2d). The stack keeps daily
  * totals comparable; each source also gets an always-visible hourly shape
  * and total, and tapping a row isolates that source in the bars above.
@@ -204,14 +204,14 @@ export function WaterBudgetChart({ hourly, endIdx }: { hourly: HourResult[]; end
       <Explain>
         <p>
           <strong>Rain reaching the face</strong> is precipitation after accounting for the crag's steepness and any
-          wind-driven rain onto the aspect, plus drainage arriving from above — all in millimetres.
+          wind-driven rain onto the aspect, plus drainage arriving from above - all in millimetres.
         </p>
         <p>
           <strong>Seepage</strong> is water rising through the rock from ground saturation, independent of today's
-          forecast — this is what makes a crag stay wet through a dry week after a wet spell.
+          forecast - this is what makes a crag stay wet through a dry week after a wet spell.
         </p>
         <p>
-          <strong>Condensation</strong> is water forming directly on the rock when it's colder than the dew point —
+          <strong>Condensation</strong> is water forming directly on the rock when it's colder than the dew point -
           nothing to do with rainfall.
         </p>
         <p>

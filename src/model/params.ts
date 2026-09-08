@@ -1,4 +1,4 @@
-// Default model parameters — spec §4.11. Every value is an informed estimate, not a
+// Default model parameters - spec §4.11. Every value is an informed estimate, not a
 // measurement, and is in physical units specifically so it can be argued with.
 export const PARAMS = {
   // Evaporation
@@ -18,7 +18,7 @@ export const PARAMS = {
 
   // Drying law
   stageIIExp: 1.5,
-  S_dry: 0.02, // mm — below this the surface reads dry
+  S_dry: 0.02, // mm - below this the surface reads dry
   matrixDryFraction: 0.35, // M/Mmax below which the rock feels dry
 
   // Seepage

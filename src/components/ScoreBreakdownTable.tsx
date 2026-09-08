@@ -30,7 +30,7 @@ function dayTimingLabel(day: CragDayResult): string {
 }
 
 /**
- * Expandable score-breakdown table for every day in the selected range — spec
+ * Expandable score-breakdown table for every day in the selected range - spec
  * §6 crag detail's "score breakdown", extended per review request: precise
  * per-day/per-time detail rather than only ever showing "today", with the best
  * day in the range starred and pre-expanded.
@@ -80,7 +80,7 @@ export function ScoreBreakdownTable({ days, bestDayIndex }: { days: CragDayResul
                       {dayTimingLabel(day)}
                     </td>
                     <td className="whitespace-nowrap px-2 py-2" style={{ color: 'var(--text-dim)' }}>
-                      {isGated ? '' : LIMITING_FACTOR_LABEL[day.limitingFactor] || '—'}
+                      {isGated ? '' : LIMITING_FACTOR_LABEL[day.limitingFactor] || '-'}
                     </td>
                     <td className="whitespace-nowrap px-2 py-2 text-right font-mono">{isGated ? 'n/a' : Math.round(day.score * 100)}</td>
                   </tr>
@@ -95,7 +95,7 @@ export function ScoreBreakdownTable({ days, bestDayIndex }: { days: CragDayResul
                           <div className="space-y-2">
                             <p className="text-sm" style={{ color: 'var(--text-dim)' }}>
                               {confidenceSentence(day.confidence)}
-                              {caveat ? ` — ${caveat}` : ''}
+                              {caveat ? ` - ${caveat}` : ''}
                             </p>
                             <div className="space-y-1">
                               <ScoreBar label="Dryness" value={day.rockDrynessScore} />
@@ -116,7 +116,7 @@ export function ScoreBreakdownTable({ days, bestDayIndex }: { days: CragDayResul
       <Explain>
         <p>
           <strong>Dryness</strong> is the fraction of the day's daylight hours the rock reads as climbable, blended
-          with how much of that is one unbroken block rather than scattered gaps — a day you can actually plan a
+          with how much of that is one unbroken block rather than scattered gaps - a day you can actually plan a
           session around scores higher than the same total hours in fragments.
         </p>
         <p>

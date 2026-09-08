@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
-// GitHub Pages serves project sites from /<repo-name>/ — name the repo
+// GitHub Pages serves project sites from /<repo-name>/ - name the repo
 // "dry-rock" to match, or change this to "/<your-repo-name>/".
 const BASE_PATH = '/dry-rock/'
 
@@ -17,7 +17,7 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['apple-touch-icon.png', 'icons/*.png'],
       manifest: {
-        name: 'Dry Rock — UK Crag Conditions',
+        name: 'Dry Rock - UK Crag Conditions',
         short_name: 'Dry Rock',
         description: 'Where in England and Wales is the rock most likely to be dry and climbable, and on which day.',
         theme_color: '#22262A',
@@ -26,7 +26,7 @@ export default defineConfig({
         start_url: BASE_PATH,
         scope: BASE_PATH,
         // vite-plugin-pwa doesn't rebase manifest icon `src` for a non-root
-        // `base` (only start_url/scope) — prefix these manually or they 404
+        // `base` (only start_url/scope) - prefix these manually or they 404
         // under GitHub Pages' /<repo-name>/ path.
         icons: [
           { src: `${BASE_PATH}icons/icon-192.png`, sizes: '192x192', type: 'image/png' },
@@ -37,7 +37,7 @@ export default defineConfig({
       },
       workbox: {
         // Cache the app shell for offline use, plus the last successful
-        // Open-Meteo response — §2: "opening the app in a crag car park with
+        // Open-Meteo response - §2: "opening the app in a crag car park with
         // one bar still shows yesterday's data with a staleness warning."
         // The raw forecast bundle itself already lives in IndexedDB (§3.6);
         // this is a second, coarser safety net at the HTTP layer.

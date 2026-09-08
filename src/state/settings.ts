@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 
-// §2 — "Settings that are fine in localStorage: home coordinates,
+// §2 - "Settings that are fine in localStorage: home coordinates,
 // pinned crag ids, tuned model parameters, unit preferences."
 export interface Settings {
   homeLat: number | null;
@@ -31,7 +31,7 @@ function saveSettings(settings: Settings): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
   } catch {
-    // localStorage may be unavailable (private mode, quota) — settings just won't persist.
+    // localStorage may be unavailable (private mode, quota) - settings just won't persist.
   }
 }
 

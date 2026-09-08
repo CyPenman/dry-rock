@@ -2,7 +2,7 @@ function deg2rad(d: number): number {
   return (d * Math.PI) / 180;
 }
 
-/** Great-circle distance in km — spec §4.9 "worth the drive" sort. */
+/** Great-circle distance in km - spec §4.9 "worth the drive" sort. */
 export function greatCircleDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371;
   const dLat = deg2rad(lat2 - lat1);

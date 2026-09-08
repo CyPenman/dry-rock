@@ -15,7 +15,7 @@ export interface PfaceInputs {
 }
 
 /**
- * Water actually arriving at the face — spec §4.2. Rain falls vertically-ish and
+ * Water actually arriving at the face - spec §4.2. Rain falls vertically-ish and
  * crags are not horizontal: a slab catches more than the horizontal rate, a roof
  * almost nothing, and wind-driven rain hoses a face aligned with the wind.
  */
@@ -31,7 +31,7 @@ export function computePface(inputs: PfaceInputs): number {
 }
 
 /**
- * Exponentially-weighted running mean of Pface, tau in hours — the drainage-from-
+ * Exponentially-weighted running mean of Pface, tau in hours - the drainage-from-
  * above driver (§4.2: "Some venues take drainage over the lip for many hours after
  * the rain stops"). Call once per hour with the previous EWMA value and the
  * current hour's Pface.

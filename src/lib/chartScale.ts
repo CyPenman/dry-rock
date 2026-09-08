@@ -1,4 +1,4 @@
-// Shared "nice number" axis scaling for hand-rolled SVG charts — round tick
+// Shared "nice number" axis scaling for hand-rolled SVG charts - round tick
 // values (0 / 0.5 / 1, not 0 / 0.34 / 0.67) so a reader can actually anchor on
 // them, per standard chart-axis practice.
 
@@ -13,7 +13,7 @@ function niceStep(roughStep: number): number {
 export interface NiceScale {
   /** Axis ticks from 0 to the rounded-up max, inclusive. */
   ticks: number[];
-  /** Rounded-up max — use this as the axis's top, not the raw data max, so the
+  /** Rounded-up max - use this as the axis's top, not the raw data max, so the
    * scale itself lands on round numbers rather than just the labels. */
   max: number;
 }

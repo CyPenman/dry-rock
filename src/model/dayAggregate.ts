@@ -31,7 +31,7 @@ export interface CragDayResult {
   bestFrictionBlockScore: number;
   limitingFactor: LimitingFactor;
   confidence: ModelAgreement;
-  /** Showers-mm / total-precipitation-mm for the day, 0 when no rain fell — §4.10. */
+  /** Showers-mm / total-precipitation-mm for the day, 0 when no rain fell - §4.10. */
   showerDominance: number;
 }
 
@@ -146,7 +146,7 @@ function computeDaysForModel(
 }
 
 /**
- * Run the full model for one crag against one forecast cell — every model in
+ * Run the full model for one crag against one forecast cell - every model in
  * §3.3 for confidence, rolled up into per-day results (§4.9). Assumes the
  * hourly series starts at local midnight (guaranteed by the `timezone` +
  * `timeformat=unixtime` request parameters, §3.1), so days are simple 24-hour
@@ -169,7 +169,7 @@ export function computeCragForecast(crag: Crag, cell: CellForecast): CragForecas
   if (availableModels.length === 0) return null;
 
   // Prefer UKMO (§3.3's default), but only among whichever models actually
-  // cover the longest stretch of the requested range — a model whose real
+  // cover the longest stretch of the requested range - a model whose real
   // forecast horizon is shorter than `forecast_days` (buildInputs.ts truncates
   // it there rather than feed it null-derived garbage) must not be chosen as
   // primary, or every day past its horizon would have no data to show at all.

@@ -25,7 +25,7 @@ export function pickBestDayInRange(
 
 /**
  * §4.10 confidence tiers, capped when the day's precipitation was mostly
- * convective (showerDominance > SHOWER_DOMINANCE_THRESHOLD) — "widen the
+ * convective (showerDominance > SHOWER_DOMINANCE_THRESHOLD) - "widen the
  * uncertainty" for showery days, since convective rain is poorly located by
  * every model regardless of how well they happen to agree on this run.
  */
@@ -35,7 +35,7 @@ function confidenceTier(fraction: number, showerDominance: number): number {
 }
 
 /**
- * Rank crag-days for the home list — spec §4.10: "Never rank a low-confidence
+ * Rank crag-days for the home list - spec §4.10: "Never rank a low-confidence
  * crag-day above a high-confidence one." Sorts by confidence tier first, then
  * score within the tier.
  */
@@ -68,8 +68,24 @@ export function rankCragDays(
   });
 }
 
-/** "Worth the drive" sort — score divided by a mild function of distance (§4.9). */
+/** "Worth the drive" sort - score divided by a mild function of distance (§4.9). */
 export function sortByWorthTheDrive(ranked: RankedCragDay[]): RankedCragDay[] {
   const worth = (r: RankedCragDay) => (r.distanceKm != null ? r.day.score / (1 + r.distanceKm / 50) : r.day.score);
   return [...ranked].sort((a, b) => worth(b) - worth(a));
+}
+
+/** Alphabetical by crag name. */
+export function sortByName(ranked: RankedCragDay[], direction: 'asc' | 'desc'): RankedCragDay[] {
+  const sorted = [...ranked].sort((a, b) => a.crag.name.localeCompare(b.crag.name));
+  return direction === 'asc' ? sorted : sorted.reverse();
+}
+
+/** Nearest to home first; crags with no known distance (home unset) sort last. */
+export function sortByDistance(ranked: RankedCragDay[]): RankedCragDay[] {
+  return [...ranked].sort((a, b) => {
+    if (a.distanceKm == null && b.distanceKm == null) return 0;
+    if (a.distanceKm == null) return 1;
+    if (b.distanceKm == null) return -1;
+    return a.distanceKm - b.distanceKm;
+  });
 }

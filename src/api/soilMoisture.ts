@@ -1,4 +1,4 @@
-// §3.5 — soil moisture depth naming varies by model. Map whatever the response
+// §3.5 - soil moisture depth naming varies by model. Map whatever the response
 // contains onto a logical "deep" band (the seepage driver, §4.5); fail soft to
 // null so callers can fall back to the precipitation-kernel model.
 const DEEP_CANDIDATES = [

@@ -11,9 +11,9 @@ export interface SoilMoistureCalibration {
 export const DEFAULT_SM_CALIBRATION: SoilMoistureCalibration = { p5: 0.1, p95: 0.4 };
 
 /**
- * Primary seepage driver — spec §4.5. Modelled soil moisture already integrates
+ * Primary seepage driver - spec §4.5. Modelled soil moisture already integrates
  * months of antecedent weather, snowmelt, drainage and evapotranspiration; the
- * squared exponent gives seepage its real character — negligible until the
+ * squared exponent gives seepage its real character - negligible until the
  * ground is quite wet, then rising steeply.
  */
 export function computeSmNorm(soilMoistureDeep: number, calibration: SoilMoistureCalibration = DEFAULT_SM_CALIBRATION): number {
@@ -32,7 +32,7 @@ export function computeSeepFluxFromSoilMoisture(
 
 /**
  * Fallback seepage driver when soil moisture is unavailable for the selected
- * model (§4.5) — an exponentially-weighted mean of precipitation, tau = tauSeep
+ * model (§4.5) - an exponentially-weighted mean of precipitation, tau = tauSeep
  * days, in place of the 5th/95th soil-moisture percentiles. `refMm` is the EWMA
  * precipitation rate (mm/hr) treated as "as good as saturated"; there's no
  * calibration data to anchor it in fallback mode, so it's a documented estimate

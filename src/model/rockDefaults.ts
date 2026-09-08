@@ -1,6 +1,6 @@
 import type { RockType, Steepness } from './types';
 
-// §5.3 — defaults by rock type. Per-crag overrides win where a venue is atypical.
+// §5.3 - defaults by rock type. Per-crag overrides win where a venue is atypical.
 export const ROCK_DEFAULTS: Record<
   RockType,
   { Smax: number; Mmax: number; infiltrationRate: number; tauRock: number }
@@ -13,7 +13,7 @@ export const ROCK_DEFAULTS: Record<
   sandstone: { Smax: 0.6, Mmax: 6.0, infiltrationRate: 0.4, tauRock: 8 },
 };
 
-// §5.3 — a slab catches more than falls on the horizontal; a roof/cave almost nothing.
+// §5.3 - a slab catches more than falls on the horizontal; a roof/cave almost nothing.
 // Used in §4.2 to compute Pgeom = precipitation * rainExposure.
 export const STEEPNESS_RAIN_EXPOSURE: Record<Steepness, number> = {
   slab: 1.15,
@@ -23,7 +23,7 @@ export const STEEPNESS_RAIN_EXPOSURE: Record<Steepness, number> = {
   cave: 0.05,
 };
 
-// §4.8 — friction ideal temperature bands by rock type (rock temperature, not air).
+// §4.8 - friction ideal temperature bands by rock type (rock temperature, not air).
 // Only rock types present in the bundled dataset are given values.
 export const IDEAL_TEMP_C: Partial<Record<RockType, [number, number]>> = {
   limestone: [8, 16], // sport limestone

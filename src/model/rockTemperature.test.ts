@@ -4,7 +4,7 @@ import { updateRockTemperature } from './rockTemperature';
 // Spec §9 step 4: "a sunlit south face should run several degrees above air by
 // mid-afternoon and below it before dawn." Tested here as two isolated exposures
 // (sustained sun, sustained clear-sky night) rather than one arbitrary synthetic
-// diurnal curve — the lag constant interacts with day/night length and the prior
+// diurnal curve - the lag constant interacts with day/night length and the prior
 // exposure in ways that make a single made-up 24h profile an unreliable check of
 // the underlying formula. Each block below tests one directional pull to equilibrium.
 describe('updateRockTemperature', () => {
@@ -37,7 +37,7 @@ describe('updateRockTemperature', () => {
         prevTrock: trock,
         airTemp,
         gtiFace: 0,
-        cloudCoverPct: 0, // clear sky — full radiative loss
+        cloudCoverPct: 0, // clear sky - full radiative loss
         isDay: false,
         tauRock,
       });

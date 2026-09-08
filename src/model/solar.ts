@@ -1,4 +1,4 @@
-// Solar position (NOAA algorithm) and plane-of-array irradiance on a vertical face — spec §3.4.
+// Solar position (NOAA algorithm) and plane-of-array irradiance on a vertical face - spec §3.4.
 
 function deg2rad(d: number): number {
   return (d * Math.PI) / 180;
@@ -94,7 +94,7 @@ export interface GtiFaceInputs {
 }
 
 /**
- * Global tilted irradiance on a vertical face (tilt = 90 deg) — spec §3.4.
+ * Global tilted irradiance on a vertical face (tilt = 90 deg) - spec §3.4.
  * GTI = beam-on-face + isotropic sky diffuse + ground-reflected.
  */
 export function computeGtiFace(inputs: GtiFaceInputs): number {

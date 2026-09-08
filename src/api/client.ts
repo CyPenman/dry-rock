@@ -19,7 +19,7 @@ function splitVariablesByModel(hourly: Record<string, number[]>): Record<ModelNa
   for (const [key, values] of Object.entries(hourly)) {
     if (key === 'time') continue;
     const model = MODELS.find((m) => key.endsWith(`_${m}`));
-    if (!model) continue; // not a per-model variable — ignore
+    if (!model) continue; // not a per-model variable - ignore
     const baseVar = key.slice(0, key.length - model.length - 1);
     result[model][baseVar] = values;
   }
@@ -40,8 +40,8 @@ function normalizeCell(response: OpenMeteoResponse): CellForecast {
 
 /**
  * Fetch the primary multi-model forecast for a set of crags in a single request
- * (§3.1), deduplicated by grid cell (§3.2), and normalise the response — which is
- * a bare object for one coordinate but an array for several — back onto crags.
+ * (§3.1), deduplicated by grid cell (§3.2), and normalise the response - which is
+ * a bare object for one coordinate but an array for several - back onto crags.
  */
 export async function fetchCellForecasts(
   crags: Crag[],

@@ -16,8 +16,12 @@ export function formatTimeOfDay(date: Date): string {
   return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 }
 
-export function formatDistanceKm(km: number): string {
-  return km < 10 ? `${km.toFixed(1)}km` : `${Math.round(km)}km`;
+const KM_TO_MILES = 0.621371;
+
+/** Distance is modelled in km internally (§4.9); this converts only for display. */
+export function formatDistanceMiles(km: number): string {
+  const miles = km * KM_TO_MILES;
+  return miles < 10 ? `${miles.toFixed(1)}mi` : `${Math.round(miles)}mi`;
 }
 
 export const LIMITING_FACTOR_LABEL: Record<string, string> = {

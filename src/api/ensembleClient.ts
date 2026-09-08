@@ -12,7 +12,7 @@ function splitVariablesByMember(hourly: Record<string, number[]>): Record<string
   const result: Record<string, Record<string, number[]>> = {};
   for (const [key, values] of Object.entries(hourly)) {
     const match = key.match(MEMBER_SUFFIX_RE);
-    if (!match) continue; // 'time' and any non-member key — ignore
+    if (!match) continue; // 'time' and any non-member key - ignore
     const memberKey = `member${match[1]}`;
     const baseVar = key.slice(0, key.length - match[0].length);
     if (!result[memberKey]) result[memberKey] = {};
@@ -23,7 +23,7 @@ function splitVariablesByMember(hourly: Record<string, number[]>): Record<string
 
 /**
  * Fetch the opt-in ensemble forecast for one crag (§3.3). Never cached to
- * IndexedDB — it's a separate, on-demand call, not part of the primary
+ * IndexedDB - it's a separate, on-demand call, not part of the primary
  * multi-model payload §2 sizes the persisted cache around.
  */
 export async function fetchEnsembleForecast(url: string): Promise<EnsembleCellForecast> {

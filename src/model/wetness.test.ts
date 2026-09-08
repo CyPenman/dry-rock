@@ -12,7 +12,7 @@ import {
 } from './wetness';
 
 // Spec §8.4 validation cases, exercised against synthetic hourly fixtures (no
-// historical weather API in this build yet — see §8.3 for the future backtest
+// historical weather API in this build yet - see §8.3 for the future backtest
 // harness). §9 step 6: "Do not proceed until they pass."
 
 function toConfig(crag: Crag): CragModelConfig {
@@ -75,7 +75,7 @@ function smAtPercentile(fraction: number): number {
   return DEFAULT_SM_CALIBRATION.p5 + fraction * (DEFAULT_SM_CALIBRATION.p95 - DEFAULT_SM_CALIBRATION.p5);
 }
 
-// Tetens saturation vapour pressure (kPa) — used only to build realistic VPD
+// Tetens saturation vapour pressure (kPa) - used only to build realistic VPD
 // inputs for the fixtures below; the real app reads vapour_pressure_deficit
 // directly from Open-Meteo.
 function saturationVaporPressureKpa(tempC: number): number {
@@ -138,13 +138,13 @@ describe('§8.4 validation cases', () => {
     // Gritstone's infiltrationRate (0.2 mm/hr, §5.3) is far larger than any
     // plausible condensation flux (kCond 0.008 x a few degrees of spread), so a
     // night's condensation drains into M within the same hour rather than
-    // sitting as a visible surface film (S) — porous grit wicks dew into the
+    // sitting as a visible surface film (S) - porous grit wicks dew into the
     // matrix rather than beading it on the surface, which is physically the
     // right place for it to show up. It isn't large enough here to cross the
     // hard matrixDryFraction climbability gate in one night; that gate is
     // calibrated for a wet spell, not a single night's dew. What's testable
     // and real is the mechanism itself: M rises overnight from condensation and
-    // falls again once the sun starts evaporating it — this is what "wet at
+    // falls again once the sun starts evaporating it - this is what "wet at
     // dawn" actually looks like for this rock type in the model.
     const config = toConfig(crag('stanage'));
 
@@ -183,7 +183,7 @@ describe('§8.4 validation cases', () => {
   it('Kilnsey: the roof sheds active rain when the antecedent fortnight was dry', () => {
     // A short burst, isolating the roof-shedding mechanism (rainExposure 0.15)
     // from the lip-drainage mechanism (catchmentAbove 0.65, §4.2's EWMA of Pface)
-    // that the *next* test is specifically about — a longer sustained rain would
+    // that the *next* test is specifically about - a longer sustained rain would
     // give that EWMA time to build up and start pulling this case toward the
     // "seepage and lip drainage" case instead of testing what it's meant to.
     const config = toConfig(crag('kilnsey'));
@@ -195,7 +195,7 @@ describe('§8.4 validation cases', () => {
         return { precipitationMm: 0, soilMoistureDeep: DEFAULT_SM_CALIBRATION.p5, tempC: 14, dewPointC: 8, windSpeedMs: 4 };
       }
       // Moderate rain, wind across the face rather than driving straight into
-      // it (aspect 210, wind from 90 -> no alignment) — "the roof sheds it",
+      // it (aspect 210, wind from 90 -> no alignment) - "the roof sheds it",
       // not "gale-force rain overwhelms a 15% exposure".
       return {
         precipitationMm: 0.4,
@@ -233,7 +233,7 @@ describe('§8.4 validation cases', () => {
     const config = toConfig(crag('slate'));
     const rainHours = 6;
     // Slate's Mmax is tiny (0.2mm, §5.3), so a little overnight condensation is
-    // enough to nudge M/Mmax either side of the matrixDryFraction line — checking
+    // enough to nudge M/Mmax either side of the matrixDryFraction line - checking
     // one arbitrary instant risks landing right on that knife-edge. Check a
     // daytime hour comfortably past the 24h mark instead, matching the claim's
     // intent ("dries within 24h") rather than an exact isolated timestamp.
@@ -283,9 +283,9 @@ describe('§8.4 validation cases', () => {
 
   // Harrison's / Bowles soft-rock freeze-thaw block (§8.4 row 8) is a hard gate
   // applied at the scoring stage (§4.9, §5.5), not part of the wetness
-  // simulation itself — deferred to the friction/composite-score build step.
+  // simulation itself - deferred to the friction/composite-score build step.
 
-  it('E0 magnitude check (§4.11) — replaces the live ET0 comparison for this offline build', () => {
+  it('E0 magnitude check (§4.11) - replaces the live ET0 comparison for this offline build', () => {
     // "UK summer midday potential evaporation on an exposed face is roughly
     // 0.25-0.40 mm/hr; a winter overcast day is roughly 0.02 mm/hr; a clear
     // night is near zero." et0_fao_evapotranspiration itself comes from the

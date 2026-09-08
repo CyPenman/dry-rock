@@ -1,6 +1,6 @@
 # Dry Rock
 
-UK crag conditions finder — given a date range, where in England and Wales is the rock
+UK crag conditions finder - given a date range, where in England and Wales is the rock
 most likely to be dry and climbable, and on which day. Personal use, no accounts, no
 backend. Built from [`CRAG-CONDITIONS-SPEC-v2.md`](../CRAG-CONDITIONS-SPEC-v2.md).
 
@@ -30,7 +30,7 @@ npm run build
 
 Pushing to `main` builds and deploys to GitHub Pages via
 [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml). The Vite `base` in
-`vite.config.ts` is set to `/dry-rock/` to match this repo's name — if you fork this
+`vite.config.ts` is set to `/dry-rock/` to match this repo's name - if you fork this
 under a different repo name, update `BASE_PATH` there to match.
 
 Once deployed, open the Pages URL on Android Chrome and use "Add to Home Screen" to
