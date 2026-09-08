@@ -21,6 +21,8 @@ function makeDay(overrides: Partial<CragDayResult> = {}): CragDayResult {
     limitingFactor: 'none',
     confidence: { agreeCount: 4, total: 4, fraction: 1 },
     showerDominance: 0,
+    avgDaylightTempC: 12,
+    rainChancePct: 0,
     ...overrides,
   };
 }

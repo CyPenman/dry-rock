@@ -45,3 +45,68 @@ body,
   background: var(--ground);
   color: var(--text);
 }
+
+/* Crags map (§6) - dark-mode tile treatment so OSM tiles sit inside the
+ * app's dark ground, plus restyled Leaflet chrome to match app tokens. */
+.leaflet-tile {
+  /* leaflet.css (imported before this file, in main.tsx) has its own
+   * `.leaflet-tile { filter: inherit }` at equal specificity - !important
+   * so this always wins regardless of import order elsewhere. */
+  filter: invert(1) hue-rotate(180deg) brightness(0.94) contrast(0.92) saturate(0.9) !important;
+}
+.leaflet-container {
+  background: var(--ground-sunken);
+  font-family: inherit;
+}
+.leaflet-control-attribution {
+  background: rgba(34, 38, 42, 0.75) !important;
+  color: var(--text-faint) !important;
+  font-size: 10px !important;
+}
+.leaflet-control-attribution a {
+  color: var(--text-dim) !important;
+}
+.leaflet-control-zoom a {
+  background: var(--ground-raised) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+.leaflet-popup-content-wrapper {
+  background: var(--ground-raised);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.leaflet-popup-tip {
+  background: var(--ground-raised);
+  border: 1px solid var(--border);
+}
+.leaflet-popup-content {
+  margin: 10px 12px;
+  min-width: 150px;
+}
+.leaflet-popup-close-button {
+  color: var(--text-dim) !important;
+}
+.popup-name {
+  font-size: 14px;
+  font-weight: 500;
+}
+.popup-area {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-top: 1px;
+}
+.popup-stats {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--text-dim);
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.popup-score {
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 16px;
+  font-weight: 600;
+}

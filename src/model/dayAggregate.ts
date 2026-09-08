@@ -33,6 +33,10 @@ export interface CragDayResult {
   confidence: ModelAgreement;
   /** Showers-mm / total-precipitation-mm for the day, 0 when no rain fell - §4.10. */
   showerDominance: number;
+  /** Mean air temperature across daylight hours, for at-a-glance summaries (map popups, §6). */
+  avgDaylightTempC: number;
+  /** Percentage of the day's hours with measurable precipitation, for at-a-glance summaries. */
+  rainChancePct: number;
 }
 
 export interface CragForecastResult {
@@ -87,6 +91,12 @@ function computeDaysForModel(
     const dayShowersMm = dayInputs.reduce((sum, i) => sum + (i.showersMm ?? 0), 0);
     const showerDominance = dayPrecipMm > 0 ? Math.min(1, dayShowersMm / dayPrecipMm) : 0;
 
+    const daylightTemps = dayInputs.filter((_, idx) => isDayFlags[idx]).map((i) => i.tempC);
+    const avgDaylightTempC =
+      (daylightTemps.length > 0 ? daylightTemps : dayInputs.map((i) => i.tempC)).reduce((sum, t) => sum + t, 0) /
+      (daylightTemps.length > 0 ? daylightTemps.length : dayInputs.length);
+    const rainChancePct = Math.round((100 * dayInputs.filter((i) => i.precipitationMm > 0.1).length) / dayInputs.length);
+
     const frictionScores = dayResults.map((r, idx) =>
       frictionScoreHour({
         trockC: r.Trock,
@@ -139,6 +149,8 @@ function computeDaysForModel(
       bestFrictionBlockScore: bestFriction,
       limitingFactor: limitingFactorAt(results, dayEnd),
       showerDominance,
+      avgDaylightTempC,
+      rainChancePct,
     });
   }
 
