@@ -1,5 +1,6 @@
 import type { CragDayResult } from './dayAggregate';
 import { greatCircleDistanceKm } from './distance';
+import { SHOWER_DOMINANCE_THRESHOLD } from './score';
 import type { Crag } from './types';
 
 export interface RankedCragDay {
@@ -22,10 +23,15 @@ export function pickBestDayInRange(
   return scored.reduce((best, d) => (d.score > best.score ? d : best));
 }
 
-function confidenceTier(fraction: number): number {
-  if (fraction >= 0.75) return 2;
-  if (fraction >= 0.5) return 1;
-  return 0;
+/**
+ * §4.10 confidence tiers, capped when the day's precipitation was mostly
+ * convective (showerDominance > SHOWER_DOMINANCE_THRESHOLD) — "widen the
+ * uncertainty" for showery days, since convective rain is poorly located by
+ * every model regardless of how well they happen to agree on this run.
+ */
+function confidenceTier(fraction: number, showerDominance: number): number {
+  const rawTier = fraction >= 0.75 ? 2 : fraction >= 0.5 ? 1 : 0;
+  return showerDominance > SHOWER_DOMINANCE_THRESHOLD ? Math.min(rawTier, 1) : rawTier;
 }
 
 /**
@@ -54,7 +60,9 @@ export function rankCragDays(
   }
 
   return ranked.sort((a, b) => {
-    const tierDiff = confidenceTier(b.day.confidence.fraction) - confidenceTier(a.day.confidence.fraction);
+    const tierDiff =
+      confidenceTier(b.day.confidence.fraction, b.day.showerDominance) -
+      confidenceTier(a.day.confidence.fraction, a.day.showerDominance);
     if (tierDiff !== 0) return tierDiff;
     return b.day.score - a.day.score;
   });

@@ -8,6 +8,8 @@ export interface DayScoreInputs {
   minWindowHours?: number;
   climbableDaylightHours: number;
   totalDaylightHours: number;
+  /** Longest unbroken run of climbable daylight hours this day — see rockDrynessScore below. */
+  bestContiguousClimbableHours?: number;
   bestFrictionBlockScore: number; // 0-1, §4.8
 }
 
@@ -18,11 +20,28 @@ export interface ScoreBreakdown {
   total: number;
 }
 
-/** score(crag, day) = 0.40*windowScore + 0.35*rockDrynessScore + 0.25*frictionScore — §4.9. */
+/**
+ * score(crag, day) = 0.40*windowScore + 0.35*rockDrynessScore + 0.25*frictionScore — §4.9.
+ *
+ * Weights kept as specified: windowScore and rockDrynessScore are correlated (both
+ * driven by the same `climbable[]` series, at different time granularities) but not
+ * redundant — window rewards a sustained multi-day spell, dryness is same-day. Collapsing
+ * them into one term would lose the "don't over-trust a single lucky dry day sandwiched in
+ * a wet spell" signal the window term exists for.
+ */
 export function computeScoreBreakdown(inputs: DayScoreInputs): ScoreBreakdown {
   const windowScoreValue = windowScore(inputs.windowHours, inputs.minWindowHours ?? PARAMS.minWindowHours);
-  const rockDrynessScore =
-    inputs.totalDaylightHours > 0 ? inputs.climbableDaylightHours / inputs.totalDaylightHours : 0;
+
+  // rockDrynessScore: half from the total climbable fraction, half from the best
+  // unbroken block as a fraction of the day. A day with three scattered 1h dry gaps
+  // and a day with one unbroken 3h window can have the same total, but only the
+  // second is a day you can actually plan a route on — pure total-hours scoring
+  // can't tell them apart, so blend in contiguity.
+  const totalFraction = inputs.totalDaylightHours > 0 ? inputs.climbableDaylightHours / inputs.totalDaylightHours : 0;
+  const contiguousFraction =
+    inputs.totalDaylightHours > 0 ? (inputs.bestContiguousClimbableHours ?? 0) / inputs.totalDaylightHours : 0;
+  const rockDrynessScore = 0.5 * totalFraction + 0.5 * contiguousFraction;
+
   const frictionScore = inputs.bestFrictionBlockScore;
   return {
     windowScoreValue,
@@ -102,4 +121,22 @@ export function modelAgreement(perModelDayClimbable: boolean[]): ModelAgreement 
 
 export function confidenceSentence(agreement: ModelAgreement): string {
   return `${agreement.agreeCount} of ${agreement.total} models agree`;
+}
+
+/**
+ * §4.10: "Weight showery situations down. If showers makes up most of the
+ * precipitation, convective rain is poorly located by any model at any
+ * resolution, so widen the uncertainty." `showerDominance` is the day's
+ * showers-mm / total-precipitation-mm (0 when no rain fell — nothing to widen).
+ * Above this threshold, model agreement is treated as capped at "medium"
+ * confidence for ranking purposes (see `ranking.ts`), regardless of the raw
+ * fraction — a caveat, not a silently altered number, per the app's "never
+ * present a bare number" principle.
+ */
+export const SHOWER_DOMINANCE_THRESHOLD = 0.6;
+
+export function confidenceCaveat(showerDominance: number): string | null {
+  return showerDominance > SHOWER_DOMINANCE_THRESHOLD
+    ? 'showery — model agreement is less trustworthy than it looks'
+    : null;
 }

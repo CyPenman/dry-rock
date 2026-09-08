@@ -33,6 +33,7 @@ export function buildHourlyInputsForModel(crag: Crag, cell: CellForecast, model:
     inputs[i] = {
       time,
       precipitationMm: vars.precipitation?.[i] ?? 0,
+      showersMm: vars.showers?.[i] ?? 0,
       snowDepthM: vars.snow_depth?.[i] ?? 0,
       tempC: vars.temperature_2m[i],
       dewPointC: vars.dew_point_2m[i],

@@ -6,11 +6,31 @@
   --wet: #3d4348;
   --ground: #22262a;
   --ground-raised: #2a2f34;
+  --ground-sunken: #1c2023;
   --text: #e8e4db;
   --text-dim: #9a958a;
+  --text-faint: #6f6a60;
   --signal: #7fb99a;
   --warning: #d98c5f;
   --border: #3a3f44;
+  --grid: #343a3f;
+
+  /* Chart series colours — brightened for the redesigned charts (design study
+   * "Crag Charts"): the previous set read too dim once type/strokes stopped
+   * shrinking with the plot. Validated for CVD/contrast against --ground
+   * (#22262a) with scripts/validate_palette.js from the dataviz skill. Kept
+   * distinct from --signal/--warning above, which carry fixed status meaning
+   * (climbable / gated) elsewhere in the UI and must never double as a
+   * data-series colour. */
+  --chart-water: #57a2f0; /* the "water" hue: rain and the surface film */
+  --chart-water-soft: #8fc0f4; /* lighter step of the same hue, for the matrix-water fill (ordinal: surface vs. interior) */
+  --chart-seepage: #e0a021;
+  --chart-condensation: #a79bff;
+  --chart-melt: #2fb886;
+  --chart-model-1: #57a2f0; /* UKMO */
+  --chart-model-2: #f0764a; /* ECMWF */
+  --chart-model-3: #2fb886; /* ICON */
+  --chart-model-4: #e0a021; /* GFS */
 
   color-scheme: dark;
   font-family: system-ui, 'Segoe UI', Roboto, sans-serif;

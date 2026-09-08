@@ -8,34 +8,57 @@ function formatHourOfDay(hour: number): string {
   return `${String(hour).padStart(2, '0')}:00`;
 }
 
-function scoreColour(score: number): string {
-  if (score >= 70) return 'var(--signal)';
-  if (score >= 40) return 'var(--dry)';
-  return 'var(--text-dim)';
-}
-
-/** Small day-by-day score strip, so the whole selected range is visible at a glance, not just the best day. */
+/**
+ * Day-by-day score strip — score cells (design study "Crag Charts", option
+ * 2m). The number is legible at a glance, the best day in range is filled
+ * solid, and a gated (ruled-out) day reads as a cross rather than an empty
+ * bar, so the whole selected range is visible without counting cells.
+ */
 function DayStrip({ ranked }: { ranked: RankedCragDay }) {
   if (ranked.daysInRange.length < 2) return null;
 
   return (
-    <div className="mt-1.5 flex gap-1 overflow-x-auto">
+    <div className="mt-1.5 grid gap-[3px]" style={{ gridTemplateColumns: `repeat(${ranked.daysInRange.length},minmax(0,1fr))` }}>
       {ranked.daysInRange.map((d) => {
         const isBest = d.dayIndex === ranked.day.dayIndex;
         const isGated = d.verdict !== 'scored';
         return (
           <div
             key={d.dayIndex}
-            className="flex w-9 shrink-0 flex-col items-center rounded py-1 text-xs"
+            className="text-center"
             style={{
-              background: isBest ? 'var(--ground-raised)' : 'transparent',
-              border: isBest ? '1px solid var(--signal)' : '1px solid transparent',
+              background: isBest ? 'var(--signal)' : 'var(--ground-raised)',
+              padding: '5px 2px 4px',
+              border: `1px solid ${isBest ? 'var(--signal)' : 'var(--border)'}`,
             }}
           >
-            <span style={{ color: 'var(--text-dim)' }}>{DAY_LETTER.format(d.date)}</span>
-            <span className="font-mono" style={{ color: isGated ? 'var(--text-dim)' : scoreColour(d.score * 100) }}>
-              {isGated ? '–' : Math.round(d.score * 100)}
-            </span>
+            <div
+              style={{
+                font: '600 9px/1 ui-monospace,Menlo,monospace',
+                letterSpacing: '0.03em',
+                color: isBest ? 'var(--ground)' : 'var(--text-dim)',
+              }}
+            >
+              {DAY_LETTER.format(d.date)}
+            </div>
+            <div
+              style={{
+                font: `600 ${isGated ? '13px' : '15px'}/1.1 ui-monospace,Menlo,monospace`,
+                color: isGated ? 'var(--warning)' : isBest ? 'var(--ground)' : 'var(--text)',
+                marginTop: 3,
+              }}
+            >
+              {isGated ? '×' : Math.round(d.score * 100)}
+            </div>
+            <div style={{ height: 3, background: isBest ? 'rgba(0,0,0,0.25)' : 'var(--ground-sunken)', marginTop: 4 }}>
+              <div
+                style={{
+                  height: 3,
+                  width: `${(isGated ? 0 : d.score) * 100}%`,
+                  background: isBest ? 'var(--ground)' : 'var(--signal)',
+                }}
+              />
+            </div>
           </div>
         );
       })}

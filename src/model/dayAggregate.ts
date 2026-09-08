@@ -30,9 +30,12 @@ export interface CragDayResult {
   dryFromHourOfDay: number | null; // 0-23, for display
   climbableDaylightHours: number;
   totalDaylightHours: number;
+  bestContiguousClimbableHours: number;
   bestFrictionBlockScore: number;
   limitingFactor: LimitingFactor;
   confidence: ModelAgreement;
+  /** Showers-mm / total-precipitation-mm for the day, 0 when no rain fell — §4.10. */
+  showerDominance: number;
 }
 
 export interface CragForecastResult {
@@ -45,7 +48,7 @@ export interface CragForecastResult {
   perModelDays: Partial<Record<ModelName, CragDayResult[]>>;
 }
 
-function toModelConfig(crag: Crag): CragModelConfig {
+export function toModelConfig(crag: Crag): CragModelConfig {
   return {
     aspectDeg: crag.aspectDeg,
     steepness: crag.steepness,
@@ -82,10 +85,14 @@ function computeDaysForModel(
     const dayInputs = inputs.slice(dayStart, dayEnd + 1);
     const isDayFlags = dayInputs.map((i) => i.isDay);
 
-    const { totalClimbableDaylightHours } = climbableHoursForDay(dayResults, isDayFlags);
+    const { totalClimbableDaylightHours, bestContiguousBlock } = climbableHoursForDay(dayResults, isDayFlags);
     const totalDaylightHours = isDayFlags.filter(Boolean).length;
 
     const windowHoursForDay = longestQualifyingWindowForDay(climbable, dayStart, dayEnd);
+
+    const dayPrecipMm = dayInputs.reduce((sum, i) => sum + i.precipitationMm, 0);
+    const dayShowersMm = dayInputs.reduce((sum, i) => sum + (i.showersMm ?? 0), 0);
+    const showerDominance = dayPrecipMm > 0 ? Math.min(1, dayShowersMm / dayPrecipMm) : 0;
 
     const frictionScores = dayResults.map((r, idx) =>
       frictionScoreHour({
@@ -93,6 +100,7 @@ function computeDaysForModel(
         idealTempC: crag.idealTempC,
         dewPointC: dayInputs[idx].dewPointC,
         windSpeedMs: dayInputs[idx].windSpeedMs,
+        windDirectionDeg: dayInputs[idx].windDirectionDeg,
         gtiFaceWm2: dayInputs[idx].gtiFaceWm2,
         aspectDeg: crag.aspectDeg,
         coastal: crag.coastal,
@@ -117,6 +125,7 @@ function computeDaysForModel(
       minWindowHours,
       climbableDaylightHours: totalClimbableDaylightHours,
       totalDaylightHours,
+      bestContiguousClimbableHours: bestContiguousBlock?.hours ?? 0,
       bestFrictionBlockScore: bestFriction,
     });
     const score = verdict === 'scored' ? breakdown.total : 0;
@@ -136,8 +145,10 @@ function computeDaysForModel(
       dryFromHourOfDay: dryFromOffset,
       climbableDaylightHours: totalClimbableDaylightHours,
       totalDaylightHours,
+      bestContiguousClimbableHours: bestContiguousBlock?.hours ?? 0,
       bestFrictionBlockScore: bestFriction,
       limitingFactor: limitingFactorAt(results, dayEnd),
+      showerDominance,
     });
   }
 

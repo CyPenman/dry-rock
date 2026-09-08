@@ -1,43 +1,18 @@
-import { Explain } from './Explain';
+import { useEffect, useState } from 'react';
+import { niceScale } from '../lib/chartScale';
+import { PARAMS } from '../model/params';
 import type { CragHourlyInput, HourResult } from '../model/wetness';
+import { ClimbableRibbon, Plot, STROKE, VW, dayBands, dayLabels, dot, fmt, fmtFine, gridlines, poly, sx } from './chart/kit';
+import { Explain } from './Explain';
 
-const WIDTH = 400;
-const HEIGHT = 260;
-const PAD_LEFT = 34;
-const PAD_RIGHT = 10;
-
-const DAY_LABEL = new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric' });
-
-// Font/stroke sizes here are picked for how this renders in practice: a ~350px-wide
-// mobile card, not the 400-unit viewBox literally. Numbers look large in the SVG
-// source; that's intentional, so labels stay readable once the browser scales down.
-const AXIS_FONT = 13;
-const LABEL_FONT = 14;
-
-function scaleX(i: number, n: number): number {
-  return PAD_LEFT + (i / Math.max(1, n - 1)) * (WIDTH - PAD_LEFT - PAD_RIGHT);
-}
-
-function polyline(points: [number, number][]): string {
-  return points.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
-}
-
-function LegendSwatch({ kind, colour, label }: { kind: 'line' | 'fill' | 'band'; colour: string; label: string }) {
-  return (
-    <span className="flex items-center gap-1.5">
-      {kind === 'line' && <span className="inline-block h-0.5 w-3.5" style={{ background: colour }} />}
-      {kind === 'fill' && <span className="inline-block h-3 w-3 rounded-sm" style={{ background: colour, opacity: 0.7 }} />}
-      {kind === 'band' && <span className="inline-block h-3 w-3 rounded-sm" style={{ background: colour, opacity: 0.3 }} />}
-      {label}
-    </span>
-  );
-}
+const TIME_LABEL = new Intl.DateTimeFormat('en-GB', { weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
 
 /**
- * The hourly conditions timeline — spec §6 crag detail, "the most important
- * visual in the app". Rain and rock wetness over the selected date range, with
- * climbable bands and a "now" marker. Sized and coloured for a phone screen
- * first; a longer explanation is tucked behind the "..." disclosure below.
+ * Hourly conditions — scrubbed small multiples (design study "Crag Charts",
+ * option 2a). Drag anywhere on either panel to move a fixed readout bar
+ * above the plot, so the current hour's numbers are never covered by your
+ * thumb. Replaces the old fixed-size combination chart, whose SVG text and
+ * strokes shrank to near-illegibility on a phone-width card.
  */
 export function HourlyTimeline({
   results,
@@ -49,102 +24,181 @@ export function HourlyTimeline({
   nowIdx: number;
 }) {
   const n = results.length;
+  const [scrub, setScrub] = useState(() => Math.max(0, Math.min(n - 1, nowIdx)));
+
+  useEffect(() => {
+    setScrub(Math.max(0, Math.min(results.length - 1, nowIdx)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [results, inputs]);
+
   if (n === 0) return null;
 
-  const maxPrecip = Math.max(1, ...inputs.map((i) => i.precipitationMm));
-  const maxWater = Math.max(0.3, ...results.map((r) => Math.max(r.S, r.M)));
+  const i = Math.max(0, Math.min(n - 1, scrub));
+  const cur = results[i];
+  const curInput = inputs[i];
+  const getDate = (idx: number) => new Date(inputs[idx].time * 1000);
 
-  const rainTop = 34;
-  const rainBottom = rainTop + 46;
-  const waterTop = rainBottom + 26;
-  const waterBottom = HEIGHT - 46;
+  const rainScale = niceScale(Math.max(...inputs.map((x) => x.precipitationMm)));
+  const waterScale = niceScale(Math.max(...results.map((r) => Math.max(r.S, r.M))));
+  const RH = 66;
+  const WH = 92;
+  const yR = (mm: number) => RH - (Math.min(mm, rainScale.max) / rainScale.max) * (RH - 4);
+  const yW = (mm: number) => WH - (Math.min(mm, waterScale.max) / waterScale.max) * (WH - 6);
+  const f = sx(i, n) / VW;
+  const climbable = results.map((r) => r.climbable);
 
-  const yWater = (mm: number) => waterBottom - (Math.min(mm, maxWater) / maxWater) * (waterBottom - waterTop);
-  const yRain = (mm: number) => rainBottom - (Math.min(mm, maxPrecip) / maxPrecip) * (rainBottom - rainTop);
+  const scrubLine = (h: number) => (
+    <line x1={sx(i, n)} x2={sx(i, n)} y1={0} y2={h} stroke="var(--text)" strokeWidth={1.5} {...STROKE} />
+  );
+  const cursorRail = (
+    <div style={{ position: 'absolute', left: `${f * 100}%`, top: 0, bottom: 0, width: 1, background: 'var(--text)', opacity: 0.35, pointerEvents: 'none' }} />
+  );
+  const onScrub = (fr: number) => setScrub(Math.round(fr * (n - 1)));
 
-  const sPoints: [number, number][] = results.map((r, i) => [scaleX(i, n), yWater(r.S)]);
-  const mPoints: [number, number][] = results.map((r, i) => [scaleX(i, n), yWater(r.M)]);
-  const mArea = `${PAD_LEFT},${waterBottom} ${polyline(mPoints)} ${WIDTH - PAD_RIGHT},${waterBottom}`;
-
-  const rainPoints: [number, number][] = inputs.map((inp, i) => [scaleX(i, n), yRain(inp.precipitationMm)]);
-  const rainArea = `${PAD_LEFT},${rainBottom} ${polyline(rainPoints)} ${WIDTH - PAD_RIGHT},${rainBottom}`;
-
-  // Day boundaries and date labels. Assumes index 0 of this slice is local midnight.
-  const dayMarks: { x: number; idx: number }[] = [];
-  for (let i = 0; i < n; i += 24) dayMarks.push({ x: scaleX(i, n), idx: i });
-
-  const bands: { x0: number; x1: number }[] = [];
-  let bandStart: number | null = null;
-  for (let i = 0; i < n; i++) {
-    if (results[i].climbable && bandStart === null) bandStart = i;
-    if (!results[i].climbable && bandStart !== null) {
-      bands.push({ x0: scaleX(bandStart, n), x1: scaleX(i - 1, n) });
-      bandStart = null;
-    }
-  }
-  if (bandStart !== null) bands.push({ x0: scaleX(bandStart, n), x1: scaleX(n - 1, n) });
+  const statusText = cur.climbable
+    ? 'Climbable at this hour'
+    : cur.S >= PARAMS.S_dry
+      ? 'Wet — water on the surface'
+      : 'Wet — still damp inside the rock';
 
   return (
     <div>
-      <p className="text-sm" style={{ color: 'var(--text)' }}>
-        Rain and rock wetness, hour by hour
-      </p>
-      <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="mt-1 w-full" role="img" aria-label="Hourly rain and wetness timeline">
-        <text x={4} y={rainTop - 10} fontSize={AXIS_FONT} fill="var(--text-dim)">
-          Rain
-        </text>
-        <text x={4} y={waterTop + 12} fontSize={AXIS_FONT} fill="var(--text-dim)">
-          Wetness
-        </text>
+      {/* fixed readout bar — above the plot, never under the finger */}
+      <div style={{ border: '1px solid var(--border)', marginBottom: 10 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(0,1fr))', gap: 1, background: 'var(--border)' }}>
+          {(
+            [
+              ['time', TIME_LABEL.format(getDate(i)), 'var(--text)', undefined],
+              ['rain', fmt(curInput.precipitationMm), curInput.precipitationMm > 0.05 ? 'var(--chart-water)' : 'var(--text-dim)', 'mm/hr'],
+              ['surface', fmtFine(cur.S), 'var(--chart-water)', 'mm'],
+              ['inside', fmtFine(cur.M), 'var(--chart-water-soft)', 'mm'],
+            ] as const
+          ).map(([k, v, c, u], idx) => (
+            <div key={idx} style={{ background: 'var(--ground-raised)', padding: '7px 9px' }}>
+              <div style={{ font: '600 10px/1 system-ui,sans-serif', letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>{k}</div>
+              <div style={{ font: '600 15px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace', color: c, marginTop: 4 }}>
+                {v}
+                {u && <span style={{ font: '400 10.5px/1 system-ui,sans-serif', color: 'var(--text-faint)', marginLeft: 3 }}>{u}</span>}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div
+          style={{
+            background: cur.climbable ? 'var(--signal)' : 'var(--ground-raised)',
+            color: cur.climbable ? 'var(--ground)' : 'var(--warning)',
+            padding: '5px 9px',
+            font: '600 12px/1.3 system-ui,sans-serif',
+            borderTop: '1px solid var(--border)',
+          }}
+        >
+          {statusText}
+        </div>
+      </div>
 
-        {dayMarks.map((d, i) => (
-          <line key={i} x1={d.x} y1={rainTop - 4} x2={d.x} y2={waterBottom} stroke="var(--border)" strokeWidth={1.5} />
-        ))}
+      <div style={{ display: 'grid', gridTemplateColumns: '38px minmax(0,1fr)', alignItems: 'center', marginBottom: 4 }}>
+        <div
+          style={{
+            font: '600 10px/1 system-ui,sans-serif',
+            textTransform: 'uppercase',
+            letterSpacing: '0.06em',
+            color: 'var(--text-dim)',
+            textAlign: 'right',
+            paddingRight: 7,
+          }}
+        >
+          dry
+        </div>
+        <div style={{ position: 'relative' }}>
+          <ClimbableRibbon climbable={climbable} h={16} />
+          {cursorRail}
+        </div>
+      </div>
 
-        {bands.map((b, i) => (
-          <rect key={i} x={b.x0} y={waterTop} width={Math.max(2, b.x1 - b.x0)} height={waterBottom - waterTop} fill="var(--signal)" opacity={0.28} />
-        ))}
+      <div style={{ font: '600 12px/1 system-ui,sans-serif', color: 'var(--text)', margin: '12px 0 2px 38px' }}>
+        Rain <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>mm/hr</span>
+      </div>
+      <Plot h={RH} xAxisH={0} onScrub={onScrub} ariaLabel="Hourly rain" yLabels={rainScale.ticks.map((v) => ({ y: yR(v), label: fmt(v) }))} overlay={cursorRail}>
+        {dayBands(n, RH)}
+        {gridlines(rainScale.ticks, yR, RH)}
+        <polygon points={`0,${RH} ${poly(inputs.map((x, k) => [sx(k, n), yR(x.precipitationMm)]))} ${VW},${RH}`} fill="var(--chart-water)" opacity={0.3} />
+        <polyline
+          points={poly(inputs.map((x, k) => [sx(k, n), yR(x.precipitationMm)]))}
+          fill="none"
+          stroke="var(--chart-water)"
+          strokeWidth={2.5}
+          strokeLinejoin="round"
+          {...STROKE}
+        />
+        {scrubLine(RH)}
+      </Plot>
 
-        {/* rain */}
-        <polygon points={rainArea} fill="var(--wet)" opacity={0.8} />
-        <line x1={PAD_LEFT} y1={rainBottom} x2={WIDTH - PAD_RIGHT} y2={rainBottom} stroke="var(--border)" strokeWidth={1.5} />
+      <div style={{ font: '600 12px/1 system-ui,sans-serif', color: 'var(--text)', margin: '14px 0 2px 38px' }}>
+        Rock wetness <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>mm</span>
+      </div>
+      <Plot
+        h={WH}
+        onScrub={onScrub}
+        ariaLabel="Rock wetness"
+        yLabels={waterScale.ticks.map((v) => ({ y: yW(v), label: fmt(v) }))}
+        xLabels={dayLabels(getDate, n)}
+        overlay={
+          <>
+            {cursorRail}
+            {dot(f, yW(results[i].S), 'var(--chart-water)', 9, 'd1')}
+            {dot(f, yW(results[i].M), 'var(--chart-water-soft)', 9, 'd2')}
+          </>
+        }
+      >
+        {dayBands(n, WH)}
+        {gridlines(waterScale.ticks, yW, WH)}
+        <polygon points={`0,${WH} ${poly(results.map((r, k) => [sx(k, n), yW(r.M)]))} ${VW},${WH}`} fill="var(--chart-water-soft)" opacity={0.34} />
+        <polyline
+          points={poly(results.map((r, k) => [sx(k, n), yW(r.M)]))}
+          fill="none"
+          stroke="var(--chart-water-soft)"
+          strokeWidth={2}
+          strokeLinejoin="round"
+          {...STROKE}
+        />
+        <polyline
+          points={poly(results.map((r, k) => [sx(k, n), yW(r.S)]))}
+          fill="none"
+          stroke="var(--chart-water)"
+          strokeWidth={3}
+          strokeLinejoin="round"
+          {...STROKE}
+        />
+        {scrubLine(WH)}
+      </Plot>
 
-        {/* matrix wetness (M) as a filled area behind the surface curve */}
-        <polygon points={mArea} fill="var(--wet)" opacity={0.45} />
-        {/* surface wetness (S) */}
-        <polyline points={polyline(sPoints)} fill="none" stroke="var(--dry)" strokeWidth={2.5} />
-
-        <line x1={PAD_LEFT} y1={waterBottom} x2={WIDTH - PAD_RIGHT} y2={waterBottom} stroke="var(--border)" strokeWidth={1.5} />
-
-        {/* now marker */}
-        {nowIdx >= 0 && nowIdx < n && (
-          <line x1={scaleX(nowIdx, n)} y1={rainTop - 4} x2={scaleX(nowIdx, n)} y2={waterBottom} stroke="var(--signal)" strokeWidth={2.5} strokeDasharray="5 4" />
-        )}
-
-        {/* day labels along the bottom */}
-        {dayMarks.map((d, i) => (
-          <text key={i} x={d.x} y={HEIGHT - 26} fontSize={LABEL_FONT} fill="var(--text)" textAnchor="start">
-            {DAY_LABEL.format(inputs[d.idx] ? new Date(inputs[d.idx].time * 1000) : new Date())}
-          </text>
-        ))}
-      </svg>
-
-      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1.5 text-sm" style={{ color: 'var(--text-dim)' }}>
-        <LegendSwatch kind="fill" colour="var(--wet)" label="rain" />
-        <LegendSwatch kind="line" colour="var(--dry)" label="surface film" />
-        <LegendSwatch kind="fill" colour="var(--wet)" label="inside the rock" />
-        <LegendSwatch kind="band" colour="var(--signal)" label="climbable" />
+      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm" style={{ color: 'var(--text-dim)' }}>
         <span className="flex items-center gap-1.5">
-          <span className="inline-block h-3 w-0.5" style={{ background: 'var(--signal)' }} />
-          now
+          <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: 'var(--signal)' }} />
+          climbable
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-0.5 w-3.5" style={{ background: 'var(--chart-water)' }} />
+          surface film
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: 'var(--chart-water-soft)', opacity: 0.6 }} />
+          inside the rock
         </span>
       </div>
 
       <Explain>
         <p>
-          <strong>Rain</strong> is how hard it's falling that hour. <strong>Wetness</strong> has two layers: the pale
-          line is the film of water sitting on the surface, and the shaded area behind it is water held inside the
-          rock. Both need to be low, and the green band shows exactly when that's the case, before the rock reads as
+          <strong>Climbable</strong> — the green ribbon marks exactly which hours qualify. Drag anywhere on either panel
+          below to move the readout bar at the top to that hour.
+        </p>
+        <p>
+          <strong>Rain</strong> is how hard it's falling that hour, in millimetres per hour.
+        </p>
+        <p>
+          <strong>Rock wetness</strong> has two layers, both in millimetres: <strong>surface film</strong> (the bright
+          line) is water sitting directly on the surface — what your hands touch. <strong>Inside the rock</strong>{' '}
+          (the pale fill) is water held deeper in the outer skin. Both need to be low before the rock reads as
           climbable.
         </p>
       </Explain>

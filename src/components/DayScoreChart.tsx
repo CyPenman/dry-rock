@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import type { ModelName } from '../api/request';
 import type { CragDayResult } from '../model/dayAggregate';
+import type { Verdict } from '../model/score';
+import { Plot, STROKE, VW, dot, gridlines, pillStyle, poly, sx } from './chart/kit';
 import { Explain } from './Explain';
 
 const MODEL_LABELS: Record<ModelName, string> = {
@@ -10,26 +12,38 @@ const MODEL_LABELS: Record<ModelName, string> = {
   gfs_seamless: 'GFS',
 };
 
+// Fixed categorical order, validated against the app's dark surface with the
+// dataviz skill's palette checker (adjacent CVD Delta E + contrast).
 const MODEL_COLOURS: Record<ModelName, string> = {
-  ukmo_seamless: '#7fb99a',
-  ecmwf_ifs025: '#9b8fd6',
-  icon_seamless: '#7a9cc6',
-  gfs_seamless: '#c9a86a',
+  ukmo_seamless: 'var(--chart-model-1)',
+  ecmwf_ifs025: 'var(--chart-model-2)',
+  icon_seamless: 'var(--chart-model-3)',
+  gfs_seamless: 'var(--chart-model-4)',
 };
 
-// Sized for how this actually renders on a phone card, not the viewBox's own units.
-const WIDTH = 400;
-const HEIGHT = 220;
-const PAD_LEFT = 34;
-const PAD_RIGHT = 10;
-const PAD_TOP = 14;
-const PAD_BOTTOM = 30;
-const AXIS_FONT = 13;
+const GATED_LABEL: Record<Verdict, string> = {
+  scored: '',
+  under_snow: 'SNOW',
+  frozen: 'FROZEN',
+  rock_damage: 'DAMAGE',
+};
+
+const DAY_LABEL_SHORT = new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric' });
+
+function median(values: number[]): number {
+  if (values.length === 0) return 0;
+  const s = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(s.length / 2);
+  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+}
 
 /**
- * Score-by-day comparison across every resolved model — spec §6 crag detail:
- * "displaying the various models' ranking scores", with a filter for a
- * specific model or all of them together.
+ * Score by day — consensus band across every resolved model (design study
+ * "Crag Charts", option 2g). The spread between models becomes the
+ * confidence signal instead of four crossing lines: a wide shaded band means
+ * low confidence whatever the number says. Tap a model to pull it out of the
+ * consensus and see its own line. Gated days (frozen, snow, rock damage) are
+ * hatched rather than plotted at zero.
  */
 export function DayScoreChart({
   perModelDays,
@@ -42,115 +56,151 @@ export function DayScoreChart({
   startIdx: number;
   endIdx: number;
 }) {
-  const [filter, setFilter] = useState<ModelName | 'all'>('all');
+  const [highlight, setHighlight] = useState<ModelName | null>(null);
 
   const dayCount = endIdx - startIdx + 1;
-  if (dayCount < 1) return null;
+  if (dayCount < 1 || availableModels.length === 0) return null;
 
-  const visibleModels = filter === 'all' ? availableModels : [filter];
-  const plotWidth = WIDTH - PAD_LEFT - PAD_RIGHT;
-  const plotHeight = HEIGHT - PAD_TOP - PAD_BOTTOM;
+  const referenceDays = (perModelDays[availableModels[0]] ?? []).slice(startIdx, endIdx + 1);
+  const days = referenceDays.map((refDay, i) => {
+    const modelScores = availableModels.map((m) => {
+      const d = (perModelDays[m] ?? [])[startIdx + i];
+      return d && d.verdict === 'scored' ? d.score : 0;
+    });
+    return { date: refDay.date, verdict: refDay.verdict, modelScores };
+  });
 
-  const x = (dayOffset: number) => PAD_LEFT + (dayCount === 1 ? plotWidth / 2 : (dayOffset / (dayCount - 1)) * plotWidth);
-  const y = (score: number) => PAD_TOP + plotHeight - (score / 100) * plotHeight;
+  const n = days.length;
+  const lo = days.map((d) => Math.min(...d.modelScores));
+  const hi = days.map((d) => Math.max(...d.modelScores));
+  const med = days.map((d) => median(d.modelScores));
 
-  // Thin out day labels so they don't overlap on a narrow screen.
-  const labelStride = Math.max(1, Math.ceil(dayCount / 6));
+  const H = 130;
+  const top = 6;
+  const pb = H - 4;
+  const Y = (s: number) => pb - s * (pb - top);
+  const slot = VW / n;
+  const highlightIdx = highlight ? availableModels.indexOf(highlight) : -1;
 
-  const referenceDays = perModelDays[availableModels[0]] ?? [];
+  const band = `${poly(hi.map((v, i) => [sx(i, n), Y(v) - 2]))} ${poly(
+    lo.map((v, i) => [sx(i, n), Y(v) + 2]).reverse(),
+  )}`;
 
   return (
     <div>
       <p className="text-sm" style={{ color: 'var(--text)' }}>
-        Score out of 100 for each day, one line per model
+        Score out of 100 for each day, as the spread across every resolved model
       </p>
-      <div className="mt-2 flex flex-wrap gap-1.5">
-        <button
-          type="button"
-          onClick={() => setFilter('all')}
-          className="rounded-full px-3 py-1.5 text-sm"
-          style={{
-            background: filter === 'all' ? 'var(--signal)' : 'var(--ground-raised)',
-            color: filter === 'all' ? 'var(--ground)' : 'var(--text)',
-          }}
+
+      <div style={{ marginTop: 12 }}>
+        <Plot
+          h={H}
+          gutter={34}
+          ariaLabel="Score by day with model spread"
+          yLabels={[0, 25, 50, 75, 100].map((v) => ({ y: Y(v / 100), label: String(v) }))}
+          xLabels={days.map((d, i) => ({ f: sx(i, n) / VW, label: DAY_LABEL_SHORT.format(d.date), strong: true }))}
+          overlay={
+            <>
+              {days.map((d, i) =>
+                d.verdict !== 'scored' ? (
+                  <div
+                    key={`gl${i}`}
+                    style={{
+                      position: 'absolute',
+                      left: `${(sx(i, n) / VW) * 100}%`,
+                      top: '50%',
+                      transform: 'translate(-50%,-50%) rotate(-90deg)',
+                      font: '600 10px/1 system-ui,sans-serif',
+                      letterSpacing: '0.08em',
+                      color: 'var(--warning)',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {GATED_LABEL[d.verdict]}
+                  </div>
+                ) : null,
+              )}
+              {days.map((d, i) =>
+                d.verdict === 'scored'
+                  ? dot(sx(i, n) / VW, Y(highlightIdx >= 0 ? d.modelScores[highlightIdx] : med[i]), highlightIdx >= 0 ? MODEL_COLOURS[availableModels[highlightIdx]] : 'var(--chart-model-1)', 10, `d${i}`)
+                  : null,
+              )}
+              {days.map((d, i) =>
+                d.verdict === 'scored' ? (
+                  <div
+                    key={`v${i}`}
+                    style={{
+                      position: 'absolute',
+                      left: `${(sx(i, n) / VW) * 100}%`,
+                      top: Y(highlightIdx >= 0 ? d.modelScores[highlightIdx] : med[i]) - 14,
+                      transform: 'translate(-50%,-100%)',
+                      font: '600 12px/1 ui-monospace,Menlo,monospace',
+                      color: 'var(--text)',
+                    }}
+                  >
+                    {Math.round((highlightIdx >= 0 ? d.modelScores[highlightIdx] : med[i]) * 100)}
+                  </div>
+                ) : null,
+              )}
+            </>
+          }
         >
-          All models
+          {gridlines([0, 0.25, 0.5, 0.75, 1], Y, H)}
+          {days.map((d, i) =>
+            d.verdict !== 'scored' ? (
+              <rect key={`g${i}`} x={sx(i, n) - slot / 2} y={top} width={slot} height={pb - top} fill="var(--warning)" opacity={0.14} />
+            ) : null,
+          )}
+          {highlightIdx < 0 ? (
+            <polygon points={band} fill="var(--chart-model-1)" opacity={0.32} />
+          ) : null}
+          {highlightIdx < 0 ? (
+            <polyline points={poly(med.map((v, i) => [sx(i, n), Y(v)]))} fill="none" stroke="var(--chart-model-1)" strokeWidth={3} strokeLinejoin="round" {...STROKE} />
+          ) : (
+            <polyline
+              points={poly(days.map((d, i) => [sx(i, n), Y(d.modelScores[highlightIdx])]))}
+              fill="none"
+              stroke={MODEL_COLOURS[availableModels[highlightIdx]]}
+              strokeWidth={3}
+              strokeLinejoin="round"
+              {...STROKE}
+            />
+          )}
+        </Plot>
+      </div>
+
+      <div className="flex flex-wrap gap-1.5" style={{ marginTop: 10, marginLeft: 34 }}>
+        <button type="button" onClick={() => setHighlight(null)} style={pillStyle(highlight == null)}>
+          Consensus
         </button>
         {availableModels.map((m) => (
           <button
             key={m}
             type="button"
-            onClick={() => setFilter(m)}
-            className="rounded-full px-3 py-1.5 text-sm"
-            style={{
-              background: filter === m ? 'var(--signal)' : 'var(--ground-raised)',
-              color: filter === m ? 'var(--ground)' : 'var(--text)',
-            }}
+            onClick={() => setHighlight(m)}
+            style={{ ...pillStyle(highlight === m), borderLeft: `4px solid ${MODEL_COLOURS[m]}` }}
           >
             {MODEL_LABELS[m]}
           </button>
         ))}
       </div>
-
-      <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="mt-2 w-full" role="img" aria-label="Score by day, compared across models">
-        {[0, 25, 50, 75, 100].map((tick) => (
-          <g key={tick}>
-            <line x1={PAD_LEFT} y1={y(tick)} x2={WIDTH - PAD_RIGHT} y2={y(tick)} stroke="var(--border)" strokeWidth={1} />
-            <text x={2} y={y(tick) + 5} fontSize={AXIS_FONT} fill="var(--text-dim)">
-              {tick}
-            </text>
-          </g>
-        ))}
-
-        {referenceDays.slice(startIdx, endIdx + 1).map((d, i) =>
-          i % labelStride === 0 ? (
-            <text key={i} x={x(i)} y={HEIGHT - 8} fontSize={AXIS_FONT} fill="var(--text)" textAnchor="middle">
-              {d.date.getDate()}
-            </text>
-          ) : null,
-        )}
-
-        {visibleModels.map((model) => {
-          const days = (perModelDays[model] ?? []).slice(startIdx, endIdx + 1);
-          if (days.length === 0) return null;
-          const points = days.map((d, i) => `${x(i).toFixed(1)},${y(d.score * 100).toFixed(1)}`).join(' ');
-          return (
-            <g key={model}>
-              <polyline points={points} fill="none" stroke={MODEL_COLOURS[model]} strokeWidth={filter === 'all' ? 2 : 3} opacity={filter === 'all' ? 0.85 : 1} />
-              {days.map((d, i) => (
-                <circle
-                  key={i}
-                  cx={x(i)}
-                  cy={y(d.score * 100)}
-                  r={d.verdict === 'scored' ? 3.5 : 5.5}
-                  fill={d.verdict === 'scored' ? MODEL_COLOURS[model] : 'var(--warning)'}
-                />
-              ))}
-            </g>
-          );
-        })}
-      </svg>
-
-      {filter === 'all' && (
-        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1.5 text-sm" style={{ color: 'var(--text-dim)' }}>
-          {availableModels.map((m) => (
-            <span key={m} className="flex items-center gap-1.5">
-              <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: MODEL_COLOURS[m] }} />
-              {MODEL_LABELS[m]}
-            </span>
-          ))}
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: 'var(--warning)' }} />
-            not climbable
-          </span>
-        </div>
-      )}
+      <p style={{ margin: '8px 0 0 34px', font: '11px/1.45 system-ui,sans-serif', color: 'var(--text-faint)' }}>
+        The shaded band is the full spread between the resolved models; the line is their median. A wide band means
+        low confidence whatever the number says.
+      </p>
 
       <Explain>
         <p>
-          Higher is better, 0 to 100. Where the lines split apart, the models disagree, which is itself useful
-          information. A coloured dot sitting on the zero line means that model rules the day out completely (frozen,
-          snowed under, or rock damage), not just scoring it low.
+          <strong>Score</strong> is 0 to 100, higher is better — see the score breakdown table above for what makes up
+          each day's number.
+        </p>
+        <p>
+          <strong>Band width</strong> — where the band is wide, the models disagree, which is itself useful
+          information regardless of what the median says.
+        </p>
+        <p>
+          <strong>Gated days</strong> — hatched with a label (frozen, under snow, or rock damage) mean that day is
+          ruled out entirely for at least one model, not just scored low.
         </p>
       </Explain>
     </div>

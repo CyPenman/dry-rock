@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { CRAGS } from '../data/crags';
 import {
   compositeScore,
+  computeScoreBreakdown,
+  confidenceCaveat,
   confidenceSentence,
   dayVerdict,
   hadFreezeThawCycle,
@@ -41,6 +43,7 @@ describe('compositeScore (§4.9)', () => {
       minWindowHours: 48,
       climbableDaylightHours: 10,
       totalDaylightHours: 10,
+      bestContiguousClimbableHours: 10,
       bestFrictionBlockScore: 1,
     });
     expect(score).toBeCloseTo(0.4 * 1.0 + 0.35 * 1.0 + 0.25 * 1.0);
@@ -54,6 +57,47 @@ describe('compositeScore (§4.9)', () => {
       bestFrictionBlockScore: 0,
     });
     expect(score).toBe(0);
+  });
+});
+
+describe('rockDrynessScore contiguity blending', () => {
+  it('scores an unbroken block higher than the same total hours scattered', () => {
+    const scattered = computeScoreBreakdown({
+      windowHours: 96,
+      climbableDaylightHours: 3,
+      totalDaylightHours: 10,
+      bestContiguousClimbableHours: 1, // three separate 1h gaps
+      bestFrictionBlockScore: 1,
+    });
+    const unbroken = computeScoreBreakdown({
+      windowHours: 96,
+      climbableDaylightHours: 3,
+      totalDaylightHours: 10,
+      bestContiguousClimbableHours: 3, // one unbroken 3h window
+      bestFrictionBlockScore: 1,
+    });
+    expect(unbroken.rockDrynessScore).toBeGreaterThan(scattered.rockDrynessScore);
+    expect(unbroken.total).toBeGreaterThan(scattered.total);
+  });
+
+  it('falls back to 0 contiguous credit when omitted, without throwing', () => {
+    const breakdown = computeScoreBreakdown({
+      windowHours: 96,
+      climbableDaylightHours: 5,
+      totalDaylightHours: 10,
+      bestFrictionBlockScore: 1,
+    });
+    expect(breakdown.rockDrynessScore).toBeCloseTo(0.5 * 0.5 + 0.5 * 0);
+  });
+});
+
+describe('confidenceCaveat (§4.10 showery widening)', () => {
+  it('is null when precipitation was mostly frontal', () => {
+    expect(confidenceCaveat(0.2)).toBeNull();
+  });
+
+  it('warns when precipitation was mostly convective', () => {
+    expect(confidenceCaveat(0.8)).toMatch(/showery/i);
   });
 });
 

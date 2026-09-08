@@ -95,4 +95,33 @@ describe('computeCragForecast', () => {
     expect(result!.days[0].verdict).toBe('under_snow');
     expect(result!.days[0].score).toBe(0);
   });
+
+  it('reports showerDominance near 1 when precipitation was entirely convective (§4.10)', () => {
+    const cell = makeCellForecast(24);
+    cell.models.ukmo_seamless.precipitation = cell.time.map(() => 1);
+    cell.models.ukmo_seamless.showers = cell.time.map(() => 1);
+    const result = computeCragForecast(crag('portland-cuttings'), cell);
+    expect(result!.days[0].showerDominance).toBeCloseTo(1);
+  });
+
+  it('reports showerDominance 0 when there is no precipitation, or when it was entirely frontal', () => {
+    const dry = makeCellForecast(24);
+    const dryResult = computeCragForecast(crag('portland-cuttings'), dry);
+    expect(dryResult!.days[0].showerDominance).toBe(0);
+
+    const frontal = makeCellForecast(24);
+    frontal.models.ukmo_seamless.precipitation = frontal.time.map(() => 1);
+    frontal.models.ukmo_seamless.showers = frontal.time.map(() => 0);
+    const frontalResult = computeCragForecast(crag('portland-cuttings'), frontal);
+    expect(frontalResult!.days[0].showerDominance).toBe(0);
+  });
+
+  it('populates bestContiguousClimbableHours, no larger than the total climbable hours', () => {
+    const cell = makeCellForecast(24 * 2);
+    const result = computeCragForecast(crag('portland-cuttings'), cell);
+    for (const day of result!.days) {
+      expect(day.bestContiguousClimbableHours).toBeLessThanOrEqual(day.climbableDaylightHours);
+      expect(day.bestContiguousClimbableHours).toBeGreaterThanOrEqual(0);
+    }
+  });
 });

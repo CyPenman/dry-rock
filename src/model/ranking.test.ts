@@ -17,9 +17,11 @@ function makeDay(overrides: Partial<CragDayResult> = {}): CragDayResult {
     dryFromHourOfDay: null,
     climbableDaylightHours: 6,
     totalDaylightHours: 10,
+    bestContiguousClimbableHours: 6,
     bestFrictionBlockScore: 0.5,
     limitingFactor: 'none',
     confidence: { agreeCount: 4, total: 4, fraction: 1 },
+    showerDominance: 0,
     ...overrides,
   };
 }
@@ -68,6 +70,23 @@ describe('rankCragDays', () => {
     const ranked = rankCragDays(entries, [0, 2], null);
     expect(ranked[0].day.score).toBe(0.9);
     expect(ranked[0].daysInRange).toHaveLength(3);
+  });
+
+  it('caps a showery high-confidence day below a genuinely high-confidence one (§4.10 widening)', () => {
+    const entries = [
+      {
+        crag: portland,
+        days: [makeDay({ score: 0.9, confidence: { agreeCount: 4, total: 4, fraction: 1 }, showerDominance: 0.9 })],
+      },
+      {
+        crag: stanage,
+        days: [makeDay({ score: 0.6, confidence: { agreeCount: 3, total: 4, fraction: 0.75 }, showerDominance: 0 })],
+      },
+    ];
+    const ranked = rankCragDays(entries, [0, 0], null);
+    // Both would land in the "high confidence" tier on raw fraction alone, but
+    // the showery day is capped to "medium" — the frontal, uncapped day should rank first.
+    expect(ranked[0].crag.id).toBe('stanage');
   });
 
   it('drops entries with no day result and attaches distance when home is set', () => {

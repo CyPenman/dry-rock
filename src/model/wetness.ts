@@ -19,6 +19,9 @@ const PFACE_EWMA_TAU_HOURS = 8;
 export interface CragHourlyInput {
   time: number; // unixtime
   precipitationMm: number;
+  /** Convective share of precipitationMm — §4.10 confidence widening. Optional so
+   * existing fixtures without it still compile; treated as 0 (frontal) when absent. */
+  showersMm?: number;
   snowDepthM: number;
   tempC: number;
   dewPointC: number;
