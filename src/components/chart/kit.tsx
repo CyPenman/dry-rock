@@ -57,6 +57,9 @@ export function Plot({
   children,
   onScrub,
   xAxisH = 22,
+  /** Angle (degrees) to rotate x-axis labels, anchored top-right of each tick - for
+   * dense day counts where horizontal labels would collide (§6 water budget). */
+  xLabelRotateDeg = 0,
   ariaLabel,
 }: {
   h: number;
@@ -66,6 +69,7 @@ export function Plot({
   overlay?: ReactNode;
   onScrub?: (frac: number) => void;
   xAxisH?: number;
+  xLabelRotateDeg?: number;
   ariaLabel: string;
   children: ReactNode;
 }) {
@@ -127,7 +131,8 @@ export function Plot({
               position: 'absolute',
               left: `${l.f * 100}%`,
               top: 3,
-              transform: 'translateX(-50%)',
+              transform: xLabelRotateDeg ? `translateX(-100%) rotate(-${xLabelRotateDeg}deg)` : 'translateX(-50%)',
+              transformOrigin: xLabelRotateDeg ? 'top right' : undefined,
               font: `${l.strong ? '600' : '500'} ${l.strong ? 12 : 11}px/1 ui-monospace,SFMono-Regular,Menlo,monospace`,
               color: l.strong ? 'var(--text)' : 'var(--text-dim)',
               whiteSpace: 'nowrap',

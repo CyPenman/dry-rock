@@ -84,7 +84,15 @@ function App() {
               />
             </div>
             <div className="h-full w-1/2 min-w-0 overflow-hidden">
-              <CragsMap results={results} dateRange={dateRange} active={activeTab === 'map'} />
+              <CragsMap
+                results={results}
+                dateRange={dateRange}
+                active={activeTab === 'map'}
+                loading={loading}
+                fetchedAt={fetchedAt}
+                stale={stale}
+                onRefresh={refresh}
+              />
             </div>
           </div>
         </div>
@@ -126,6 +134,10 @@ function App() {
             onBack={() => setView({ name: 'home' })}
             dateRange={dateRange}
             todayIndex={PAST_DAYS}
+            loading={loading}
+            fetchedAt={fetchedAt}
+            stale={stale}
+            onRefresh={refresh}
           />
         </div>
       )}

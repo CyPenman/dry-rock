@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { dateToDayIndex, dayIndexToDate } from '../model/dateRange';
 
 const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -82,7 +83,13 @@ export function CalendarRangePicker({
     return date >= start && date <= end;
   }
 
-  return (
+  // Portalled to <body> - this component is mounted inside App.tsx's swipeable
+  // Crags/Map track, which carries a CSS `transform` for the tab-switch
+  // animation (§6). A `transform` on an ancestor redefines the containing
+  // block for `position: fixed` descendants to that ancestor's own box rather
+  // than the viewport, so without the portal this modal sized/positioned
+  // itself against the (2x-viewport-wide) track instead of the screen.
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center" onClick={onCancel}>
       <div
         className="w-full max-w-screen-sm rounded-t-2xl border p-4 sm:rounded-2xl"
@@ -172,6 +179,7 @@ export function CalendarRangePicker({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

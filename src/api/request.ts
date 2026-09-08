@@ -2,6 +2,7 @@
 
 export const HOURLY_VARS = [
   'precipitation',
+  'precipitation_probability',
   'rain',
   'showers',
   'snowfall',

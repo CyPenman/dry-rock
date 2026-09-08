@@ -64,6 +64,7 @@ export function buildHourlyInputsForModel(crag: Crag, cell: CellForecast, model:
       isDay: (vars.is_day?.[i] ?? 1) === 1,
       gtiFaceWm2,
       soilMoistureDeep: soilMoistureDeepSeries ? (soilMoistureDeepSeries[i] ?? null) : null,
+      precipProbabilityPct: vars.precipitation_probability?.[i] ?? null,
     };
   }
 

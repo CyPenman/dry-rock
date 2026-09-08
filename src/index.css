@@ -93,7 +93,7 @@ body {
 }
 .leaflet-popup-content {
   margin: 10px 12px;
-  min-width: 150px;
+  min-width: 190px;
 }
 .leaflet-popup-close-button {
   color: var(--text-dim) !important;
@@ -119,4 +119,39 @@ body {
   font-family: ui-monospace, Menlo, monospace;
   font-size: 16px;
   font-weight: 600;
+}
+.popup-day-list {
+  margin-top: 7px;
+  border-top: 1px solid var(--border);
+  padding-top: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.popup-day-row {
+  display: grid;
+  grid-template-columns: 9px 52px auto 1fr;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.popup-day-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.popup-day-name {
+  color: var(--text);
+  font-weight: 500;
+}
+.popup-day-score {
+  font-family: ui-monospace, Menlo, monospace;
+  font-weight: 600;
+  color: var(--text);
+}
+.popup-day-rain {
+  text-align: right;
 }

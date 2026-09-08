@@ -33,6 +33,8 @@ export interface CragHourlyInput {
   isDay: boolean;
   gtiFaceWm2: number; // pre-computed plane-of-array irradiance, §3.4
   soilMoistureDeep: number | null; // null when unavailable for the resolved model, §3.5
+  /** Open-Meteo's own precipitation_probability, % - null for models that don't publish it (UKMO doesn't). */
+  precipProbabilityPct?: number | null;
 }
 
 export interface CragModelConfig {

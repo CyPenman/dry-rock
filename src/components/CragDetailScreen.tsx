@@ -3,7 +3,7 @@ import { buildEnsembleUrl } from '../api/ensembleRequest';
 import { fetchEnsembleForecast } from '../api/ensembleClient';
 import { FORECAST_DAYS, PAST_DAYS } from '../api/request';
 import type { CragWithForecast } from '../hooks/useForecast';
-import { formatDayLabel } from '../lib/format';
+import { formatAgeWords, formatDayLabel } from '../lib/format';
 import { resolveDateRange, type DateRangeSelection } from '../model/dateRange';
 import { toModelConfig } from '../model/dayAggregate';
 import { runEnsembleForCrag, type EnsembleDayResult } from '../model/ensemble';
@@ -84,6 +84,10 @@ export function CragDetailScreen({
   onBack,
   dateRange,
   todayIndex,
+  loading,
+  fetchedAt,
+  stale,
+  onRefresh,
 }: {
   entry: CragWithForecast;
   pinned: boolean;
@@ -91,6 +95,10 @@ export function CragDetailScreen({
   onBack: () => void;
   dateRange: DateRangeSelection;
   todayIndex: number;
+  loading: boolean;
+  fetchedAt: number | null;
+  stale: boolean;
+  onRefresh: () => void;
 }) {
   const { crag, forecast } = entry;
 
@@ -170,6 +178,14 @@ export function CragDetailScreen({
       <div className="px-4 text-sm" style={{ color: 'var(--text-dim)' }}>
         {crag.area} &middot; {crag.rock} &middot; {crag.steepness}
       </div>
+      <div className="px-4 text-xs" style={{ color: 'var(--text-dim)' }}>
+        {fetchedAt ? formatAgeWords(fetchedAt) : 'loading...'}
+        {stale && ", showing cached data as we couldn't reach the network"}
+        {' · '}
+        <button type="button" onClick={onRefresh} style={{ color: 'var(--signal)' }}>
+          {loading ? 'Refreshing...' : 'Refresh'}
+        </button>
+      </div>
 
       {!forecast && (
         <p className="px-4 py-6 text-sm" style={{ color: 'var(--warning)' }}>
@@ -216,7 +232,7 @@ export function CragDetailScreen({
             <h2 className="pb-2 text-xs uppercase tracking-wide" style={{ color: 'var(--text-dim)' }}>
               Water in
             </h2>
-            <WaterBudgetChart hourly={forecast.hourly} endIdx={todayIndex * 24} />
+            <WaterBudgetChart hourly={forecast.hourly} todayIndex={todayIndex} />
           </div>
 
           {smPercentileText && (

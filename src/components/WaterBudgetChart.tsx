@@ -1,16 +1,21 @@
 import { useMemo, useState } from 'react';
 import { niceScale } from '../lib/chartScale';
 import type { HourResult } from '../model/wetness';
-import { Plot, VW, fmt, gridlines, poly, sx } from './chart/kit';
+import { Plot, VW, fmt, fmtFine, gridlines, poly, sx } from './chart/kit';
 import { Explain } from './Explain';
 
 const DAY_LABEL = new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric' });
 
+// How far ahead of today each option looks - this is a forecast-planning tool,
+// so "water in" needs to show what's coming, not just what already happened.
+// History is separately capped at HISTORY_DAYS regardless of which option is
+// selected, so the bars stay dominated by the days actually being planned for.
+const HISTORY_DAYS = 3;
 const PERIOD_OPTIONS = [
-  { label: '24h', hours: 24 },
-  { label: '3 days', hours: 24 * 3 },
-  { label: '7 days', hours: 24 * 7 },
-  { label: '14 days', hours: 24 * 14 },
+  { label: '+1 day', forwardDays: 1 },
+  { label: '+2 days', forwardDays: 2 },
+  { label: '+6 days', forwardDays: 6 },
+  { label: '+13 days', forwardDays: 13 },
 ] as const;
 
 // Fixed categorical order for the four water fluxes - validated against the
@@ -42,6 +47,8 @@ function sumFluxes(slice: HourResult[]): Totals {
 interface DayBucket {
   label: string;
   totals: Totals;
+  isToday: boolean;
+  isPast: boolean;
 }
 
 /**
@@ -49,30 +56,42 @@ interface DayBucket {
  * strip (design study "Crag Charts", option 2d). The stack keeps daily
  * totals comparable; each source also gets an always-visible hourly shape
  * and total, and tapping a row isolates that source in the bars above.
- * Every period option buckets into daily totals (a single bar for 24h), so
- * the same layout covers the full 24h-14 day range without switching chart
- * types.
+ *
+ * This is a planning tool, so the window always looks forward from today by
+ * the selected option's day count - it isn't purely a look-back at history.
+ * Up to HISTORY_DAYS of preceding days are kept for context (so a still-wet
+ * crag from yesterday's rain doesn't look inexplicably dry today), capped
+ * regardless of option so the bars stay dominated by the days ahead.
  */
-export function WaterBudgetChart({ hourly, endIdx }: { hourly: HourResult[]; endIdx: number }) {
-  const [periodHours, setPeriodHours] = useState<number>(24);
+export function WaterBudgetChart({ hourly, todayIndex }: { hourly: HourResult[]; todayIndex: number }) {
+  const [forwardDays, setForwardDays] = useState<number>(PERIOD_OPTIONS[0].forwardDays);
   const [isolate, setIsolate] = useState<SeriesKey | null>(null);
 
-  const slice = useMemo(() => hourly.slice(Math.max(0, endIdx - periodHours), endIdx), [hourly, endIdx, periodHours]);
+  const historyDays = Math.min(HISTORY_DAYS, todayIndex);
+  const startHour = (todayIndex - historyDays) * 24;
+  const endHour = Math.min(hourly.length, (todayIndex + forwardDays + 1) * 24);
+  const slice = useMemo(() => hourly.slice(Math.max(0, startHour), endHour), [hourly, startHour, endHour]);
 
   const buckets: DayBucket[] = useMemo(() => {
     const out: DayBucket[] = [];
     for (let i = 0; i < slice.length; i += 24) {
       const chunk = slice.slice(i, i + 24);
       if (chunk.length === 0) continue;
-      out.push({ label: DAY_LABEL.format(new Date(chunk[0].time * 1000)), totals: sumFluxes(chunk) });
+      const dayOffset = -historyDays + Math.floor(i / 24);
+      out.push({
+        label: DAY_LABEL.format(new Date(chunk[0].time * 1000)),
+        totals: sumFluxes(chunk),
+        isToday: dayOffset === 0,
+        isPast: dayOffset < 0,
+      });
     }
     return out;
-  }, [slice]);
+  }, [slice, historyDays]);
 
   if (slice.length === 0 || buckets.length === 0) {
     return (
       <p className="text-sm" style={{ color: 'var(--text-dim)' }}>
-        Not enough history yet for a water budget.
+        Not enough data yet for a water budget.
       </p>
     );
   }
@@ -84,39 +103,71 @@ export function WaterBudgetChart({ hourly, endIdx }: { hourly: HourResult[]; end
   const slot = VW / buckets.length;
   const bw = buckets.length === 1 ? slot * 0.32 : slot * 0.62;
   const active = (k: SeriesKey) => !isolate || isolate === k;
-  const seriesTotals = SERIES.map((s) => ({ ...s, total: buckets.reduce((a, d) => a + d.totals[s.key], 0) }));
+  const seriesTotals = SERIES.map((s) => ({ ...s, total: Math.max(0, buckets.reduce((a, d) => a + d.totals[s.key], 0)) }));
+
+  // One shared scale across all four sparkline rows (rather than each row
+  // normalised to its own max) - seepage/condensation/melt are usually much
+  // smaller than rain, and a per-row scale was inflating them to fill the same
+  // height as rain regardless of their real magnitude, which read as
+  // "seepage is a big deal" even on days it barely registered.
+  const sparkScale = niceScale(Math.max(...SERIES.flatMap((s) => slice.map((r) => r.fluxes[s.key]))));
+  const sparkY = (v: number) => 26 - (v / sparkScale.max) * 24;
+  // Rotate day labels once there are enough bars that horizontal labels would
+  // start overlapping their neighbours (the longer "+13 days" options routinely
+  // have 14-17 bars in view).
+  const rotateLabels = buckets.length > 7;
+  const todayBucketIdx = buckets.findIndex((d) => d.isToday);
 
   return (
     <div>
       <div className="flex flex-wrap gap-1.5">
         {PERIOD_OPTIONS.map((opt) => (
           <button
-            key={opt.hours}
+            key={opt.forwardDays}
             type="button"
             onClick={() => {
-              setPeriodHours(opt.hours);
+              setForwardDays(opt.forwardDays);
               setIsolate(null);
             }}
             className="rounded-full px-3 py-1.5 text-sm"
             style={{
-              background: periodHours === opt.hours ? 'var(--signal)' : 'var(--ground-raised)',
-              color: periodHours === opt.hours ? 'var(--ground)' : 'var(--text)',
+              background: forwardDays === opt.forwardDays ? 'var(--signal)' : 'var(--ground-raised)',
+              color: forwardDays === opt.forwardDays ? 'var(--ground)' : 'var(--text)',
             }}
           >
             {opt.label}
           </button>
         ))}
       </div>
+      {historyDays > 0 && (
+        <p style={{ margin: '6px 2px 0', font: '11px/1.4 system-ui,sans-serif', color: 'var(--text-faint)' }}>
+          Includes the {historyDays} day{historyDays === 1 ? '' : 's'} before today for context - today is marked below.
+        </p>
+      )}
 
       <div style={{ marginTop: 12 }}>
         <Plot
           h={H}
           gutter={34}
+          xAxisH={rotateLabels ? 44 : 22}
+          xLabelRotateDeg={rotateLabels ? 45 : 0}
           ariaLabel="Water into the rock, stacked by source"
           yLabels={scale.ticks.map((v) => ({ y: y(v), label: fmt(v) }))}
-          xLabels={buckets.map((d, i) => ({ f: (slot * (i + 0.5)) / VW, label: d.label, strong: true }))}
+          xLabels={buckets.map((d, i) => ({ f: (slot * (i + 0.5)) / VW, label: d.label, strong: d.isToday }))}
         >
           {gridlines(scale.ticks, y, H)}
+          {todayBucketIdx >= 0 && (
+            <line
+              x1={slot * todayBucketIdx}
+              x2={slot * todayBucketIdx}
+              y1={0}
+              y2={pb}
+              stroke="var(--text-dim)"
+              strokeWidth={1}
+              strokeDasharray="2,2"
+              vectorEffect="non-scaling-stroke"
+            />
+          )}
           {buckets.map((d, i) => {
             let cursor = pb;
             return (
@@ -137,7 +188,7 @@ export function WaterBudgetChart({ hourly, endIdx }: { hourly: HourResult[]; end
                       y={rt}
                       height={rb - rt}
                       fill={s.colour}
-                      opacity={active(s.key) ? 1 : 0.16}
+                      opacity={!active(s.key) ? 0.16 : d.isPast ? 0.5 : 1}
                     />
                   );
                 })}
@@ -148,57 +199,79 @@ export function WaterBudgetChart({ hourly, endIdx }: { hourly: HourResult[]; end
       </div>
 
       <div style={{ marginTop: 14, borderTop: '1px solid var(--border)' }}>
-        {seriesTotals.map((s) => {
-          const rowMax = Math.max(...slice.map((r) => r.fluxes[s.key]), 0.0001);
-          return (
-            <button
-              key={s.key}
-              type="button"
-              onClick={() => setIsolate(isolate === s.key ? null : s.key)}
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '104px minmax(0,1fr) 62px',
-                alignItems: 'center',
-                gap: 10,
-                width: '100%',
-                textAlign: 'left',
-                background: isolate === s.key ? 'var(--ground-raised)' : 'transparent',
-                border: 'none',
-                borderBottom: '1px solid var(--border)',
-                padding: '8px 6px',
-                cursor: 'pointer',
-                opacity: active(s.key) ? 1 : 0.4,
-              }}
-            >
-              <span className="flex items-center gap-1.5" style={{ font: '13px/1.2 system-ui,sans-serif', color: 'var(--text)' }}>
-                <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: s.colour }} />
-                {s.label}
+        {seriesTotals.map((s) => (
+          <button
+            key={s.key}
+            type="button"
+            onClick={() => setIsolate(isolate === s.key ? null : s.key)}
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '104px 30px minmax(0,1fr) 62px',
+              alignItems: 'center',
+              gap: 6,
+              width: '100%',
+              textAlign: 'left',
+              background: isolate === s.key ? 'var(--ground-raised)' : 'transparent',
+              border: 'none',
+              borderBottom: '1px solid var(--border)',
+              padding: '8px 6px',
+              cursor: 'pointer',
+              opacity: active(s.key) ? 1 : 0.4,
+            }}
+          >
+            <span className="flex items-center gap-1.5" style={{ font: '13px/1.2 system-ui,sans-serif', color: 'var(--text)' }}>
+              <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: s.colour }} />
+              {s.label}
+            </span>
+            <span style={{ position: 'relative', height: 26 }}>
+              <span
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  right: 2,
+                  font: '600 9px/1 ui-monospace,SFMono-Regular,Menlo,monospace',
+                  color: 'var(--text-dim)',
+                }}
+              >
+                {fmtFine(sparkScale.max)}
               </span>
-              <svg viewBox={`0 0 ${VW} 26`} preserveAspectRatio="none" width="100%" height={26} style={{ display: 'block' }}>
-                <line x1={0} x2={VW} y1={25} y2={25} stroke="var(--grid)" strokeWidth={1} vectorEffect="non-scaling-stroke" />
-                <polygon
-                  points={`0,26 ${poly(slice.map((r, k) => [sx(k, slice.length), 26 - (r.fluxes[s.key] / rowMax) * 24]))} ${VW},26`}
-                  fill={s.colour}
-                  opacity={0.55}
-                />
-                <polyline
-                  points={poly(slice.map((r, k) => [sx(k, slice.length), 26 - (r.fluxes[s.key] / rowMax) * 24]))}
-                  fill="none"
-                  stroke={s.colour}
-                  strokeWidth={1.75}
-                  vectorEffect="non-scaling-stroke"
-                />
-              </svg>
-              <span style={{ font: '600 13px/1.2 ui-monospace,Menlo,monospace', color: 'var(--text)', textAlign: 'right' }}>
-                {s.total.toFixed(1)}mm
+              <span
+                style={{
+                  position: 'absolute',
+                  bottom: 0,
+                  right: 2,
+                  font: '600 9px/1 ui-monospace,SFMono-Regular,Menlo,monospace',
+                  color: 'var(--text-dim)',
+                }}
+              >
+                0
               </span>
-            </button>
-          );
-        })}
+            </span>
+            <svg viewBox={`0 0 ${VW} 26`} preserveAspectRatio="none" width="100%" height={26} style={{ display: 'block' }}>
+              <line x1={0} x2={VW} y1={sparkY(0)} y2={sparkY(0)} stroke="var(--grid)" strokeWidth={1} vectorEffect="non-scaling-stroke" />
+              <line x1={0} x2={VW} y1={sparkY(sparkScale.max)} y2={sparkY(sparkScale.max)} stroke="var(--grid)" strokeWidth={1} vectorEffect="non-scaling-stroke" />
+              <polygon
+                points={`0,26 ${poly(slice.map((r, k) => [sx(k, slice.length), sparkY(r.fluxes[s.key])]))} ${VW},26`}
+                fill={s.colour}
+                opacity={0.55}
+              />
+              <polyline
+                points={poly(slice.map((r, k) => [sx(k, slice.length), sparkY(r.fluxes[s.key])]))}
+                fill="none"
+                stroke={s.colour}
+                strokeWidth={1.75}
+                vectorEffect="non-scaling-stroke"
+              />
+            </svg>
+            <span style={{ font: '600 13px/1.2 ui-monospace,Menlo,monospace', color: 'var(--text)', textAlign: 'right' }}>
+              {fmtFine(s.total)}mm
+            </span>
+          </button>
+        ))}
       </div>
       <p style={{ margin: '8px 6px 0', font: '11px/1.4 system-ui,sans-serif', color: 'var(--text-faint)' }}>
-        Tap a row to isolate that source in the bars above. Sparklines are hourly over the selected period, each on
-        its own scale.
+        Tap a row to isolate that source in the bars above. Sparklines are hourly over the selected period, all four
+        sharing one scale (labelled on the right) so their true relative size is comparable.
       </p>
 
       <Explain>

@@ -35,7 +35,15 @@ export interface CragDayResult {
   showerDominance: number;
   /** Mean air temperature across daylight hours, for at-a-glance summaries (map popups, §6). */
   avgDaylightTempC: number;
-  /** Percentage of the day's hours with measurable precipitation, for at-a-glance summaries. */
+  /**
+   * Percentage chance of rain, for at-a-glance summaries. Real Open-Meteo
+   * precipitation_probability, averaged across whichever of the four models
+   * publish it for this day (UKMO never does) - falls back to the day's
+   * "hours with measurable precip" proxy only when none of them do.
+   * NOTE: still a per-model average, not a single calibrated forecast
+   * probability - worth revisiting if it turns out to disagree noticeably
+   * with what a mainstream weather app shows for the same day.
+   */
   rainChancePct: number;
 }
 
@@ -71,6 +79,8 @@ function computeDaysForModel(
   crag: Crag,
   results: HourResult[],
   inputs: CragHourlyInput[],
+  /** Cross-model precipitation_probability average per hour, global-hour-indexed to match `inputs` - §4.9/§6. */
+  crossModelPrecipProbPct: (number | null)[],
 ): Omit<CragDayResult, 'confidence'>[] {
   const trock = results.map((r) => r.Trock);
   const numDays = Math.floor(results.length / 24);
@@ -95,7 +105,13 @@ function computeDaysForModel(
     const avgDaylightTempC =
       (daylightTemps.length > 0 ? daylightTemps : dayInputs.map((i) => i.tempC)).reduce((sum, t) => sum + t, 0) /
       (daylightTemps.length > 0 ? daylightTemps.length : dayInputs.length);
-    const rainChancePct = Math.round((100 * dayInputs.filter((i) => i.precipitationMm > 0.1).length) / dayInputs.length);
+    const dayCrossModelPrecipProb = crossModelPrecipProbPct
+      .slice(dayStart, dayEnd + 1)
+      .filter((v): v is number => v != null);
+    const rainChancePct =
+      dayCrossModelPrecipProb.length > 0
+        ? Math.round(dayCrossModelPrecipProb.reduce((sum, v) => sum + v, 0) / dayCrossModelPrecipProb.length)
+        : Math.round((100 * dayInputs.filter((i) => i.precipitationMm > 0.1).length) / dayInputs.length);
 
     const frictionScores = dayResults.map((r, idx) =>
       frictionScoreHour({
@@ -188,9 +204,21 @@ export function computeCragForecast(crag: Crag, cell: CellForecast): CragForecas
   const maxHours = Math.max(...availableModels.map((m) => perModelResults.get(m)!.length));
   const primaryModel = availableModels.find((m) => perModelResults.get(m)!.length === maxHours) ?? availableModels[0];
 
+  // Real precipitation_probability, averaged per hour across whichever models publish it
+  // (UKMO never does) - shared by every model's day rollup below, §4.9/§6.
+  const crossModelPrecipProbPct: (number | null)[] = cell.time.map((_, i) => {
+    const values = availableModels
+      .map((m) => cell.models[m]?.precipitation_probability?.[i])
+      .filter((v): v is number => v != null);
+    return values.length > 0 ? values.reduce((sum, v) => sum + v, 0) / values.length : null;
+  });
+
   const perModelDaysRaw = new Map<ModelName, Omit<CragDayResult, 'confidence'>[]>();
   for (const model of availableModels) {
-    perModelDaysRaw.set(model, computeDaysForModel(crag, perModelResults.get(model)!, perModelInputs.get(model)!));
+    perModelDaysRaw.set(
+      model,
+      computeDaysForModel(crag, perModelResults.get(model)!, perModelInputs.get(model)!, crossModelPrecipProbPct),
+    );
   }
 
   function withConfidence(model: ModelName): CragDayResult[] {
