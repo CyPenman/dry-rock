@@ -14,7 +14,7 @@ function App() {
   const [view, setView] = useState<View>({ name: 'home' });
   const [dateRange, setDateRange] = useState<DateRangeSelection>(DEFAULT_DATE_RANGE);
   const { settings, update, togglePinned } = useSettings();
-  const { loading, error, fetchedAt, stale, results, refresh } = useForecast(CRAGS, settings.minWindowHours);
+  const { loading, error, fetchedAt, stale, results, refresh } = useForecast(CRAGS);
 
   if (view.name === 'search') {
     return (

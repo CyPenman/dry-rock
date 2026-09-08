@@ -18,7 +18,7 @@ interface ForecastState {
 
 const INITIAL_STATE: ForecastState = { loading: true, error: null, fetchedAt: null, stale: false, results: [] };
 
-export function useForecast(crags: Crag[], minWindowHours: number) {
+export function useForecast(crags: Crag[]) {
   const [state, setState] = useState<ForecastState>(INITIAL_STATE);
 
   const load = useCallback(
@@ -29,7 +29,7 @@ export function useForecast(crags: Crag[], minWindowHours: number) {
         const results: CragWithForecast[] = crags.map((crag) => {
           const cellKey = bundle.cragToCellKey.get(crag.id);
           const cell = cellKey ? bundle.cellForecasts.get(cellKey) : undefined;
-          const forecast = cell ? computeCragForecast(crag, cell, minWindowHours) : null;
+          const forecast = cell ? computeCragForecast(crag, cell) : null;
           return { crag, forecast };
         });
         setState({ loading: false, error: null, fetchedAt, stale, results });
@@ -37,13 +37,13 @@ export function useForecast(crags: Crag[], minWindowHours: number) {
         setState((s) => ({ ...s, loading: false, error: err instanceof Error ? err.message : String(err) }));
       }
     },
-    [crags, minWindowHours],
+    [crags],
   );
 
   useEffect(() => {
     load(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [minWindowHours]);
+  }, []);
 
   return { ...state, refresh: () => load(true) };
 }

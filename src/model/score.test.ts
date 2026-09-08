@@ -37,21 +37,18 @@ function toConfig(c: Crag): CragModelConfig {
 }
 
 describe('compositeScore (§4.9)', () => {
-  it('weights window 0.40, dryness 0.35, friction 0.25', () => {
+  it('weights dryness 0.60, friction 0.40', () => {
     const score = compositeScore({
-      windowHours: 96,
-      minWindowHours: 48,
       climbableDaylightHours: 10,
       totalDaylightHours: 10,
       bestContiguousClimbableHours: 10,
       bestFrictionBlockScore: 1,
     });
-    expect(score).toBeCloseTo(0.4 * 1.0 + 0.35 * 1.0 + 0.25 * 1.0);
+    expect(score).toBeCloseTo(0.6 * 1.0 + 0.4 * 1.0);
   });
 
   it('is zero across the board when nothing qualifies', () => {
     const score = compositeScore({
-      windowHours: 0,
       climbableDaylightHours: 0,
       totalDaylightHours: 10,
       bestFrictionBlockScore: 0,
@@ -63,14 +60,12 @@ describe('compositeScore (§4.9)', () => {
 describe('rockDrynessScore contiguity blending', () => {
   it('scores an unbroken block higher than the same total hours scattered', () => {
     const scattered = computeScoreBreakdown({
-      windowHours: 96,
       climbableDaylightHours: 3,
       totalDaylightHours: 10,
       bestContiguousClimbableHours: 1, // three separate 1h gaps
       bestFrictionBlockScore: 1,
     });
     const unbroken = computeScoreBreakdown({
-      windowHours: 96,
       climbableDaylightHours: 3,
       totalDaylightHours: 10,
       bestContiguousClimbableHours: 3, // one unbroken 3h window
@@ -82,7 +77,6 @@ describe('rockDrynessScore contiguity blending', () => {
 
   it('falls back to 0 contiguous credit when omitted, without throwing', () => {
     const breakdown = computeScoreBreakdown({
-      windowHours: 96,
       climbableDaylightHours: 5,
       totalDaylightHours: 10,
       bestFrictionBlockScore: 1,

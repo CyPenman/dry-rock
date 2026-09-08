@@ -28,10 +28,6 @@ export const PARAMS = {
   // Snow
   meltRate: 0.15, // mm/hr per degC above freezing
   frozenWetThreshold: 0.05,
-
-  // Windows
-  WET_THRESHOLD_MM: 0.2, // per hour; below this is trace drizzle
-  minWindowHours: 48, // user-adjustable 12-96
 } as const;
 
 export type Params = typeof PARAMS;

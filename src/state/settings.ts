@@ -1,12 +1,10 @@
 import { useCallback, useState } from 'react';
-import { PARAMS } from '../model/params';
 
-// §2 — "Settings that are fine in localStorage: home coordinates, minWindowHours,
+// §2 — "Settings that are fine in localStorage: home coordinates,
 // pinned crag ids, tuned model parameters, unit preferences."
 export interface Settings {
   homeLat: number | null;
   homeLon: number | null;
-  minWindowHours: number;
   pinnedCragIds: string[];
 }
 
@@ -16,7 +14,6 @@ const MAX_PINNED = 5;
 const DEFAULT_SETTINGS: Settings = {
   homeLat: null,
   homeLon: null,
-  minWindowHours: PARAMS.minWindowHours,
   pinnedCragIds: [],
 };
 

@@ -98,7 +98,6 @@ export function ScoreBreakdownTable({ days, bestDayIndex }: { days: CragDayResul
                               {caveat ? ` — ${caveat}` : ''}
                             </p>
                             <div className="space-y-1">
-                              <ScoreBar label="Window" value={day.windowScoreValue} />
                               <ScoreBar label="Dryness" value={day.rockDrynessScore} />
                               <ScoreBar label="Friction" value={day.bestFrictionBlockScore} />
                             </div>
@@ -115,10 +114,6 @@ export function ScoreBreakdownTable({ days, bestDayIndex }: { days: CragDayResul
       </div>
 
       <Explain>
-        <p>
-          <strong>Window</strong> is there a long enough unbroken dry spell covering this day, scaled 48h&rarr;60,
-          72h&rarr;85, 96h+&rarr;100.
-        </p>
         <p>
           <strong>Dryness</strong> is the fraction of the day's daylight hours the rock reads as climbable, blended
           with how much of that is one unbroken block rather than scattered gaps — a day you can actually plan a

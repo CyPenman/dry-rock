@@ -1,11 +1,6 @@
-import { windowScore } from './dryWindow';
-import { PARAMS } from './params';
-
 export type Verdict = 'scored' | 'under_snow' | 'frozen' | 'rock_damage';
 
 export interface DayScoreInputs {
-  windowHours: number; // longest qualifying window containing this day, §4.9
-  minWindowHours?: number;
   climbableDaylightHours: number;
   totalDaylightHours: number;
   /** Longest unbroken run of climbable daylight hours this day — see rockDrynessScore below. */
@@ -14,24 +9,19 @@ export interface DayScoreInputs {
 }
 
 export interface ScoreBreakdown {
-  windowScoreValue: number;
   rockDrynessScore: number;
   frictionScore: number;
   total: number;
 }
 
 /**
- * score(crag, day) = 0.40*windowScore + 0.35*rockDrynessScore + 0.25*frictionScore — §4.9.
+ * score(crag, day) = 0.6*rockDrynessScore + 0.4*frictionScore — §4.9.
  *
- * Weights kept as specified: windowScore and rockDrynessScore are correlated (both
- * driven by the same `climbable[]` series, at different time granularities) but not
- * redundant — window rewards a sustained multi-day spell, dryness is same-day. Collapsing
- * them into one term would lose the "don't over-trust a single lucky dry day sandwiched in
- * a wet spell" signal the window term exists for.
+ * The window term was dropped: rock dryness is already computed from the same
+ * `climbable[]` series and accounts for how dry the rock is, so a separate
+ * multi-day-spell term was redundant with it.
  */
 export function computeScoreBreakdown(inputs: DayScoreInputs): ScoreBreakdown {
-  const windowScoreValue = windowScore(inputs.windowHours, inputs.minWindowHours ?? PARAMS.minWindowHours);
-
   // rockDrynessScore: half from the total climbable fraction, half from the best
   // unbroken block as a fraction of the day. A day with three scattered 1h dry gaps
   // and a day with one unbroken 3h window can have the same total, but only the
@@ -44,10 +34,9 @@ export function computeScoreBreakdown(inputs: DayScoreInputs): ScoreBreakdown {
 
   const frictionScore = inputs.bestFrictionBlockScore;
   return {
-    windowScoreValue,
     rockDrynessScore,
     frictionScore,
-    total: 0.4 * windowScoreValue + 0.35 * rockDrynessScore + 0.25 * frictionScore,
+    total: 0.6 * rockDrynessScore + 0.4 * frictionScore,
   };
 }
 

@@ -1,9 +1,7 @@
 import type { CellForecast } from '../api/client';
 import { MODELS, type ModelName } from '../api/request';
 import { buildHourlyInputsForModel } from './buildInputs';
-import { longestQualifyingWindowForDay } from './dryWindow';
 import { bestFrictionBlock, frictionScoreHour } from './friction';
-import { PARAMS } from './params';
 import { computeScoreBreakdown, dayVerdict, hadFreezeThawCycle, modelAgreement, type ModelAgreement, type Verdict } from './score';
 import type { Crag } from './types';
 import {
@@ -24,7 +22,6 @@ export interface CragDayResult {
   date: Date; // local midnight of this day, from this model's timestamps
   verdict: Verdict;
   score: number;
-  windowScoreValue: number;
   rockDrynessScore: number;
   dryFromIdx: number | null; // global hour index into this model's series
   dryFromHourOfDay: number | null; // 0-23, for display
@@ -70,9 +67,7 @@ function computeDaysForModel(
   crag: Crag,
   results: HourResult[],
   inputs: CragHourlyInput[],
-  minWindowHours: number,
 ): Omit<CragDayResult, 'confidence'>[] {
-  const climbable = results.map((r) => r.climbable);
   const trock = results.map((r) => r.Trock);
   const numDays = Math.floor(results.length / 24);
   const days: Omit<CragDayResult, 'confidence'>[] = [];
@@ -87,8 +82,6 @@ function computeDaysForModel(
 
     const { totalClimbableDaylightHours, bestContiguousBlock } = climbableHoursForDay(dayResults, isDayFlags);
     const totalDaylightHours = isDayFlags.filter(Boolean).length;
-
-    const windowHoursForDay = longestQualifyingWindowForDay(climbable, dayStart, dayEnd);
 
     const dayPrecipMm = dayInputs.reduce((sum, i) => sum + i.precipitationMm, 0);
     const dayShowersMm = dayInputs.reduce((sum, i) => sum + (i.showersMm ?? 0), 0);
@@ -121,8 +114,6 @@ function computeDaysForModel(
     });
 
     const breakdown = computeScoreBreakdown({
-      windowHours: windowHoursForDay,
-      minWindowHours,
       climbableDaylightHours: totalClimbableDaylightHours,
       totalDaylightHours,
       bestContiguousClimbableHours: bestContiguousBlock?.hours ?? 0,
@@ -139,7 +130,6 @@ function computeDaysForModel(
       date: new Date(inputs[dayStart].time * 1000),
       verdict,
       score,
-      windowScoreValue: breakdown.windowScoreValue,
       rockDrynessScore: breakdown.rockDrynessScore,
       dryFromIdx: dryFromOffset != null ? dayStart + dryFromOffset : null,
       dryFromHourOfDay: dryFromOffset,
@@ -162,11 +152,7 @@ function computeDaysForModel(
  * `timeformat=unixtime` request parameters, §3.1), so days are simple 24-hour
  * chunks of the array.
  */
-export function computeCragForecast(
-  crag: Crag,
-  cell: CellForecast,
-  minWindowHours: number = PARAMS.minWindowHours,
-): CragForecastResult | null {
+export function computeCragForecast(crag: Crag, cell: CellForecast): CragForecastResult | null {
   const config = toModelConfig(crag);
 
   const perModelResults = new Map<ModelName, HourResult[]>();
@@ -192,7 +178,7 @@ export function computeCragForecast(
 
   const perModelDaysRaw = new Map<ModelName, Omit<CragDayResult, 'confidence'>[]>();
   for (const model of availableModels) {
-    perModelDaysRaw.set(model, computeDaysForModel(crag, perModelResults.get(model)!, perModelInputs.get(model)!, minWindowHours));
+    perModelDaysRaw.set(model, computeDaysForModel(crag, perModelResults.get(model)!, perModelInputs.get(model)!));
   }
 
   function withConfidence(model: ModelName): CragDayResult[] {

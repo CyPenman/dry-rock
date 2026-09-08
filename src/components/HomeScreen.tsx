@@ -124,21 +124,6 @@ export function HomeScreen({
           </button>
         </div>
 
-        <div className="mt-2 flex items-center gap-2 text-sm" style={{ color: 'var(--text-dim)' }}>
-          <label htmlFor="minWindow">Min dry window</label>
-          <input
-            id="minWindow"
-            type="range"
-            min={12}
-            max={96}
-            step={12}
-            value={settings.minWindowHours}
-            onChange={(e) => updateSettings({ minWindowHours: Number(e.target.value) })}
-            className="h-11 flex-1"
-          />
-          <span className="w-10 shrink-0 text-right font-mono">{settings.minWindowHours}h</span>
-        </div>
-
         {home && (
           <div className="mt-2 flex gap-1.5 text-sm">
             <button
