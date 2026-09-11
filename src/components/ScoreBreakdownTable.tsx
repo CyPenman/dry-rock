@@ -47,9 +47,9 @@ export function ScoreBreakdownTable({ days, bestDayIndex }: { days: CragDayResul
           <thead>
             <tr style={{ color: 'var(--text-dim)' }}>
               <th className="px-2 py-1.5 text-left text-xs font-normal uppercase tracking-wide">Day</th>
+              <th className="px-2 py-1.5 text-right text-xs font-normal uppercase tracking-wide">Score</th>
               <th className="px-2 py-1.5 text-left text-xs font-normal uppercase tracking-wide">Timing</th>
               <th className="px-2 py-1.5 text-left text-xs font-normal uppercase tracking-wide">Limiting factor</th>
-              <th className="px-2 py-1.5 text-right text-xs font-normal uppercase tracking-wide">Score</th>
             </tr>
           </thead>
           <tbody>
@@ -76,13 +76,13 @@ export function ScoreBreakdownTable({ days, bestDayIndex }: { days: CragDayResul
                       )}
                       {formatDayLabel(day.date)}
                     </td>
+                    <td className="whitespace-nowrap px-2 py-2 text-right font-mono">{isGated ? 'n/a' : Math.round(day.score * 100)}</td>
                     <td className="whitespace-nowrap px-2 py-2" style={{ color: isGated ? 'var(--warning)' : 'var(--text-dim)' }}>
                       {dayTimingLabel(day)}
                     </td>
                     <td className="whitespace-nowrap px-2 py-2" style={{ color: 'var(--text-dim)' }}>
                       {isGated ? '' : LIMITING_FACTOR_LABEL[day.limitingFactor] || '-'}
                     </td>
-                    <td className="whitespace-nowrap px-2 py-2 text-right font-mono">{isGated ? 'n/a' : Math.round(day.score * 100)}</td>
                   </tr>
                   {isOpen && (
                     <tr style={{ background: 'var(--ground-raised)' }}>
