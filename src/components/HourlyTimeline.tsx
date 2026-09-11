@@ -193,7 +193,10 @@ export function HourlyTimeline({
           below to move the readout bar at the top to that hour.
         </p>
         <p>
-          <strong>Rain</strong> is how hard it's falling that hour, in millimetres per hour.
+          <strong>Rain</strong> is how hard it's falling that hour, in millimetres per hour - measured before any
+          adjustment for this crag. The Water in panel below shows "rain at rock", the smaller (or larger) amount
+          that actually reaches the face once steepness and wind exposure are factored in, so the two won't match
+          hour-for-hour.
         </p>
         <p>
           <strong>Rock wetness</strong> has two layers, both in millimetres: <strong>surface film</strong> (the bright

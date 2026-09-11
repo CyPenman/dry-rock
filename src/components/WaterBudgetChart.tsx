@@ -27,8 +27,15 @@ const PERIOD_OPTIONS = [
 // app's dark surface with the dataviz skill's palette checker (adjacent CVD
 // Delta E, contrast). Deliberately distinct from --signal/--warning, which
 // carry fixed status meaning elsewhere and must never double as series colour.
+// "rain" here is deliberately labelled "rain at rock" rather than plain
+// "rain" - it's the Hourly conditions panel's raw rainfall *after* being
+// reduced/increased for the crag's steepness, aspect and wind exposure (see
+// wetness.ts fluxes.rain), so it can legitimately read much lower (or
+// slightly higher) than that panel's "Rain" line for the same hours. Reusing
+// the word "rain" for both was read as a data bug when comparing the two
+// charts side by side - they're intentionally different quantities.
 const SERIES = [
-  { key: 'rain', label: 'rain', colour: 'var(--chart-water)' },
+  { key: 'rain', label: 'rain at rock', colour: 'var(--chart-water)' },
   { key: 'seepage', label: 'seepage', colour: 'var(--chart-seepage)' },
   { key: 'condensation', label: 'condensation', colour: 'var(--chart-condensation)' },
   { key: 'melt', label: 'snowmelt', colour: 'var(--chart-melt)' },
@@ -54,6 +61,7 @@ interface DayBucket {
   totals: Totals;
   isToday: boolean;
   isPast: boolean;
+  isHistory: boolean;
 }
 
 /**
@@ -102,10 +110,11 @@ export function WaterBudgetChart({
         totals: sumFluxes(chunk),
         isToday: dayIndex === todayIndex,
         isPast: dayIndex < todayIndex,
+        isHistory: dayIndex < rangeStart,
       });
     }
     return out;
-  }, [slice, windowStartIdx, todayIndex]);
+  }, [slice, windowStartIdx, todayIndex, rangeStart]);
 
   if (slice.length === 0 || buckets.length === 0) {
     return (
@@ -159,8 +168,14 @@ export function WaterBudgetChart({
         ))}
       </div>
       <p style={{ margin: '6px 2px 0', font: '11px/1.4 system-ui,sans-serif', color: 'var(--text-faint)' }}>
-        {historyDays > 0 && `Includes the ${historyDays} day${historyDays === 1 ? '' : 's'} before the selected range for context. `}
-        Matches the date range picked above (the same range the hourly rain chart uses) - today is marked below.
+        {historyDays > 0 &&
+          `Includes ${historyDays} day${historyDays === 1 ? '' : 's'} of history before the selected range (shaded lighter below) for context. `}
+        The bars otherwise match the date range picked above - today is marked below.
+      </p>
+      <p style={{ margin: '4px 2px 0', font: '11px/1.4 system-ui,sans-serif', color: 'var(--text-faint)' }}>
+        "Rain at rock" below is rainfall after adjusting for this crag's steepness and wind exposure, so it won't match
+        the raw "Rain" graph in Hourly conditions above hour-for-hour - a steep or sheltered crag can show real rain
+        up there and little to none here.
       </p>
 
       <div style={{ marginTop: 12 }}>
@@ -174,6 +189,20 @@ export function WaterBudgetChart({
           xLabels={buckets.map((d, i) => ({ f: (slot * (i + 0.5)) / VW, label: d.label, strong: d.isToday }))}
         >
           {gridlines(scale.ticks, y, H)}
+          {historyDays > 0 && (
+            <>
+              <rect x={0} y={0} width={slot * historyDays} height={pb} fill="var(--ground-raised)" opacity={0.4} />
+              <line
+                x1={slot * historyDays}
+                x2={slot * historyDays}
+                y1={0}
+                y2={pb}
+                stroke="var(--border)"
+                strokeWidth={1}
+                vectorEffect="non-scaling-stroke"
+              />
+            </>
+          )}
           {todayBucketIdx >= 0 && (
             <line
               x1={slot * todayBucketIdx}
@@ -206,7 +235,7 @@ export function WaterBudgetChart({
                       y={rt}
                       height={rb - rt}
                       fill={s.colour}
-                      opacity={!active(s.key) ? 0.16 : d.isPast ? 0.5 : 1}
+                      opacity={!active(s.key) ? 0.16 : d.isHistory ? 0.4 : d.isPast ? 0.6 : 1}
                     />
                   );
                 })}
