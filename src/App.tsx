@@ -28,11 +28,10 @@ function App() {
 
   function handleTouchStart(e: React.TouchEvent) {
     const target = e.target as HTMLElement;
-    // Ignored entirely for a gesture starting on the map (Leaflet keeps native pan/pinch, spec
-    // §6) or on the bottom nav bar - a tap on Crags/Map is a real button press, not a candidate
-    // swipe, and letting the swipe tracker touch it at all risks eating the tap's click on some
-    // mobile browsers if the finger drifts even slightly between touchstart and touchend.
-    if (target.closest('.leaflet-container') || target.closest('nav')) {
+    // Ignored entirely for a gesture starting on the map, so Leaflet keeps native pan/pinch
+    // control there (spec §6). The bottom nav bar is a sibling outside this handler's subtree
+    // entirely, not just excluded here - see the touch-action comment above.
+    if (target.closest('.leaflet-container')) {
       touchRef.current = null;
       return;
     }
@@ -60,9 +59,7 @@ function App() {
         // 100dvh (not 100vh/h-screen): on Chrome for Android the URL bar stays
         // docked at the top and 100vh sizes against the viewport with the bar
         // hidden, pushing the bottom tab bar off-screen below the fold.
-        style={{ background: 'var(--ground)', height: '100dvh', touchAction: 'pan-y', overscrollBehavior: 'none' }}
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
+        style={{ background: 'var(--ground)', height: '100dvh', overscrollBehavior: 'none' }}
       >
         <div className="flex shrink-0 justify-end px-4 pt-2">
           <button type="button" onClick={() => setView({ name: 'search' })} className="text-sm" style={{ color: 'var(--signal)' }}>
@@ -70,7 +67,19 @@ function App() {
           </button>
         </div>
 
-        <div className="relative min-h-0 flex-1 overflow-hidden">
+        {/* `touch-action: pan-y` and the swipe touch handlers live on this panel only, not on
+            an ancestor of `nav` below - touch-action is computed by intersecting the touch
+            target's value with every ancestor's, so a restrictive value here can never be
+            un-restricted by a child (nav's own touch-action, however permissive, would be
+            clipped back down to whatever an ancestor declares). Keeping `nav` outside this
+            subtree is what actually lets its taps resolve as clicks; nav's own `touch-action:
+            manipulation` further down is not enough on its own - see spec §6. */}
+        <div
+          className="relative min-h-0 flex-1 overflow-hidden"
+          style={{ touchAction: 'pan-y' }}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+        >
           <div
             className="flex h-full"
             style={{ width: '200%', transform: activeTab === 'map' ? 'translateX(-50%)' : 'translateX(0)', transition: 'transform 280ms ease' }}
