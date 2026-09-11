@@ -19,7 +19,7 @@ const DAY_NAME = new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'nume
 
 function dayBandColor(day: CragDayResult): string {
   if (day.verdict !== 'scored') return SCORE_BAND_COLOR_VAR.poor;
-  return SCORE_BAND_COLOR_VAR[scoreBand(Math.round(day.score * 100))];
+  return SCORE_BAND_COLOR_VAR[scoreBand(Math.round(day.displayScore * 100))];
 }
 
 /**
@@ -46,7 +46,7 @@ function PopupDayList({ days, bestDayIndex }: { days: CragDayResult[]; bestDayIn
               }}
             />
             <span className="popup-day-name">{DAY_NAME.format(d.date)}</span>
-            <span className="popup-day-score">{isGated ? 'ruled out' : Math.round(d.score * 100)}</span>
+            <span className="popup-day-score">{isGated ? 'ruled out' : Math.round(d.displayScore * 100)}</span>
             <span className="popup-day-rain">{d.rainChancePct}% rain</span>
           </div>
         );
@@ -132,7 +132,7 @@ export function CragsMap({
           <MapSizeInvalidator active={active} />
           <TileLayer url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap contributors" maxZoom={18} />
           {ranked.map((r) => {
-            const scorePct = Math.round(r.day.score * 100);
+            const scorePct = Math.round(r.day.displayScore * 100);
             const isGated = r.day.verdict !== 'scored';
             const band = isGated ? 'poor' : scoreBand(scorePct);
             const color = SCORE_BAND_COLOR_VAR[band];

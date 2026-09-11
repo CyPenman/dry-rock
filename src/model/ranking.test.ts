@@ -11,6 +11,7 @@ function makeDay(overrides: Partial<CragDayResult> = {}): CragDayResult {
     date: new Date(),
     verdict: 'scored',
     score: 0.5,
+    displayScore: 0.5,
     rockDrynessScore: 0.5,
     dryFromIdx: null,
     dryFromHourOfDay: null,
@@ -23,6 +24,7 @@ function makeDay(overrides: Partial<CragDayResult> = {}): CragDayResult {
     showerDominance: 0,
     avgDaylightTempC: 12,
     rainChancePct: 0,
+    worstDaylightWindChillC: null,
     ...overrides,
   };
 }

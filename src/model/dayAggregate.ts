@@ -2,8 +2,17 @@ import type { CellForecast } from '../api/client';
 import { MODELS, type ModelName } from '../api/request';
 import { buildHourlyInputsForModel } from './buildInputs';
 import { bestFrictionBlock, frictionScoreHour } from './friction';
-import { computeScoreBreakdown, dayVerdict, hadFreezeThawCycle, modelAgreement, type ModelAgreement, type Verdict } from './score';
+import {
+  computeScoreBreakdown,
+  confidenceAdjustedScore,
+  dayVerdict,
+  hadFreezeThawCycle,
+  modelAgreement,
+  type ModelAgreement,
+  type Verdict,
+} from './score';
 import type { Crag } from './types';
+import { windChillC } from './windChill';
 import {
   climbableHoursForDay,
   findDryFrom,
@@ -22,6 +31,13 @@ export interface CragDayResult {
   date: Date; // local midnight of this day, from this model's timestamps
   verdict: Verdict;
   score: number;
+  /**
+   * `score` softened by how much the models agree on this crag-day (§4.10),
+   * for display only - ranking still sorts on confidence tier then raw
+   * `score` (see ranking.ts), so this never changes ordering, only the
+   * number shown. Equal to `score` when confidence is high.
+   */
+  displayScore: number;
   rockDrynessScore: number;
   dryFromIdx: number | null; // global hour index into this model's series
   dryFromHourOfDay: number | null; // 0-23, for display
@@ -45,6 +61,13 @@ export interface CragDayResult {
    * with what a mainstream weather app shows for the same day.
    */
   rainChancePct: number;
+  /**
+   * Coldest wind chill across the day's daylight hours, °C - a comfort factor
+   * for the climber (numb hands, miserable belaying), distinct from
+   * `bestFrictionBlockScore`'s rock-temperature terms. Null when there were no
+   * daylight hours to evaluate. Never affects `score` - see `windChillCaveat`.
+   */
+  worstDaylightWindChillC: number | null;
 }
 
 export interface CragForecastResult {
@@ -81,10 +104,10 @@ function computeDaysForModel(
   inputs: CragHourlyInput[],
   /** Cross-model precipitation_probability average per hour, global-hour-indexed to match `inputs` - §4.9/§6. */
   crossModelPrecipProbPct: (number | null)[],
-): Omit<CragDayResult, 'confidence'>[] {
+): Omit<CragDayResult, 'confidence' | 'displayScore'>[] {
   const trock = results.map((r) => r.Trock);
   const numDays = Math.floor(results.length / 24);
-  const days: Omit<CragDayResult, 'confidence'>[] = [];
+  const days: Omit<CragDayResult, 'confidence' | 'displayScore'>[] = [];
 
   for (let day = 0; day < numDays; day++) {
     const dayStart = day * 24;
@@ -124,9 +147,14 @@ function computeDaysForModel(
         aspectDeg: crag.aspectDeg,
         coastal: crag.coastal,
         rock: crag.rock,
+        disciplines: crag.disciplines,
       }),
     );
-    const bestFriction = bestFrictionBlock(frictionScores, isDayFlags);
+    // Gate the block search on daylight AND climbable (dry), not daylight alone,
+    // so the reported friction score describes a window you could actually
+    // climb in rather than the best-looking 3h stretch of an otherwise wet day.
+    const dryDaylightFlags = isDayFlags.map((isDay, idx) => isDay && dayResults[idx].climbable);
+    const bestFriction = bestFrictionBlock(frictionScores, dryDaylightFlags, 3, 0);
 
     const underSnowAnyHour = dayResults.some((r) => r.underSnow);
     const frozenAllDaylightHours = totalDaylightHours > 0 && dayResults.every((r, idx) => !isDayFlags[idx] || r.frozen);
@@ -149,6 +177,11 @@ function computeDaysForModel(
 
     const dryFromOffset = findDryFrom(dayResults);
 
+    const daylightWindChills = dayInputs
+      .filter((_, idx) => isDayFlags[idx])
+      .map((i) => windChillC(i.tempC, i.windSpeedMs));
+    const worstDaylightWindChillC = daylightWindChills.length > 0 ? Math.min(...daylightWindChills) : null;
+
     days.push({
       dayIndex: day,
       dayStartIdx: dayStart,
@@ -167,6 +200,7 @@ function computeDaysForModel(
       showerDominance,
       avgDaylightTempC,
       rainChancePct,
+      worstDaylightWindChillC,
     });
   }
 
@@ -213,7 +247,7 @@ export function computeCragForecast(crag: Crag, cell: CellForecast): CragForecas
     return values.length > 0 ? values.reduce((sum, v) => sum + v, 0) / values.length : null;
   });
 
-  const perModelDaysRaw = new Map<ModelName, Omit<CragDayResult, 'confidence'>[]>();
+  const perModelDaysRaw = new Map<ModelName, Omit<CragDayResult, 'confidence' | 'displayScore'>[]>();
   for (const model of availableModels) {
     perModelDaysRaw.set(
       model,
@@ -229,7 +263,8 @@ export function computeCragForecast(crag: Crag, cell: CellForecast): CragForecas
         const slice = series.slice(d.dayStartIdx, Math.min(d.dayEndIdx + 1, series.length));
         return slice.some((r) => r.climbable);
       });
-      return { ...d, confidence: modelAgreement(perModelDayClimbable) };
+      const confidence = modelAgreement(perModelDayClimbable);
+      return { ...d, confidence, displayScore: confidenceAdjustedScore(d.score, confidence, d.showerDominance) };
     });
   }
 

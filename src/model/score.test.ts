@@ -3,8 +3,10 @@ import { CRAGS } from '../data/crags';
 import {
   compositeScore,
   computeScoreBreakdown,
+  confidenceAdjustedScore,
   confidenceCaveat,
   confidenceSentence,
+  confidenceTier,
   dayVerdict,
   hadFreezeThawCycle,
   modelAgreement,
@@ -154,6 +156,45 @@ describe('confidence (§4.10)', () => {
     const agreement = modelAgreement([true, true, false, true]);
     expect(agreement).toEqual({ agreeCount: 3, total: 4, fraction: 0.75 });
     expect(confidenceSentence(agreement)).toBe('3 of 4 models agree');
+  });
+});
+
+describe('confidenceTier', () => {
+  it('is tier 2 (high) at or above 0.75 agreement with non-showery rain', () => {
+    expect(confidenceTier(0.75, 0)).toBe(2);
+    expect(confidenceTier(1, 0)).toBe(2);
+  });
+
+  it('is tier 1 (medium) between 0.5 and 0.75', () => {
+    expect(confidenceTier(0.5, 0)).toBe(1);
+    expect(confidenceTier(0.74, 0)).toBe(1);
+  });
+
+  it('is tier 0 (low) below 0.5', () => {
+    expect(confidenceTier(0.49, 0)).toBe(0);
+  });
+
+  it('caps a showery day at tier 1 even with perfect model agreement', () => {
+    expect(confidenceTier(1, 0.9)).toBe(1);
+  });
+});
+
+describe('confidenceAdjustedScore', () => {
+  it('leaves a high-confidence day unchanged', () => {
+    const agreement = modelAgreement([true, true, true, true]);
+    expect(confidenceAdjustedScore(0.8, agreement, 0)).toBeCloseTo(0.8);
+  });
+
+  it('applies a mild haircut on a low-confidence day', () => {
+    const agreement = modelAgreement([true, false, false, false]);
+    const adjusted = confidenceAdjustedScore(0.8, agreement, 0);
+    expect(adjusted).toBeLessThan(0.8);
+    expect(adjusted).toBeGreaterThan(0.8 * 0.8); // gentle - never more than a ~15% cut
+  });
+
+  it('never turns a zero score into a non-zero one', () => {
+    const agreement = modelAgreement([false, false, false, false]);
+    expect(confidenceAdjustedScore(0, agreement, 0)).toBe(0);
   });
 });
 

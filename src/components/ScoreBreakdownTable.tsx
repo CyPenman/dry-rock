@@ -2,18 +2,40 @@ import { Fragment, useState } from 'react';
 import { formatDayLabel, LIMITING_FACTOR_LABEL } from '../lib/format';
 import type { CragDayResult } from '../model/dayAggregate';
 import { confidenceCaveat, confidenceSentence, verdictMessage } from '../model/score';
+import { windChillCaveat } from '../model/windChill';
 import { Explain } from './Explain';
 
-export function ScoreBar({ label, value }: { label: string; value: number }) {
+export function ScoreBar({ label, value, color = 'var(--signal)' }: { label: string; value: number; color?: string }) {
   return (
     <div className="flex items-center gap-2 text-sm">
       <span className="w-20 shrink-0" style={{ color: 'var(--text-dim)' }}>
         {label}
       </span>
       <div className="h-2 flex-1 rounded" style={{ background: 'var(--ground-raised)' }}>
-        <div className="h-2 rounded" style={{ width: `${Math.round(value * 100)}%`, background: 'var(--signal)' }} />
+        <div className="h-2 rounded" style={{ width: `${Math.round(value * 100)}%`, background: color }} />
       </div>
       <span className="w-8 text-right font-mono">{Math.round(value * 100)}</span>
+    </div>
+  );
+}
+
+/**
+ * Same row rhythm as `ScoreBar` (label / track / value) for a stat that isn't
+ * a 0-1 score - e.g. wind chill is a temperature, not "how good", so filling
+ * a percentage bar for it would invent a number that doesn't mean anything.
+ * The track is left empty rather than omitted, so it still lines up under the
+ * bars above it.
+ */
+function StatRow({ label, value, warn }: { label: string; value: string; warn: boolean }) {
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <span className="w-20 shrink-0" style={{ color: 'var(--text-dim)' }}>
+        {label}
+      </span>
+      <div className="h-2 flex-1" />
+      <span className="text-right font-mono" style={{ color: warn ? 'var(--warning)' : 'var(--text)' }}>
+        {value}
+      </span>
     </div>
   );
 }
@@ -58,6 +80,7 @@ export function ScoreBreakdownTable({ days, bestDayIndex }: { days: CragDayResul
               const isOpen = openIndex === i;
               const isGated = day.verdict !== 'scored';
               const caveat = isGated ? null : confidenceCaveat(day.showerDominance);
+              const windChill = isGated ? null : windChillCaveat(day.worstDaylightWindChillC);
               return (
                 <Fragment key={day.dayIndex}>
                   <tr
@@ -76,7 +99,9 @@ export function ScoreBreakdownTable({ days, bestDayIndex }: { days: CragDayResul
                       )}
                       {formatDayLabel(day.date)}
                     </td>
-                    <td className="whitespace-nowrap px-2 py-2 text-right font-mono">{isGated ? 'n/a' : Math.round(day.score * 100)}</td>
+                    <td className="whitespace-nowrap px-2 py-2 text-right font-mono">
+                      {isGated ? 'n/a' : Math.round(day.displayScore * 100)}
+                    </td>
                     <td className="whitespace-nowrap px-2 py-2" style={{ color: isGated ? 'var(--warning)' : 'var(--text-dim)' }}>
                       {dayTimingLabel(day)}
                     </td>
@@ -93,14 +118,27 @@ export function ScoreBreakdownTable({ days, bestDayIndex }: { days: CragDayResul
                           </p>
                         ) : (
                           <div className="space-y-2">
+                            <div className="space-y-1">
+                              <ScoreBar label="Dryness" value={day.rockDrynessScore} />
+                              <ScoreBar label="Friction" value={day.bestFrictionBlockScore} />
+                              <ScoreBar label="Confidence" value={day.confidence.fraction} color="var(--chart-water)" />
+                              {day.worstDaylightWindChillC != null && (
+                                <StatRow
+                                  label="Feels like"
+                                  value={`${Math.round(day.worstDaylightWindChillC)}°C`}
+                                  warn={windChill != null}
+                                />
+                              )}
+                            </div>
                             <p className="text-sm" style={{ color: 'var(--text-dim)' }}>
                               {confidenceSentence(day.confidence)}
                               {caveat ? ` - ${caveat}` : ''}
                             </p>
-                            <div className="space-y-1">
-                              <ScoreBar label="Dryness" value={day.rockDrynessScore} />
-                              <ScoreBar label="Friction" value={day.bestFrictionBlockScore} />
-                            </div>
+                            {windChill && (
+                              <p className="text-sm" style={{ color: 'var(--warning)' }}>
+                                {windChill}
+                              </p>
+                            )}
                           </div>
                         )}
                       </td>
@@ -121,7 +159,20 @@ export function ScoreBreakdownTable({ days, bestDayIndex }: { days: CragDayResul
         </p>
         <p>
           <strong>Friction</strong> is how good the best 3-hour block feels underfoot: temperature, dew point, wind
-          and sun exposure.
+          and sun exposure - always the same 3 hours dryness picked, since a great-friction window inside a wet spell
+          isn't a window you can actually climb in.
+        </p>
+        <p>
+          <strong>Confidence</strong> is how many of the forecast models agree the crag is climbable - shown in blue
+          rather than green because, unlike Dryness and Friction, it isn't blended into the score formula. It softens
+          the number shown a little on low-confidence days and breaks ties when ranking crags, but a low bar here
+          means "trust this less", not "conditions are worse".
+        </p>
+        <p>
+          <strong>Feels like</strong> is the coldest wind chill during the day's daylight hours - a comfort factor for
+          the climber (numb hands, miserable belaying), not the rock, so it's a temperature rather than a percentage
+          and never changes the score. It turns orange once it's cold enough that hands would likely struggle even on
+          dry, high-friction rock.
         </p>
         <p>Tap a row to see its full breakdown. The best day in the range is starred and expanded by default.</p>
       </Explain>

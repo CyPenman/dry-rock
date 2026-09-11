@@ -202,7 +202,9 @@ export function CragDetailScreen({
               </h2>
               <div className="flex items-baseline justify-between">
                 <span className="font-medium">{formatDayLabel(bestDay.date)}</span>
-                <span className="font-mono text-lg">{bestDay.verdict === 'scored' ? Math.round(bestDay.score * 100) : 'n/a'}</span>
+                <span className="font-mono text-lg">
+                  {bestDay.verdict === 'scored' ? Math.round(bestDay.displayScore * 100) : 'n/a'}
+                </span>
               </div>
               {bestDay.verdict !== 'scored' && (
                 <p className="mt-1 text-sm" style={{ color: 'var(--warning)' }}>

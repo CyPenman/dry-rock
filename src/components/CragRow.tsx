@@ -48,13 +48,13 @@ function DayStrip({ ranked }: { ranked: RankedCragDay }) {
                 marginTop: 3,
               }}
             >
-              {isGated ? '×' : Math.round(d.score * 100)}
+              {isGated ? '×' : Math.round(d.displayScore * 100)}
             </div>
             <div style={{ height: 3, background: isBest ? 'rgba(0,0,0,0.25)' : 'var(--ground-sunken)', marginTop: 4 }}>
               <div
                 style={{
                   height: 3,
-                  width: `${(isGated ? 0 : d.score) * 100}%`,
+                  width: `${(isGated ? 0 : d.displayScore) * 100}%`,
                   background: isBest ? 'var(--ground)' : 'var(--signal)',
                 }}
               />
@@ -147,7 +147,7 @@ export function CragRow({
 
       {!isGated && (
         <div className="shrink-0 text-right font-mono text-base font-medium" style={{ color: 'var(--text)' }}>
-          {Math.round(day.score * 100)}
+          {Math.round(day.displayScore * 100)}
         </div>
       )}
     </div>

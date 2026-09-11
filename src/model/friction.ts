@@ -1,4 +1,4 @@
-import type { RockType } from './types';
+import type { Discipline, RockType } from './types';
 
 export interface FrictionHourInputs {
   trockC: number;
@@ -13,6 +13,10 @@ export interface FrictionHourInputs {
   aspectDeg: number;
   coastal: boolean;
   rock: RockType;
+  /** What this crag is climbed as - shapes the wind sweet spot (see `windBandFor`).
+   * Optional so existing callers/fixtures default to the original bouldering-tuned
+   * band rather than failing to compile. */
+  disciplines?: Discipline[];
 }
 
 function deg2rad(d: number): number {
@@ -31,6 +35,37 @@ function smoothstep(x: number, lo: number, hi: number): number {
   if (lo === hi) return x >= hi ? 1 : 0;
   const t = Math.max(0, Math.min(1, (x - lo) / (hi - lo)));
   return t * t * (3 - 2 * t);
+}
+
+interface WindBand {
+  bonusRampUp: [number, number];
+  bonusRampDown: [number, number];
+  penaltyRamp: [number, number];
+}
+
+/**
+ * Bouldering puts skin directly on rock at head height - a stiff breeze that's
+ * pleasant on a rope is already drying fingertips and chilling hands there, so
+ * its sweet spot is narrower and lower than a roped discipline's.
+ */
+const BOULDER_WIND_BAND: WindBand = { bonusRampUp: [2, 3], bonusRampDown: [7, 8], penaltyRamp: [9, 13] };
+
+/**
+ * Sport/trad climbers are higher off the deck, less skin-intensive, and often
+ * grateful for wind that keeps midges off - so the same breeze is welcome
+ * further up the scale before it becomes a problem (rope handling, being
+ * heard, being blown off small holds).
+ */
+const ROPED_WIND_BAND: WindBand = { bonusRampUp: [3, 4], bonusRampDown: [9, 10], penaltyRamp: [12, 17] };
+
+/**
+ * When a crag serves both bouldering and a roped discipline, score to the more
+ * conservative (bouldering) band - a day windy enough to bother the boulderer
+ * shouldn't read as ideal just because the same crag also has routes.
+ */
+function windBandFor(disciplines: Discipline[] | undefined): WindBand {
+  if (!disciplines || disciplines.length === 0 || disciplines.includes('boulder')) return BOULDER_WIND_BAND;
+  return ROPED_WIND_BAND;
 }
 
 /** How far outside the ideal band this hour's rock temperature sits, 0 (ideal) to 1 (far off). */
@@ -53,7 +88,8 @@ function tempPenalty(trockC: number, idealTempC: [number, number]): number {
  * continuously with conditions instead of jumping at an arbitrary threshold.
  */
 export function frictionScoreHour(inputs: FrictionHourInputs): number {
-  const { trockC, idealTempC, dewPointC, windSpeedMs, windDirectionDeg, gtiFaceWm2, aspectDeg, coastal, rock } = inputs;
+  const { trockC, idealTempC, dewPointC, windSpeedMs, windDirectionDeg, gtiFaceWm2, aspectDeg, coastal, rock, disciplines } =
+    inputs;
 
   let score = 1 - tempPenalty(trockC, idealTempC);
 
@@ -68,9 +104,13 @@ export function frictionScoreHour(inputs: FrictionHourInputs): number {
   const spread = trockC - dewPointC;
   score -= 0.4 * (1 - smoothstep(spread, 0, 4));
 
-  // Wind: reward the bouldering-relevant 3-7 m/s range, penalise above ~11 m/s.
-  const windBonus = 0.1 * smoothstep(windSpeedMs, 2, 3) * (1 - smoothstep(windSpeedMs, 7, 8));
-  const windPenalty = 0.2 * smoothstep(windSpeedMs, 9, 13);
+  // Wind: reward a discipline-appropriate sweet spot, penalise above its top end.
+  const windBand = windBandFor(disciplines);
+  const windBonus =
+    0.1 *
+    smoothstep(windSpeedMs, windBand.bonusRampUp[0], windBand.bonusRampUp[1]) *
+    (1 - smoothstep(windSpeedMs, windBand.bonusRampDown[0], windBand.bonusRampDown[1]));
+  const windPenalty = 0.2 * smoothstep(windSpeedMs, windBand.penaltyRamp[0], windBand.penaltyRamp[1]);
   score += windBonus - windPenalty;
 
   // Strong sun on a south-facing wall above ~20C: a summer non-starter, even
@@ -96,9 +136,48 @@ export function frictionScoreHour(inputs: FrictionHourInputs): number {
   return Math.max(0, Math.min(1, score));
 }
 
-/** Best contiguous 3h daylight block's mean friction score for the day (§4.9). */
-export function bestFrictionBlock(hourlyScores: number[], isDayFlags: boolean[], blockLength = 3): number {
+/**
+ * A block within this window (inclusive hour-of-day start, exclusive end) gets
+ * a small selection preference over an equally-good block outside it - most
+ * climbers show up mid-morning to late afternoon, not at dawn, so a "best
+ * block" that nobody would actually use shouldn't beat a slightly-lower-but-
+ * usable one on a technicality. Bonus only breaks ties in SELECTION; the score
+ * returned for whichever block wins is always its own unweighted average.
+ */
+const DEFAULT_TYPICAL_HOURS: [number, number] = [9, 17];
+const TYPICAL_HOURS_SELECTION_BONUS = 0.03;
+
+function typicalHoursOverlapFraction(blockStartHourOfDay: number, blockLength: number, window: [number, number]): number {
+  const [winStart, winEnd] = window;
+  let coveredHours = 0;
+  for (let h = 0; h < blockLength; h++) {
+    const hourOfDay = (blockStartHourOfDay + h) % 24;
+    if (hourOfDay >= winStart && hourOfDay < winEnd) coveredHours++;
+  }
+  return coveredHours / blockLength;
+}
+
+/**
+ * Best contiguous `blockLength`-hour block's mean friction score for the day
+ * (§4.9). Callers pass the eligibility flags: gate on daylight alone to search
+ * freely, or on daylight AND climbable (dry) to keep the returned block
+ * overlap-aware - see `computeDaysForModel`, which now does the latter so the
+ * reported friction score always describes an hour you could actually be on
+ * the rock, not a dry-looking number stranded inside a wet spell.
+ *
+ * `startHourOfDay` is the clock hour index 0 of the array corresponds to
+ * (0 for a day-aligned 24-length slice, the normal case); it only affects the
+ * typical-hours selection preference, never the reported score.
+ */
+export function bestFrictionBlock(
+  hourlyScores: number[],
+  isDayFlags: boolean[],
+  blockLength = 3,
+  startHourOfDay = 0,
+  typicalHours: [number, number] = DEFAULT_TYPICAL_HOURS,
+): number {
   let best = 0;
+  let bestRank = -Infinity;
   for (let i = 0; i + blockLength <= hourlyScores.length; i++) {
     let allDay = true;
     let sum = 0;
@@ -109,7 +188,15 @@ export function bestFrictionBlock(hourlyScores: number[], isDayFlags: boolean[],
       }
       sum += hourlyScores[j];
     }
-    if (allDay) best = Math.max(best, sum / blockLength);
+    if (!allDay) continue;
+    const avg = sum / blockLength;
+    const blockStartHourOfDay = (startHourOfDay + i) % 24;
+    const bonus = TYPICAL_HOURS_SELECTION_BONUS * typicalHoursOverlapFraction(blockStartHourOfDay, blockLength, typicalHours);
+    const rank = avg + bonus;
+    if (rank > bestRank) {
+      bestRank = rank;
+      best = avg;
+    }
   }
   return best;
 }

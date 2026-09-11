@@ -124,4 +124,27 @@ describe('computeCragForecast', () => {
       expect(day.bestContiguousClimbableHours).toBeGreaterThanOrEqual(0);
     }
   });
+
+  it('matches displayScore to score under full model agreement, and populates worstDaylightWindChillC', () => {
+    const cell = makeCellForecast(24 * 3);
+    const result = computeCragForecast(crag('portland-cuttings'), cell);
+    for (const day of result!.days) {
+      expect(day.displayScore).toBeCloseTo(day.score);
+      expect(day.worstDaylightWindChillC).not.toBeNull();
+    }
+  });
+
+  it('reports 0 friction for a day that never dries out, even though daylight hours alone would score well', () => {
+    // Steady rain all day keeps the rock permanently wet, so it never becomes
+    // climbable - the friction block search is gated on climbable AND
+    // daylight (not daylight alone), so it must find nothing to average here.
+    // Before the overlap-aware fix, this would have reported a non-zero
+    // friction score from a window that was never actually climbable.
+    const cell = makeCellForecast(24);
+    cell.models.ukmo_seamless.precipitation = cell.time.map(() => 5);
+    const result = computeCragForecast(crag('portland-cuttings'), cell);
+    const day = result!.days[0];
+    expect(day.bestContiguousClimbableHours).toBe(0);
+    expect(day.bestFrictionBlockScore).toBe(0);
+  });
 });

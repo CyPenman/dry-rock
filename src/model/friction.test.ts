@@ -107,6 +107,25 @@ describe('frictionScoreHour (§4.8)', () => {
     expect(s).toBeLessThanOrEqual(1);
     expect(s).toBeGreaterThanOrEqual(0);
   });
+
+  it('penalises wind for bouldering before it penalises the same speed for a roped discipline', () => {
+    const windSpeedMs = 10; // inside the boulder penalty ramp (9-13), below the roped one (12-17)
+    const boulder = frictionScoreHour({ ...base, windSpeedMs, disciplines: ['boulder'] });
+    const sport = frictionScoreHour({ ...base, windSpeedMs, disciplines: ['sport'] });
+    expect(boulder).toBeLessThan(sport);
+  });
+
+  it('defaults to the (more conservative) boulder wind band when disciplines is omitted', () => {
+    const withoutDisciplines = frictionScoreHour({ ...base, windSpeedMs: 10 });
+    const boulder = frictionScoreHour({ ...base, windSpeedMs: 10, disciplines: ['boulder'] });
+    expect(withoutDisciplines).toBeCloseTo(boulder);
+  });
+
+  it('uses the boulder band when a crag serves both bouldering and a roped discipline', () => {
+    const mixed = frictionScoreHour({ ...base, windSpeedMs: 10, disciplines: ['sport', 'boulder'] });
+    const boulder = frictionScoreHour({ ...base, windSpeedMs: 10, disciplines: ['boulder'] });
+    expect(mixed).toBeCloseTo(boulder);
+  });
 });
 
 describe('bestFrictionBlock', () => {
@@ -126,5 +145,44 @@ describe('bestFrictionBlock', () => {
     const scores = [1, 1];
     const isDay = [true, true];
     expect(bestFrictionBlock(scores, isDay, 3)).toBe(0);
+  });
+
+  it('prefers a typical-hours block over an equally-good dawn block, but still returns its own raw average', () => {
+    // 24h day, index = hour of day. Two equally-good 3h blocks: 06:00-09:00 and
+    // 12:00-15:00. Only the second overlaps the default 09:00-17:00 window.
+    const scores = Array(24).fill(0.3);
+    scores[6] = scores[7] = scores[8] = 0.8;
+    scores[12] = scores[13] = scores[14] = 0.8;
+    const isDay = Array(24).fill(true);
+    // Selection prefers the midday block, but the reported value is unaffected
+    // (still 0.8, not 0.8 + bonus) since both candidates share the same raw average.
+    expect(bestFrictionBlock(scores, isDay, 3, 0)).toBeCloseTo(0.8);
+  });
+
+  it('does not let the typical-hours preference override a genuinely better block outside the window', () => {
+    const scores = Array(24).fill(0.3);
+    scores[6] = scores[7] = scores[8] = 0.95; // dawn, outside typical hours, but clearly the best block
+    scores[12] = scores[13] = scores[14] = 0.5; // midday, inside typical hours, but much worse
+    const isDay = Array(24).fill(true);
+    expect(bestFrictionBlock(scores, isDay, 3, 0)).toBeCloseTo(0.95);
+  });
+
+  it('offsets typical-hours selection by startHourOfDay for a non-midnight-aligned slice', () => {
+    // Index 0 here corresponds to hour 5, so index 4-6 is hours 9-11 (typical), and
+    // index 16-18 is hours 21-23 (not typical) - the reverse of if startHourOfDay were 0.
+    const scores = Array(20).fill(0.3);
+    scores[4] = scores[5] = scores[6] = 0.8;
+    scores[16] = scores[17] = scores[18] = 0.8;
+    const isDay = Array(20).fill(true);
+    expect(bestFrictionBlock(scores, isDay, 3, 5)).toBeCloseTo(0.8);
+  });
+
+  it('gates on the eligibility flags passed in, regardless of whether they represent daylight or dry-and-daylight', () => {
+    // Simulates dayAggregate.ts's overlap-aware gating: hours 3-5 are daylight
+    // but not climbable (wet), so a caller passing a combined flag should never
+    // select a block from them even though their friction score looks great.
+    const scores = [0.2, 0.2, 0.2, 0.9, 0.9, 0.9, 0.4, 0.4, 0.4];
+    const dryAndDaylight = [true, true, true, false, false, false, true, true, true];
+    expect(bestFrictionBlock(scores, dryAndDaylight, 3, 0)).toBeCloseTo(0.4);
   });
 });

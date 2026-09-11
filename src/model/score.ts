@@ -129,3 +129,31 @@ export function confidenceCaveat(showerDominance: number): string | null {
     ? 'showery - model agreement is less trustworthy than it looks'
     : null;
 }
+
+/**
+ * §4.10 confidence tiers, capped when the day's precipitation was mostly
+ * convective (showerDominance > SHOWER_DOMINANCE_THRESHOLD) - "widen the
+ * uncertainty" for showery days, since convective rain is poorly located by
+ * every model regardless of how well they happen to agree on this run.
+ * Shared by ranking (sort order) and `confidenceAdjustedScore` (display
+ * number) so the two never disagree about how confident a day is.
+ */
+export function confidenceTier(fraction: number, showerDominance: number): number {
+  const rawTier = fraction >= 0.75 ? 2 : fraction >= 0.5 ? 1 : 0;
+  return showerDominance > SHOWER_DOMINANCE_THRESHOLD ? Math.min(rawTier, 1) : rawTier;
+}
+
+/**
+ * A mild multiplicative haircut on low-confidence days' displayed score - the
+ * number itself should already hint "don't trust this too far" rather than
+ * relying on the reader to notice a separate caveat sentence. Deliberately
+ * gentle (top tier is unchanged, bottom tier loses at most 15%) so this stays
+ * a nudge, not a second scoring system: ranking order is untouched, since
+ * `rankCragDays` sorts on confidence tier and raw `score`, never this value.
+ */
+const CONFIDENCE_TIER_MULTIPLIER = [0.85, 0.95, 1.0] as const;
+
+export function confidenceAdjustedScore(rawScore: number, agreement: ModelAgreement, showerDominance: number): number {
+  const tier = confidenceTier(agreement.fraction, showerDominance);
+  return rawScore * CONFIDENCE_TIER_MULTIPLIER[tier];
+}
