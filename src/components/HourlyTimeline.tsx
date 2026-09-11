@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { niceScale } from '../lib/chartScale';
 import { PARAMS } from '../model/params';
 import type { CragHourlyInput, HourResult } from '../model/wetness';
-import { ClimbableRibbon, Plot, STROKE, VW, dayBands, dayLabels, dot, fmt, fmtFine, gridlines, poly, sx } from './chart/kit';
+import { ClimbableRibbon, Plot, STROKE, VW, dayBands, dayLabels, dot, fmt, fmtFine, gridlines, poly, sx, xAxisRotation } from './chart/kit';
 import { Explain } from './Explain';
 
 const TIME_LABEL = new Intl.DateTimeFormat('en-GB', { weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
@@ -46,6 +46,10 @@ export function HourlyTimeline({
   const yW = (mm: number) => WH - (Math.min(mm, waterScale.max) / waterScale.max) * (WH - 6);
   const f = sx(i, n) / VW;
   const climbable = results.map((r) => r.climbable);
+  // Same overlap the water budget and score-by-day charts hit on a wide
+  // custom date range - rotate the day labels once there are too many to
+  // read horizontally without colliding.
+  const { xAxisH, xLabelRotateDeg } = xAxisRotation(Math.ceil(n / 24));
 
   const scrubLine = (h: number) => (
     <line x1={sx(i, n)} x2={sx(i, n)} y1={0} y2={h} stroke="var(--text)" strokeWidth={1.5} {...STROKE} />
@@ -140,6 +144,8 @@ export function HourlyTimeline({
         h={WH}
         onScrub={onScrub}
         ariaLabel="Rock wetness"
+        xAxisH={xAxisH}
+        xLabelRotateDeg={xLabelRotateDeg}
         yLabels={waterScale.ticks.map((v) => ({ y: yW(v), label: fmt(v) }))}
         xLabels={dayLabels(getDate, n)}
         overlay={

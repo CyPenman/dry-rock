@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { ModelName } from '../api/request';
 import type { CragDayResult } from '../model/dayAggregate';
 import type { Verdict } from '../model/score';
-import { Plot, STROKE, VW, dot, gridlines, pillStyle, poly, sx } from './chart/kit';
+import { Plot, STROKE, VW, dot, gridlines, pillStyle, poly, sx, xAxisRotation } from './chart/kit';
 import { Explain } from './Explain';
 
 const MODEL_LABELS: Record<ModelName, string> = {
@@ -100,6 +100,10 @@ export function DayScoreChart({
   const band = `${poly(hi.map((v, i) => [sx(i, n), Y(v) - 2]))} ${poly(
     lo.map((v, i) => [sx(i, n), Y(v) + 2]).reverse(),
   )}`;
+  // Wide custom date ranges can put many day columns on one axis - rotate the
+  // labels past the same density threshold water budget uses, otherwise the
+  // (always-bold) day labels here collide even sooner than that chart's.
+  const { xAxisH, xLabelRotateDeg } = xAxisRotation(n);
   const highlightPoints = highlight
     ? days
         .map((d, i) => (d.scores[highlight] != null ? ([sx(i, n), Y(d.scores[highlight]!)] as [number, number]) : null))
@@ -116,6 +120,8 @@ export function DayScoreChart({
         <Plot
           h={H}
           gutter={34}
+          xAxisH={xAxisH}
+          xLabelRotateDeg={xLabelRotateDeg}
           ariaLabel="Score by day with model spread"
           yLabels={[0, 25, 50, 75, 100].map((v) => ({ y: Y(v / 100), label: String(v) }))}
           xLabels={days.map((d, i) => ({ f: sx(i, n) / VW, label: DAY_LABEL_SHORT.format(d.date), strong: true }))}

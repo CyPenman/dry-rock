@@ -47,6 +47,20 @@ export interface XLabel {
   strong?: boolean;
 }
 
+/**
+ * Shared threshold for rotating x-axis day labels, so every chart with a
+ * variable-length day axis (water budget, score-by-day, hourly's day
+ * labels) switches to the 45deg layout at the same density instead of each
+ * picking its own cutoff. Bumped down from ">7" to ">6": a 7-bar window was
+ * still overlapping in practice (e.g. water budget's "Selected range" pill
+ * landing on exactly 7 bars while the very next pill, "+1 day", pushed the
+ * count to 8 and rotated - same density, inconsistent layout).
+ */
+export function xAxisRotation(n: number): { xAxisH: number; xLabelRotateDeg: number } {
+  const rotate = n > 6;
+  return { xAxisH: rotate ? 44 : 22, xLabelRotateDeg: rotate ? 45 : 0 };
+}
+
 /** Grid shell: HTML y-labels | SVG plot, with an HTML x-label row underneath. */
 export function Plot({
   h,

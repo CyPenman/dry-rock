@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { niceScale } from '../lib/chartScale';
 import type { HourResult } from '../model/wetness';
-import { Plot, VW, fmt, fmtFine, gridlines, poly, sx } from './chart/kit';
+import { Plot, VW, fmt, fmtFine, gridlines, poly, sx, xAxisRotation } from './chart/kit';
 import { Explain } from './Explain';
 
 const DAY_LABEL = new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric' });
@@ -143,7 +143,7 @@ export function WaterBudgetChart({
   // Rotate day labels once there are enough bars that horizontal labels would
   // start overlapping their neighbours (the longer "+13 days" options routinely
   // have 14-17 bars in view).
-  const rotateLabels = buckets.length > 7;
+  const { xAxisH, xLabelRotateDeg } = xAxisRotation(buckets.length);
   const todayBucketIdx = buckets.findIndex((d) => d.isToday);
 
   return (
@@ -182,8 +182,8 @@ export function WaterBudgetChart({
         <Plot
           h={H}
           gutter={34}
-          xAxisH={rotateLabels ? 44 : 22}
-          xLabelRotateDeg={rotateLabels ? 45 : 0}
+          xAxisH={xAxisH}
+          xLabelRotateDeg={xLabelRotateDeg}
           ariaLabel="Water into the rock, stacked by source"
           yLabels={scale.ticks.map((v) => ({ y: y(v), label: fmt(v) }))}
           xLabels={buckets.map((d, i) => ({ f: (slot * (i + 0.5)) / VW, label: d.label, strong: d.isToday }))}
