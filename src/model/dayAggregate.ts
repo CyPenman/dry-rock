@@ -269,11 +269,32 @@ export function computeCragForecast(crag: Crag, cell: CellForecast): CragForecas
   function withConfidence(model: ModelName): CragDayResult[] {
     const raw = perModelDaysRaw.get(model)!;
     return raw.map((d) => {
-      const perModelDayClimbable = availableModels.map((m) => {
-        const series = perModelResults.get(m)!;
-        const slice = series.slice(d.dayStartIdx, Math.min(d.dayEndIdx + 1, series.length));
-        return slice.some((r) => r.climbable);
-      });
+      const perModelDayClimbable = availableModels
+        .map((m) => {
+          const series = perModelResults.get(m)!;
+          const inputs = perModelInputs.get(m)!;
+          // A model whose forecast horizon is shorter than this day has NO data
+          // here (buildInputs truncates it, §11), not a "no" vote. Exclude it
+          // from the agreement set entirely - counting it as disagreeing would
+          // understate confidence for every far-out day and can wrongly demote a
+          // good day on the home list, whose sort is confidence-tier first.
+          if (d.dayStartIdx >= series.length) return null;
+          const end = Math.min(d.dayEndIdx + 1, series.length);
+          // "Climbable" here means climbable in DAYLIGHT, the same definition the
+          // score uses (§4.9's daylight-restricted climbable hours). Counting a
+          // crag that only clears at 03:00 as an agreeing model would let the
+          // confidence sentence describe a different thing than the score on the
+          // same row.
+          let climbable = false;
+          for (let i = d.dayStartIdx; i < end; i++) {
+            if (inputs[i].isDay && series[i].climbable) {
+              climbable = true;
+              break;
+            }
+          }
+          return climbable;
+        })
+        .filter((v): v is boolean => v !== null);
       const confidence = modelAgreement(perModelDayClimbable);
       return { ...d, confidence, displayScore: confidenceAdjustedScore(d.score, confidence, d.showerDominance) };
     });

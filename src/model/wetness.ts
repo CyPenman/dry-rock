@@ -119,48 +119,52 @@ export function stepHour(
     tauRock: config.tauRock,
   });
 
-  // 2. Snow gate - lying snow means "not climbable", full stop.
+  // 2. Snow gate - lying snow means "not climbable", full stop. But the water
+  // balance below still runs while snow lies on the face: a snowpack thawing
+  // over the rock leaves it wet, and that wetness has to accumulate in S/M so
+  // the crag reads wet for hours *after* the snow finally clears rather than
+  // flipping dry the instant snow_depth hits zero (§4.2). Earlier versions
+  // returned here early and discarded the melt entirely, so a thawed edge read
+  // bone dry - exactly the behaviour §4.2 says the model must not have.
   const underSnow = input.snowDepthM > 0.01;
-  if (underSnow) {
-    return {
-      state: { ...state, Trock: trock },
-      result: {
-        time: input.time,
-        S: state.S,
-        M: state.M,
-        Trock: trock,
-        climbable: false,
-        frozen: false,
-        underSnow: true,
-        fluxes: { rain: 0, seepage: 0, condensation: 0, melt: 0 },
-      },
-    };
-  }
 
   let S = state.S;
   let M = state.M;
 
-  // Residual snowmelt: only meaningful while the API still reports some lying
-  // snow (however thin) - otherwise this term would spuriously add water on any
-  // sunny day with no snow at all.
+  // Snowmelt: meaningful whenever the API still reports lying snow (however
+  // thin). meltwater enters S as liquid water. Guarded on snow presence so it
+  // can't spuriously add water on a sunny day with no snow at all.
   const melt = input.snowDepthM > 0 ? Math.max(0, trock) * PARAMS.meltRate : 0;
   S += melt;
 
-  // 3. Water in
-  const pface = computePface({
-    precipitationMm: input.precipitationMm,
-    steepness: config.steepness,
-    windSpeedMs: input.windSpeedMs,
-    windDirectionDeg: input.windDirectionDeg,
-    aspectDeg: config.aspectDeg,
-    kWDR: PARAMS.kWDR,
-  });
-  const pfaceEwma = updatePfaceEwma(state.pfaceEwma, pface, PFACE_EWMA_TAU_HOURS);
-  const runoffAbove = computeRunoffAbove(config.catchmentAbove, pfaceEwma);
-  S += pface + runoffAbove;
+  // 3. Water in from the sky. Skipped while snow covers the face: rain lands on
+  // the snowpack (feeding melt, already modelled above), not the rock film, and
+  // a covered face sees no wind-driven rain or condensation. Seepage is
+  // groundwater-driven and continues regardless of what's on the surface.
+  let pface = 0;
+  let runoffAbove = 0;
+  let condensation = 0;
+  let pfaceEwma: number;
+  if (underSnow) {
+    // Let the drainage EWMA decay toward zero rather than freeze, so the crag
+    // isn't hit with stale lip-drainage the hour the snow clears.
+    pfaceEwma = updatePfaceEwma(state.pfaceEwma, 0, PFACE_EWMA_TAU_HOURS);
+  } else {
+    pface = computePface({
+      precipitationMm: input.precipitationMm,
+      steepness: config.steepness,
+      windSpeedMs: input.windSpeedMs,
+      windDirectionDeg: input.windDirectionDeg,
+      aspectDeg: config.aspectDeg,
+      kWDR: PARAMS.kWDR,
+    });
+    pfaceEwma = updatePfaceEwma(state.pfaceEwma, pface, PFACE_EWMA_TAU_HOURS);
+    runoffAbove = computeRunoffAbove(config.catchmentAbove, pfaceEwma);
+    S += pface + runoffAbove;
 
-  const condensation = computeCondensationFlux(trock, input.dewPointC, input.windSpeedMs);
-  S += condensation;
+    condensation = computeCondensationFlux(trock, input.dewPointC, input.windSpeedMs);
+    S += condensation;
+  }
 
   const precipEwma = updatePrecipEwma(state.precipEwma, input.precipitationMm, config.tauSeep);
   const seepFlux =
@@ -178,33 +182,38 @@ export function stepHour(
   // 5. Runoff - the surface can only hold so much film before water sheets off
   if (S > config.Smax) S = config.Smax;
 
-  // 6. Evaporation, two-stage
-  const E0 = computeE0({
-    gtiFaceWm2: input.gtiFaceWm2,
-    vpdKpa: input.vpdKpa,
-    windSpeedMs: input.windSpeedMs,
-    canopyLight: config.canopyLight,
-    windShelter: config.windShelter,
-    dryingRate: config.dryingRate,
-    trockC: trock,
-    visibilityM: input.visibilityM,
-  });
-  let E = E0;
-  if (S > 0) {
-    const dS = Math.min(S, E);
-    S -= dS;
-    E -= dS;
-  }
-  if (E > 0 && M > 0) {
-    const dM = Math.min(M, E * Math.pow(M / config.Mmax, PARAMS.stageIIExp));
-    M -= dM;
+  // 6. Evaporation, two-stage. A snow-covered face doesn't dry, so skip it while
+  // snow lies - otherwise the meltwater we just added would evaporate straight
+  // back off under a snowpack, which is not physical.
+  if (!underSnow) {
+    const E0 = computeE0({
+      gtiFaceWm2: input.gtiFaceWm2,
+      vpdKpa: input.vpdKpa,
+      windSpeedMs: input.windSpeedMs,
+      canopyLight: config.canopyLight,
+      windShelter: config.windShelter,
+      dryingRate: config.dryingRate,
+      trockC: trock,
+      visibilityM: input.visibilityM,
+    });
+    let E = E0;
+    if (S > 0) {
+      const dS = Math.min(S, E);
+      S -= dS;
+      E -= dS;
+    }
+    if (E > 0 && M > 0) {
+      const dM = Math.min(M, E * Math.pow(M / config.Mmax, PARAMS.stageIIExp));
+      M -= dM;
+    }
   }
 
-  // 7. Freeze
-  const frozen = trock < 0 && S + M > PARAMS.frozenWetThreshold;
+  // 7. Freeze - reported only when the face is exposed; a snowed-under day is
+  // already gated by `underSnow` and shouldn't also read as verglas.
+  const frozen = !underSnow && trock < 0 && S + M > PARAMS.frozenWetThreshold;
 
-  // 8. Climbability
-  const climbable = S < PARAMS.S_dry && M / config.Mmax < PARAMS.matrixDryFraction && !frozen;
+  // 8. Climbability - never while under snow, regardless of the reservoir state.
+  const climbable = !underSnow && S < PARAMS.S_dry && M / config.Mmax < PARAMS.matrixDryFraction && !frozen;
 
   return {
     state: { S, M, Trock: trock, pfaceEwma, precipEwma },
@@ -215,7 +224,7 @@ export function stepHour(
       Trock: trock,
       climbable,
       frozen,
-      underSnow: false,
+      underSnow,
       fluxes: { rain: pface + runoffAbove, seepage: seepFlux, condensation, melt },
     },
   };

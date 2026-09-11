@@ -149,6 +149,51 @@ describe('computeCragForecast', () => {
     expect(day.frictionWindowStartHour).toBeNull();
   });
 
+  it('excludes a model with no data for a far-out day from the confidence denominator (H1/§11)', () => {
+    // ukmo resolves all three days; a second model runs out of horizon after
+    // day 0. For days 1-2 that model has NO data, which must drop the
+    // denominator to 1 rather than count the absent model as a disagreeing
+    // "no" - the latter understates confidence and can demote a good day.
+    const cell = makeCellForecast(24 * 3);
+    const oneDay = (arr: number[]) => arr.slice(0, 24);
+    cell.models.gfs_seamless = Object.fromEntries(
+      Object.entries(cell.models.ukmo_seamless).map(([k, v]) => [k, oneDay(v)]),
+    ) as Record<string, number[]>;
+
+    const result = computeCragForecast(crag('portland-cuttings'), cell)!;
+    expect(result.availableModels.sort()).toEqual(['gfs_seamless', 'ukmo_seamless'].sort());
+    expect(result.days).toHaveLength(3);
+    expect(result.days[0].confidence.total).toBe(2); // both models reach day 0
+    expect(result.days[1].confidence.total).toBe(1); // only ukmo reaches day 1
+    expect(result.days[2].confidence.total).toBe(1);
+  });
+
+  it('counts model agreement on the daylight definition of climbable, matching the score (M2)', () => {
+    // Rain every daylight hour keeps the rock wet all day; a dry, windy night
+    // clears it. So the crag is climbable only at night, never in daylight.
+    // The score counts zero climbable daylight hours - and confidence must use
+    // the same definition, reporting 0 agreeing models, not 1 on the strength
+    // of an 03:00 clearing no climber would ever use.
+    const cell = makeCellForecast(24);
+    const daylight = (i: number) => cell.time[i] != null && i % 24 >= 6 && i % 24 <= 18;
+    cell.models.ukmo_seamless.precipitation = cell.time.map((_, i) => (daylight(i) ? 2 : 0));
+    cell.models.ukmo_seamless.wind_speed_10m = cell.time.map((_, i) => (daylight(i) ? 3 : 8));
+    cell.models.ukmo_seamless.vapour_pressure_deficit = cell.time.map((_, i) => (daylight(i) ? 0.3 : 1.2));
+    cell.models.ukmo_seamless.temperature_2m = cell.time.map(() => 10);
+    cell.models.ukmo_seamless.dew_point_2m = cell.time.map(() => 2);
+    cell.models.ukmo_seamless.cloud_cover = cell.time.map(() => 0);
+
+    const result = computeCragForecast(crag('slate'), cell)!;
+    const day = result.days[0];
+
+    expect(day.climbableDaylightHours).toBe(0); // no daylight hour is dry
+    const someNightHourClimbable = result.hourly.some((r, i) => !daylight(i) && r.climbable);
+    expect(someNightHourClimbable).toBe(true); // but it does clear overnight
+    // Confidence uses the daylight definition, so it agrees with the score.
+    expect(day.confidence.total).toBe(1);
+    expect(day.confidence.agreeCount).toBe(0);
+  });
+
   it('reports the clock hour the friction score is drawn from on a normal dry day', () => {
     const cell = makeCellForecast(24);
     const result = computeCragForecast(crag('portland-cuttings'), cell);

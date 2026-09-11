@@ -281,6 +281,48 @@ describe('§8.4 validation cases', () => {
     expect(stateA.S + stateA.M).toBeLessThan(stateB.S + stateB.M);
   });
 
+  it('Stanage: a thawing snowpack leaves the rock wet for hours after the snow clears (§4.2)', () => {
+    // §4.2: "A snowed edge that thaws is wetter than one that was merely rained
+    // on, and stays wet longer." The meltwater must carry forward in S/M while
+    // the crag is still gated "under snow", so the face doesn't flip dry the
+    // instant snow_depth reaches zero. Compared against a no-snow control run
+    // over identical weather: the thaw run must be materially wetter, and not
+    // yet climbable, the hour the snow clears.
+    const config = toConfig(crag('stanage'));
+
+    // 24h thaw phase (snow lying, air above freezing) + 12h clear dry phase.
+    const thawPhase = (snow: number) => (i: number, hod: number) => ({
+      precipitationMm: 0,
+      snowDepthM: i < 24 ? snow : 0,
+      tempC: i < 24 ? 4 : 9,
+      dewPointC: i < 24 ? 2 : 3,
+      vpdKpa: vpdKpa(i < 24 ? 4 : 9, i < 24 ? 2 : 3),
+      windSpeedMs: 4,
+      gtiFaceWm2: i < 24 ? 0 : defaultGti(hod, 400),
+      isDay: i >= 24 && hod >= 6 && hod <= 18,
+    });
+
+    const thawResults = runSimulation(buildSeries(36, thawPhase(0.08)), config);
+    const controlResults = runSimulation(buildSeries(36, thawPhase(0)), config);
+
+    const snowClearsIdx = 24; // first hour with no lying snow
+
+    // Mechanism ran: melt fed the reservoirs while under snow.
+    const lastSnowHour = thawResults[23];
+    expect(lastSnowHour.underSnow).toBe(true);
+    expect(lastSnowHour.climbable).toBe(false);
+    expect(lastSnowHour.fluxes.melt).toBeGreaterThan(0);
+
+    // The thawed face is materially wetter than the same weather with no snow,
+    // and is not yet climbable the hour the snow clears - the wet aftermath the
+    // old early-return discarded entirely.
+    const thawWetness = thawResults[snowClearsIdx].S + thawResults[snowClearsIdx].M;
+    const controlWetness = controlResults[snowClearsIdx].S + controlResults[snowClearsIdx].M;
+    expect(thawWetness).toBeGreaterThan(controlWetness + 0.1);
+    expect(thawResults[snowClearsIdx].climbable).toBe(false);
+    expect(controlResults[snowClearsIdx].climbable).toBe(true);
+  });
+
   // Harrison's / Bowles soft-rock freeze-thaw block (§8.4 row 8) is a hard gate
   // applied at the scoring stage (§4.9, §5.5), not part of the wetness
   // simulation itself - deferred to the friction/composite-score build step.

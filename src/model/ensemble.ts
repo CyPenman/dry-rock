@@ -54,10 +54,13 @@ export interface EnsembleDayResult {
 
 /**
  * Run the full wetness simulation once per ensemble member (§3.3) and report the
- * fraction of members in which the crag is climbable at any point in the given
- * hour range - a real probability, not a hedge (§4.10). Reuses the same
+ * fraction of members in which the crag is climbable in DAYLIGHT at any point in
+ * the given hour range - a real probability, not a hedge (§4.10). Reuses the same
  * `runSimulation` the deterministic multi-model path uses; only the inputs
- * differ (per-member weather instead of per-model).
+ * differ (per-member weather instead of per-model). "Climbable" uses the same
+ * daylight definition as the deterministic confidence path and the score (§4.9),
+ * so "N of M members" means the same thing as "N of M models" - a member that
+ * only clears overnight isn't one a climber could use.
  */
 export function runEnsembleForCrag(
   crag: Crag,
@@ -75,10 +78,17 @@ export function runEnsembleForCrag(
     const inputs = buildHourlyInputsForMember(crag, cell, key);
     if (!inputs || inputs.length === 0) continue;
     const results: HourResult[] = runSimulation(inputs, config);
-    const slice = results.slice(startIdx, Math.min(endIdxInclusive + 1, results.length));
-    if (slice.length === 0) continue;
+    const end = Math.min(endIdxInclusive + 1, results.length);
+    if (end <= startIdx) continue; // this member's horizon doesn't reach the range
     memberCount++;
-    if (slice.some((r) => r.climbable)) climbableCount++;
+    let climbable = false;
+    for (let i = startIdx; i < end; i++) {
+      if (inputs[i].isDay && results[i].climbable) {
+        climbable = true;
+        break;
+      }
+    }
+    if (climbable) climbableCount++;
   }
 
   return { memberCount, climbableCount, fraction: memberCount > 0 ? climbableCount / memberCount : 0 };
