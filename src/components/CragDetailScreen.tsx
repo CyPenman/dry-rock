@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { buildEnsembleUrl } from '../api/ensembleRequest';
-import { fetchEnsembleForecast } from '../api/ensembleClient';
+import { fetchEnsembleForecast, type EnsembleCellForecast } from '../api/ensembleClient';
 import { FORECAST_DAYS, PAST_DAYS } from '../api/request';
 import type { CragWithForecast } from '../hooks/useForecast';
 import { formatAgeWords, formatDayLabel } from '../lib/format';
@@ -11,6 +11,7 @@ import { pickBestDayInRange } from '../model/ranking';
 import { computeSmNorm, DEFAULT_SM_CALIBRATION } from '../model/seepage';
 import { verdictMessage } from '../model/score';
 import type { Settings } from '../state/settings';
+import { isStale, readCachedEnsemble, writeCachedEnsemble } from '../storage/db';
 import { DayScoreChart } from './DayScoreChart';
 import { Explain } from './Explain';
 import { HourlyTimeline } from './HourlyTimeline';
@@ -132,8 +133,15 @@ export function CragDetailScreen({
   async function runEnsemble() {
     setEnsembleState({ status: 'loading' });
     try {
-      const url = buildEnsembleUrl({ lat: crag.lat, lon: crag.lon, elevationM: crag.elevationM }, PAST_DAYS, FORECAST_DAYS);
-      const cell = await fetchEnsembleForecast(url);
+      const cached = await readCachedEnsemble<EnsembleCellForecast>(crag.id);
+      let cell: EnsembleCellForecast;
+      if (cached && !isStale(cached.fetchedAt)) {
+        cell = cached.data;
+      } else {
+        const url = buildEnsembleUrl({ lat: crag.lat, lon: crag.lon, elevationM: crag.elevationM }, PAST_DAYS, FORECAST_DAYS);
+        cell = await fetchEnsembleForecast(url);
+        await writeCachedEnsemble(crag.id, cell);
+      }
       const config = toModelConfig(crag);
       const hourRange: [number, number] = [rangeStart * 24, (rangeEnd + 1) * 24 - 1];
       const result = runEnsembleForCrag(crag, config, cell, hourRange);
