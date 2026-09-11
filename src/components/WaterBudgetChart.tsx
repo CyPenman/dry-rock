@@ -322,20 +322,16 @@ export function WaterBudgetChart({
       </p>
 
       <Explain>
+        <p>All four are millimetres of water reaching the rock, by source.</p>
         <p>
-          <strong>Rain reaching the face</strong> is precipitation after accounting for the crag's steepness and any
-          wind-driven rain onto the aspect, plus drainage arriving from above - all in millimetres.
+          <strong>Seepage</strong> is ground saturation rising through the rock, independent of today's forecast -
+          why a crag can stay wet through a dry week after a wet spell.
         </p>
         <p>
-          <strong>Seepage</strong> is water rising through the rock from ground saturation, independent of today's
-          forecast - this is what makes a crag stay wet through a dry week after a wet spell.
+          <strong>Condensation</strong> forms on rock colder than the dew point - nothing to do with rainfall.
         </p>
         <p>
-          <strong>Condensation</strong> is water forming directly on the rock when it's colder than the dew point -
-          nothing to do with rainfall.
-        </p>
-        <p>
-          <strong>Snowmelt</strong> is meltwater entering the rock as lying snow thaws.
+          <strong>Snowmelt</strong> is meltwater as lying snow thaws.
         </p>
       </Explain>
     </div>

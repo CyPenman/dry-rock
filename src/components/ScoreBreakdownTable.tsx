@@ -5,16 +5,34 @@ import { confidenceCaveat, confidenceSentence, verdictMessage } from '../model/s
 import { windChillCaveat } from '../model/windChill';
 import { Explain } from './Explain';
 
-export function ScoreBar({ label, value, color = 'var(--signal)' }: { label: string; value: number; color?: string }) {
+export function ScoreBar({
+  label,
+  value,
+  color = 'var(--signal)',
+  caption,
+}: {
+  label: string;
+  value: number;
+  color?: string;
+  /** Small line under the row - e.g. the exact clock window a score describes, so it never reads as a claim about the whole day. */
+  caption?: string;
+}) {
   return (
-    <div className="flex items-center gap-2 text-sm">
-      <span className="w-20 shrink-0" style={{ color: 'var(--text-dim)' }}>
-        {label}
-      </span>
-      <div className="h-2 flex-1 rounded" style={{ background: 'var(--ground-raised)' }}>
-        <div className="h-2 rounded" style={{ width: `${Math.round(value * 100)}%`, background: color }} />
+    <div>
+      <div className="flex items-center gap-2 text-sm">
+        <span className="w-28 shrink-0" style={{ color: 'var(--text-dim)' }}>
+          {label}
+        </span>
+        <div className="h-2 flex-1 rounded" style={{ background: 'var(--ground-raised)' }}>
+          <div className="h-2 rounded" style={{ width: `${Math.round(value * 100)}%`, background: color }} />
+        </div>
+        <span className="w-8 text-right font-mono">{Math.round(value * 100)}</span>
       </div>
-      <span className="w-8 text-right font-mono">{Math.round(value * 100)}</span>
+      {caption && (
+        <div className="pl-[7.5rem] text-xs" style={{ color: 'var(--text-dim)' }}>
+          {caption}
+        </div>
+      )}
     </div>
   );
 }
@@ -26,14 +44,15 @@ export function ScoreBar({ label, value, color = 'var(--signal)' }: { label: str
  * The track is left empty rather than omitted, so it still lines up under the
  * bars above it.
  */
-function StatRow({ label, value, warn }: { label: string; value: string; warn: boolean }) {
+function StatRow({ label, value, tone = 'normal' }: { label: string; value: string; tone?: 'normal' | 'warn' | 'dim' }) {
+  const color = tone === 'warn' ? 'var(--warning)' : tone === 'dim' ? 'var(--text-dim)' : 'var(--text)';
   return (
     <div className="flex items-center gap-2 text-sm">
-      <span className="w-20 shrink-0" style={{ color: 'var(--text-dim)' }}>
+      <span className="w-28 shrink-0" style={{ color: 'var(--text-dim)' }}>
         {label}
       </span>
       <div className="h-2 flex-1" />
-      <span className="text-right font-mono" style={{ color: warn ? 'var(--warning)' : 'var(--text)' }}>
+      <span className="text-right font-mono" style={{ color }}>
         {value}
       </span>
     </div>
@@ -42,6 +61,14 @@ function StatRow({ label, value, warn }: { label: string; value: string; warn: b
 
 function formatHourOfDay(hour: number): string {
   return `${String(hour).padStart(2, '0')}:00`;
+}
+
+/** The friction block is always a fixed 3h window - see `bestFrictionBlock` in friction.ts. */
+const FRICTION_BLOCK_LENGTH_HOURS = 3;
+
+function frictionWindowLabel(startHour: number): string {
+  const endHour = (startHour + FRICTION_BLOCK_LENGTH_HOURS) % 24;
+  return `best window: ${formatHourOfDay(startHour)}–${formatHourOfDay(endHour)}, already counted dry`;
 }
 
 function dayTimingLabel(day: CragDayResult): string {
@@ -119,14 +146,22 @@ export function ScoreBreakdownTable({ days, bestDayIndex }: { days: CragDayResul
                         ) : (
                           <div className="space-y-2">
                             <div className="space-y-1">
-                              <ScoreBar label="Dryness" value={day.rockDrynessScore} />
-                              <ScoreBar label="Friction" value={day.bestFrictionBlockScore} />
+                              <ScoreBar label="Crag dryness" value={day.rockDrynessScore} />
+                              {day.frictionWindowStartHour != null ? (
+                                <ScoreBar
+                                  label="Rock friction"
+                                  value={day.bestFrictionBlockScore}
+                                  caption={frictionWindowLabel(day.frictionWindowStartHour)}
+                                />
+                              ) : (
+                                <StatRow label="Rock friction" value="no dry window" tone="dim" />
+                              )}
                               <ScoreBar label="Confidence" value={day.confidence.fraction} color="var(--chart-water)" />
                               {day.worstDaylightWindChillC != null && (
                                 <StatRow
                                   label="Feels like"
                                   value={`${Math.round(day.worstDaylightWindChillC)}°C`}
-                                  warn={windChill != null}
+                                  tone={windChill != null ? 'warn' : 'normal'}
                                 />
                               )}
                             </div>
@@ -153,26 +188,23 @@ export function ScoreBreakdownTable({ days, bestDayIndex }: { days: CragDayResul
 
       <Explain>
         <p>
-          <strong>Dryness</strong> is the fraction of the day's daylight hours the rock reads as climbable, blended
-          with how much of that is one unbroken block rather than scattered gaps - a day you can actually plan a
-          session around scores higher than the same total hours in fragments.
+          <strong>Crag dryness</strong>: how much of the day was dry, weighted toward one unbroken block over the same
+          hours scattered in gaps.
         </p>
         <p>
-          <strong>Friction</strong> is how good the best 3-hour block feels underfoot: temperature, dew point, wind
-          and sun exposure - always the same 3 hours dryness picked, since a great-friction window inside a wet spell
-          isn't a window you can actually climb in.
+          <strong>Rock friction</strong>: grip quality in the driest 3-hour block, shown with its exact clock window -
+          always inside hours Crag dryness already counted as dry, never a reading of its own. "No dry window" means
+          there wasn't a 3-hour dry block to judge at all, which is different from a low score (dry, but slick).
         </p>
         <p>
-          <strong>Confidence</strong> is how many of the forecast models agree the crag is climbable - shown in blue
-          rather than green because, unlike Dryness and Friction, it isn't blended into the score formula. It softens
-          the number shown a little on low-confidence days and breaks ties when ranking crags, but a low bar here
-          means "trust this less", not "conditions are worse".
+          <strong>Confidence</strong>: how many forecast models agree the crag is climbable. Shown in blue, not green,
+          because it isn't part of the score formula - it only softens the number on low-agreement days and breaks
+          ranking ties. Low means "trust this less", not "conditions are worse".
         </p>
         <p>
-          <strong>Feels like</strong> is the coldest wind chill during the day's daylight hours - a comfort factor for
-          the climber (numb hands, miserable belaying), not the rock, so it's a temperature rather than a percentage
-          and never changes the score. It turns orange once it's cold enough that hands would likely struggle even on
-          dry, high-friction rock.
+          <strong>Feels like</strong>: coldest wind chill in daylight hours - a comfort factor for the climber, not
+          the rock, so it never changes the score. Turns orange once hands would likely struggle even on dry, grippy
+          rock.
         </p>
         <p>Tap a row to see its full breakdown. The best day in the range is starred and expanded by default.</p>
       </Explain>

@@ -45,6 +45,15 @@ export interface CragDayResult {
   totalDaylightHours: number;
   bestContiguousClimbableHours: number;
   bestFrictionBlockScore: number;
+  /**
+   * Clock hour (0-23) the friction block above starts at - always a 3h window
+   * that was ALSO counted dry (see `bestFrictionBlock` in friction.ts), never
+   * an independent reading. Null when the day never had 3 consecutive dry
+   * daylight hours to evaluate at all, which is a different finding from "it
+   * was dry but slick" (bestFrictionBlockScore near 0 with a real window) -
+   * callers should show that distinction rather than rendering both as "0".
+   */
+  frictionWindowStartHour: number | null;
   limitingFactor: LimitingFactor;
   confidence: ModelAgreement;
   /** Showers-mm / total-precipitation-mm for the day, 0 when no rain fell - §4.10. */
@@ -154,7 +163,8 @@ function computeDaysForModel(
     // so the reported friction score describes a window you could actually
     // climb in rather than the best-looking 3h stretch of an otherwise wet day.
     const dryDaylightFlags = isDayFlags.map((isDay, idx) => isDay && dayResults[idx].climbable);
-    const bestFriction = bestFrictionBlock(frictionScores, dryDaylightFlags, 3, 0);
+    const frictionBlock = bestFrictionBlock(frictionScores, dryDaylightFlags, 3, 0);
+    const bestFriction = frictionBlock.score;
 
     const underSnowAnyHour = dayResults.some((r) => r.underSnow);
     const frozenAllDaylightHours = totalDaylightHours > 0 && dayResults.every((r, idx) => !isDayFlags[idx] || r.frozen);
@@ -196,6 +206,7 @@ function computeDaysForModel(
       totalDaylightHours,
       bestContiguousClimbableHours: bestContiguousBlock?.hours ?? 0,
       bestFrictionBlockScore: bestFriction,
+      frictionWindowStartHour: frictionBlock.startHourOfDay,
       limitingFactor: limitingFactorAt(results, dayEnd),
       showerDominance,
       avgDaylightTempC,

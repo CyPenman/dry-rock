@@ -132,19 +132,27 @@ describe('bestFrictionBlock', () => {
   it('finds the best 3h contiguous daylight average', () => {
     const scores = [0.1, 0.9, 0.9, 0.9, 0.2, 0.5, 0.5, 0.5];
     const isDay = [true, true, true, true, true, true, true, true];
-    expect(bestFrictionBlock(scores, isDay)).toBeCloseTo(0.9);
+    expect(bestFrictionBlock(scores, isDay).score).toBeCloseTo(0.9);
+  });
+
+  it('reports which hour the winning block starts at', () => {
+    const scores = [0.1, 0.9, 0.9, 0.9, 0.2, 0.5, 0.5, 0.5];
+    const isDay = [true, true, true, true, true, true, true, true];
+    expect(bestFrictionBlock(scores, isDay).startHourOfDay).toBe(1);
   });
 
   it('ignores night hours even if they score well', () => {
     const scores = [1, 1, 1, 0.2, 0.2, 0.2];
     const isDay = [false, false, false, true, true, true];
-    expect(bestFrictionBlock(scores, isDay)).toBeCloseTo(0.2);
+    expect(bestFrictionBlock(scores, isDay).score).toBeCloseTo(0.2);
   });
 
-  it('returns 0 when no full daylight block exists', () => {
+  it('returns a 0 score and a null window when no full daylight block exists', () => {
     const scores = [1, 1];
     const isDay = [true, true];
-    expect(bestFrictionBlock(scores, isDay, 3)).toBe(0);
+    const result = bestFrictionBlock(scores, isDay, 3);
+    expect(result.score).toBe(0);
+    expect(result.startHourOfDay).toBeNull();
   });
 
   it('prefers a typical-hours block over an equally-good dawn block, but still returns its own raw average', () => {
@@ -156,7 +164,9 @@ describe('bestFrictionBlock', () => {
     const isDay = Array(24).fill(true);
     // Selection prefers the midday block, but the reported value is unaffected
     // (still 0.8, not 0.8 + bonus) since both candidates share the same raw average.
-    expect(bestFrictionBlock(scores, isDay, 3, 0)).toBeCloseTo(0.8);
+    const result = bestFrictionBlock(scores, isDay, 3, 0);
+    expect(result.score).toBeCloseTo(0.8);
+    expect(result.startHourOfDay).toBe(12);
   });
 
   it('does not let the typical-hours preference override a genuinely better block outside the window', () => {
@@ -164,7 +174,9 @@ describe('bestFrictionBlock', () => {
     scores[6] = scores[7] = scores[8] = 0.95; // dawn, outside typical hours, but clearly the best block
     scores[12] = scores[13] = scores[14] = 0.5; // midday, inside typical hours, but much worse
     const isDay = Array(24).fill(true);
-    expect(bestFrictionBlock(scores, isDay, 3, 0)).toBeCloseTo(0.95);
+    const result = bestFrictionBlock(scores, isDay, 3, 0);
+    expect(result.score).toBeCloseTo(0.95);
+    expect(result.startHourOfDay).toBe(6);
   });
 
   it('offsets typical-hours selection by startHourOfDay for a non-midnight-aligned slice', () => {
@@ -174,7 +186,9 @@ describe('bestFrictionBlock', () => {
     scores[4] = scores[5] = scores[6] = 0.8;
     scores[16] = scores[17] = scores[18] = 0.8;
     const isDay = Array(20).fill(true);
-    expect(bestFrictionBlock(scores, isDay, 3, 5)).toBeCloseTo(0.8);
+    const result = bestFrictionBlock(scores, isDay, 3, 5);
+    expect(result.score).toBeCloseTo(0.8);
+    expect(result.startHourOfDay).toBe(9);
   });
 
   it('gates on the eligibility flags passed in, regardless of whether they represent daylight or dry-and-daylight', () => {
@@ -183,6 +197,8 @@ describe('bestFrictionBlock', () => {
     // select a block from them even though their friction score looks great.
     const scores = [0.2, 0.2, 0.2, 0.9, 0.9, 0.9, 0.4, 0.4, 0.4];
     const dryAndDaylight = [true, true, true, false, false, false, true, true, true];
-    expect(bestFrictionBlock(scores, dryAndDaylight, 3, 0)).toBeCloseTo(0.4);
+    const result = bestFrictionBlock(scores, dryAndDaylight, 3, 0);
+    expect(result.score).toBeCloseTo(0.4);
+    expect(result.startHourOfDay).toBe(6);
   });
 });

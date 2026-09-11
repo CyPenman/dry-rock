@@ -188,21 +188,15 @@ export function HourlyTimeline({
       </div>
 
       <Explain>
+        <p>The green ribbon marks exactly which hours read as climbable. Drag either panel to move the readout above.</p>
         <p>
-          <strong>Climbable</strong> - the green ribbon marks exactly which hours qualify. Drag anywhere on either panel
-          below to move the readout bar at the top to that hour.
+          Rain here is raw mm/hr, before any adjustment for this crag - the Water in panel below shows the smaller
+          (or larger) amount that actually reaches the face, so the two won't match hour-for-hour.
         </p>
         <p>
-          <strong>Rain</strong> is how hard it's falling that hour, in millimetres per hour - measured before any
-          adjustment for this crag. The Water in panel below shows "rain at rock", the smaller (or larger) amount
-          that actually reaches the face once steepness and wind exposure are factored in, so the two won't match
-          hour-for-hour.
-        </p>
-        <p>
-          <strong>Rock wetness</strong> has two layers, both in millimetres: <strong>surface film</strong> (the bright
-          line) is water sitting directly on the surface - what your hands touch. <strong>Inside the rock</strong>{' '}
-          (the pale fill) is water held deeper in the outer skin. Both need to be low before the rock reads as
-          climbable.
+          Rock wetness has two layers, both in mm: <strong>surface film</strong> (bright line) is what your hands
+          touch; <strong>inside the rock</strong> (pale fill) is water held deeper in the outer skin. Both need to be
+          low for the rock to read as climbable.
         </p>
       </Explain>
     </div>

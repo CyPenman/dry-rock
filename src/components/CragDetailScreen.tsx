@@ -65,10 +65,9 @@ function EnsembleSection({
           </div>
           <Explain>
             <p>
-              Each member is a full run of the same wetness model against a slightly different, equally plausible
-              weather sequence (icon_eu, ~40 members). This is a real probability across that spread, not a hedge -
-              wider agreement between members means the outcome is less sensitive to exactly how the weather plays
-              out.
+              Each member runs the same wetness model against a slightly different, equally plausible weather
+              sequence (icon_eu, ~40 members) - a real probability, not a hedge. Wider agreement means the outcome is
+              less sensitive to exactly how the weather plays out.
             </p>
           </Explain>
         </div>

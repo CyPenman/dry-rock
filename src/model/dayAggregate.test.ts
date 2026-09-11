@@ -146,5 +146,16 @@ describe('computeCragForecast', () => {
     const day = result!.days[0];
     expect(day.bestContiguousClimbableHours).toBe(0);
     expect(day.bestFrictionBlockScore).toBe(0);
+    expect(day.frictionWindowStartHour).toBeNull();
+  });
+
+  it('reports the clock hour the friction score is drawn from on a normal dry day', () => {
+    const cell = makeCellForecast(24);
+    const result = computeCragForecast(crag('portland-cuttings'), cell);
+    const day = result!.days[0];
+    expect(day.bestContiguousClimbableHours).toBeGreaterThan(0);
+    expect(day.frictionWindowStartHour).not.toBeNull();
+    expect(day.frictionWindowStartHour).toBeGreaterThanOrEqual(0);
+    expect(day.frictionWindowStartHour).toBeLessThan(24);
   });
 });

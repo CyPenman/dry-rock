@@ -144,14 +144,11 @@ export function RockTempChart({
 
       <Explain>
         <p>
-          <strong>Rock temperature</strong> drives friction more than air temperature does - it's what your skin
-          actually touches. The shaded band is this rock type's ideal range for grip.
+          Rock temperature drives friction more than air temperature - it's what your skin touches. The shaded band
+          is this rock type's ideal grip range.
         </p>
-        <p>
-          <strong>Dark hours</strong> are shaded, so the overnight cooling that drives dawn condensation is visible
-          directly on the curve.
-        </p>
-        <p>Drag anywhere on the chart to read the temperature and friction verdict at a specific hour.</p>
+        <p>Dark hours are shaded, so the overnight cooling behind dawn condensation shows directly on the curve.</p>
+        <p>Drag the chart to read temperature and friction at a specific hour.</p>
       </Explain>
     </div>
   );

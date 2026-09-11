@@ -205,17 +205,10 @@ export function DayScoreChart({
       </p>
 
       <Explain>
+        <p>Score is 0 to 100, higher is better - see the score breakdown table above for what makes up each number.</p>
         <p>
-          <strong>Score</strong> is 0 to 100, higher is better - see the score breakdown table above for what makes up
-          each day's number.
-        </p>
-        <p>
-          <strong>Band width</strong> - where the band is wide, the models disagree, which is itself useful
-          information regardless of what the median says.
-        </p>
-        <p>
-          <strong>Gated days</strong> - hatched with a label (frozen, under snow, or rock damage) mean that day is
-          ruled out entirely for at least one model, not just scored low.
+          Days hatched with a label (frozen, under snow, or rock damage) are ruled out entirely for at least one
+          model, not just scored low.
         </p>
       </Explain>
     </div>

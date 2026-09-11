@@ -19,6 +19,7 @@ function makeDay(overrides: Partial<CragDayResult> = {}): CragDayResult {
     totalDaylightHours: 10,
     bestContiguousClimbableHours: 6,
     bestFrictionBlockScore: 0.5,
+    frictionWindowStartHour: 12,
     limitingFactor: 'none',
     confidence: { agreeCount: 4, total: 4, fraction: 1 },
     showerDominance: 0,

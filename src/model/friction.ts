@@ -157,6 +157,19 @@ function typicalHoursOverlapFraction(blockStartHourOfDay: number, blockLength: n
   return coveredHours / blockLength;
 }
 
+export interface FrictionBlockResult {
+  score: number;
+  /**
+   * Clock hour (0-23) the winning block starts at, or null when no eligible
+   * block existed at all (e.g. the day never had `blockLength` consecutive
+   * dry daylight hours). Callers use this to show the actual window the
+   * score describes - Friction is always a statement about a specific slice
+   * of the day, not the whole day, and burying that made it easy to compare
+   * it against a wholly different hour's reading elsewhere on screen.
+   */
+  startHourOfDay: number | null;
+}
+
 /**
  * Best contiguous `blockLength`-hour block's mean friction score for the day
  * (§4.9). Callers pass the eligibility flags: gate on daylight alone to search
@@ -167,7 +180,7 @@ function typicalHoursOverlapFraction(blockStartHourOfDay: number, blockLength: n
  *
  * `startHourOfDay` is the clock hour index 0 of the array corresponds to
  * (0 for a day-aligned 24-length slice, the normal case); it only affects the
- * typical-hours selection preference, never the reported score.
+ * typical-hours selection preference and the returned window, never the score.
  */
 export function bestFrictionBlock(
   hourlyScores: number[],
@@ -175,8 +188,9 @@ export function bestFrictionBlock(
   blockLength = 3,
   startHourOfDay = 0,
   typicalHours: [number, number] = DEFAULT_TYPICAL_HOURS,
-): number {
+): FrictionBlockResult {
   let best = 0;
+  let bestStartHourOfDay: number | null = null;
   let bestRank = -Infinity;
   for (let i = 0; i + blockLength <= hourlyScores.length; i++) {
     let allDay = true;
@@ -196,7 +210,8 @@ export function bestFrictionBlock(
     if (rank > bestRank) {
       bestRank = rank;
       best = avg;
+      bestStartHourOfDay = blockStartHourOfDay;
     }
   }
-  return best;
+  return { score: best, startHourOfDay: bestStartHourOfDay };
 }
