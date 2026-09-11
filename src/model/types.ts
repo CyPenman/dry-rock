@@ -47,4 +47,10 @@ export interface Crag {
   notes: string;
   accessNote?: string;
   ukcUrl?: string;
+
+  // Parking - only set where a specific car park could be confirmed from
+  // the crag's approach description; otherwise omitted (see parkingNote).
+  parkingLat?: number;
+  parkingLon?: number;
+  parkingNote?: string;
 }

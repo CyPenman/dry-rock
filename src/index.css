@@ -102,6 +102,15 @@ body {
   font-size: 14px;
   font-weight: 500;
 }
+.popup-name-link {
+  display: block;
+  text-align: left;
+  color: var(--signal);
+  text-decoration: underline;
+  padding: 0;
+  background: none;
+  border: none;
+}
 .popup-area {
   font-size: 12px;
   color: var(--text-dim);

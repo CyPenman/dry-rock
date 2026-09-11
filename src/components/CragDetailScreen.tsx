@@ -10,6 +10,7 @@ import { runEnsembleForCrag, type EnsembleDayResult } from '../model/ensemble';
 import { pickBestDayInRange } from '../model/ranking';
 import { computeSmNorm, DEFAULT_SM_CALIBRATION } from '../model/seepage';
 import { verdictMessage } from '../model/score';
+import type { Settings } from '../state/settings';
 import { DayScoreChart } from './DayScoreChart';
 import { Explain } from './Explain';
 import { HourlyTimeline } from './HourlyTimeline';
@@ -76,6 +77,17 @@ function EnsembleSection({
   );
 }
 
+/**
+ * Universal Google Maps directions link: opens the native Maps app on mobile if
+ * installed, else Maps in the browser. Omitting origin (no saved home address)
+ * makes Google Maps use the device's current location instead.
+ */
+function directionsUrl(destination: { lat: number; lon: number }, origin?: { lat: number; lon: number }): string {
+  const params = new URLSearchParams({ api: '1', destination: `${destination.lat},${destination.lon}` });
+  if (origin) params.set('origin', `${origin.lat},${origin.lon}`);
+  return `https://www.google.com/maps/dir/?${params.toString()}`;
+}
+
 export function CragDetailScreen({
   entry,
   pinned,
@@ -87,6 +99,7 @@ export function CragDetailScreen({
   fetchedAt,
   stale,
   onRefresh,
+  homeSettings,
 }: {
   entry: CragWithForecast;
   pinned: boolean;
@@ -98,6 +111,7 @@ export function CragDetailScreen({
   fetchedAt: number | null;
   stale: boolean;
   onRefresh: () => void;
+  homeSettings: Pick<Settings, 'homeLat' | 'homeLon'>;
 }) {
   const { crag, forecast } = entry;
 
@@ -289,6 +303,45 @@ export function CragDetailScreen({
           </a>
         </div>
       )}
+
+      <div className="mx-4 mt-2 space-y-1 border-t pt-4" style={{ borderColor: 'var(--border)' }}>
+        {homeSettings.homeLat != null && homeSettings.homeLon != null ? (
+          <a
+            href={directionsUrl({ lat: crag.lat, lon: crag.lon }, { lat: homeSettings.homeLat, lon: homeSettings.homeLon })}
+            target="_blank"
+            rel="noreferrer"
+            className="flex h-11 items-center text-sm font-medium"
+            style={{ color: 'var(--signal)' }}
+          >
+            Directions from home &rarr;
+          </a>
+        ) : (
+          <p className="py-2 text-sm" style={{ color: 'var(--text-dim)' }}>
+            Set a home address to get directions to {crag.name}.
+          </p>
+        )}
+
+        {crag.parkingLat != null && crag.parkingLon != null ? (
+          <a
+            href={directionsUrl(
+              { lat: crag.parkingLat, lon: crag.parkingLon },
+              homeSettings.homeLat != null && homeSettings.homeLon != null
+                ? { lat: homeSettings.homeLat, lon: homeSettings.homeLon }
+                : undefined,
+            )}
+            target="_blank"
+            rel="noreferrer"
+            className="flex h-11 items-center text-sm font-medium"
+            style={{ color: 'var(--signal)' }}
+          >
+            Directions to crag parking &rarr;
+          </a>
+        ) : (
+          <p className="py-2 text-sm" style={{ color: 'var(--text-dim)' }}>
+            Parking location unclear{crag.parkingNote ? `: ${crag.parkingNote}` : ' - not yet confirmed for this crag.'}
+          </p>
+        )}
+      </div>
     </div>
   );
 }

@@ -100,6 +100,7 @@ function App() {
                 fetchedAt={fetchedAt}
                 stale={stale}
                 onRefresh={refresh}
+                onSelectCrag={(id) => setView({ name: 'detail', cragId: id })}
               />
             </div>
           </div>
@@ -146,6 +147,7 @@ function App() {
             fetchedAt={fetchedAt}
             stale={stale}
             onRefresh={refresh}
+            homeSettings={settings}
           />
         </div>
       )}

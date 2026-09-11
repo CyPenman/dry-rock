@@ -83,6 +83,7 @@ export function CragsMap({
   fetchedAt,
   stale,
   onRefresh,
+  onSelectCrag,
 }: {
   results: CragWithForecast[];
   dateRange: DateRangeSelection;
@@ -91,6 +92,7 @@ export function CragsMap({
   fetchedAt: number | null;
   stale: boolean;
   onRefresh: () => void;
+  onSelectCrag: (id: string) => void;
 }) {
   const [startIdx, endIdx] = useMemo(() => resolveDateRange(dateRange, PAST_DAYS), [dateRange]);
   const entries = useMemo(() => results.map(({ crag, forecast }) => ({ crag, days: forecast ? forecast.days : null })), [results]);
@@ -139,7 +141,9 @@ export function CragsMap({
             return (
               <Marker key={r.crag.id} position={[r.crag.lat, r.crag.lon]} icon={markerIcon(color)}>
                 <Popup>
-                  <div className="popup-name">{r.crag.name}</div>
+                  <button type="button" className="popup-name popup-name-link" onClick={() => onSelectCrag(r.crag.id)}>
+                    {r.crag.name}
+                  </button>
                   <div className="popup-area">{r.crag.area}</div>
                   <div className="popup-stats">
                     <span className="popup-score" style={{ color }}>

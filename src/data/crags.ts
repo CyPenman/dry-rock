@@ -27,6 +27,11 @@ type CragSeed = {
   accessNote?: string;
   ukcUrl?: string;
   dryingRate?: number; // default 1.0
+  // Parking - only set where a specific car park could be confirmed; otherwise
+  // leave unset and use parkingNote to say why (spec: no guessing coordinates).
+  parkingLat?: number;
+  parkingLon?: number;
+  parkingNote?: string;
   // Overrides - only where a venue is atypical for its rock type
   Smax?: number;
   Mmax?: number;
@@ -55,6 +60,8 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: 'Fast-drying south-facing limestone sport. Dries within hours of a summer shower.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/the_cuttings-276/',
+    parkingLat: 50.5387,
+    parkingLon: -2.43198,
   },
   {
     id: 'portland-blacknor',
@@ -77,6 +84,8 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: 'West-facing, fully exposed. Wind-driven rain in a westerly; otherwise dries fast.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/blacknor_north-260/',
+    parkingLat: 50.53987,
+    parkingLon: -2.44991,
   },
   {
     id: 'portland-cheyne',
@@ -99,6 +108,7 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: 'South-east facing steep limestone. Catches the morning sun.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/cheyne_cliff-275/',
+    parkingNote: 'Shared with the Cheyne Weares viewing-area car park on the Easton-Southwell road, but its exact coordinates could not be confirmed.',
   },
   {
     id: 'cheddar-sun',
@@ -122,6 +132,7 @@ const SEEDS: CragSeed[] = [
     notes: 'Gorge venue, moderate seepage. The sunny wall dries markedly faster than the shady one.',
     accessNote: 'Seasonal bird nesting restrictions on some buttresses, roughly March–August.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/cheddar_gorge_north-2280/',
+    parkingNote: 'Several pay-and-display car parks line the gorge road; none is specific to this wall, so no single coordinate could be confirmed.',
   },
   {
     id: 'cheddar-shade',
@@ -145,6 +156,7 @@ const SEEDS: CragSeed[] = [
     notes: 'North-facing gorge wall. Little direct sun; slower and seepier than the sunny side.',
     accessNote: 'Seasonal bird nesting restrictions on some buttresses, roughly March–August.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/cheddar_gorge_south-240/',
+    parkingNote: 'Several pay-and-display car parks line the gorge road; none is specific to this wall, so no single coordinate could be confirmed.',
   },
   {
     id: 'brean',
@@ -167,6 +179,8 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: 'Exposed coastal limestone headland. Dries fast; wind-driven rain and spray in onshore weather.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/brean_down-75/',
+    parkingLat: 51.32126,
+    parkingLon: -3.01076,
   },
   {
     id: 'wyndcliffe',
@@ -189,6 +203,8 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: 'Wooded gorge: little sun reaches the rock, wind is weak, trees drip for hours after rain.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/wyndcliff_quarry-2731/',
+    parkingLat: 51.67129,
+    parkingLon: -2.68595,
   },
   {
     id: 'shorncliff',
@@ -211,6 +227,7 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: 'Deeply sheltered Wye Valley venue. Among the slowest to dry in the dataset.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/shorn_cliff-39/',
+    parkingNote: 'Approach notes describe several possible options (a Forestry Commission car park to the north, or parking in Tintern) with no single agreed spot, so no coordinate could be confirmed.',
   },
   {
     id: 'banygor',
@@ -233,6 +250,7 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: 'Wooded gorge venue; steep enough to shed some rain but slow to dry in shade.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/ban-y-gor-70/',
+    parkingNote: 'Approach notes point to a few small laybys on Lancaut Lane rather than one named car park, so no single coordinate could be confirmed.',
   },
   {
     id: 'symondsyat',
@@ -256,6 +274,7 @@ const SEEDS: CragSeed[] = [
     notes: 'The most open of the Wye Valley venues; still slow relative to the coast.',
     accessNote: 'Seasonal bird nesting restrictions on some buttresses, roughly March–August.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/symonds_yat-403/',
+    parkingNote: "The main Symonds Yat Rock visitor car park is some distance from the crag and it's unclear whether it's the one climbers actually use, so no coordinate could be confirmed.",
   },
   {
     id: 'avon',
@@ -278,6 +297,8 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: 'Urban gorge, moderate seepage and shelter. Reliable mid-table venue.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/avon_gorge_main_area-31/',
+    parkingLat: 51.46782,
+    parkingLon: -2.6091,
   },
   {
     id: 'ansteys',
@@ -300,6 +321,8 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: 'Coastal Devon limestone, dries quickly. Salt spray affects friction in onshore humidity.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/ansteys_cove-285/',
+    parkingLat: 50.46962,
+    parkingLon: -3.50351,
   },
   {
     id: 'chudleigh',
@@ -322,6 +345,7 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: 'Wooded Devon limestone, moderate drying speed.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/chudleigh_rocks_-_south_face-291/',
+    parkingNote: 'Approach notes describe informal roadside parking by a kissing gate on Rock Road rather than a fixed car park, so no coordinate could be confirmed.',
   },
   {
     id: 'horseshoe',
@@ -344,6 +368,8 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: 'Open quarry, low seepage. One of the faster-drying Peak limestone venues.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/horseshoe_quarry-148/',
+    parkingNote:
+      "Roadside parking off the A623 near the quarry entrance is described in approach notes, but a precise, verifiable coordinate couldn't be confirmed.",
   },
   {
     id: 'rubicon',
@@ -366,6 +392,7 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: 'South-facing Peak limestone, moderate seepage.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/water-cum-jolly-140/',
+    parkingNote: 'Approach notes mention limited roadside parking near the dale, or the Monsal Head/Cressbrook Mill car parks a mile off, with no single agreed spot to confirm a coordinate for.',
   },
   {
     id: 'cornice',
@@ -388,6 +415,8 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: "North-facing and notoriously seepy: a summer venue that stays wet deep into the year. The dataset's seepage calibration anchor.",
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/chee_dale_lower-10866/',
+    parkingLat: 53.2563,
+    parkingLon: -1.7932,
   },
   {
     id: 'raventor',
@@ -410,6 +439,7 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: 'Steep, powerful Peak limestone. Seepy enough to stay wet well after rain in winter.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/raven_tor_millers_dale-146/',
+    parkingNote: 'Parking here is a known problem spot with several contested, informal options (small laybys, Tideswell Dale) rather than one agreed car park, so no coordinate could be confirmed.',
   },
   {
     id: 'kilnsey',
@@ -433,6 +463,7 @@ const SEEDS: CragSeed[] = [
     notes:
       'The roof sheds active rain well, but high catchment-above and seepage mean it stays wet for a long time after a wet spell. A top pick when the forecast is bad everywhere.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/kilnsey-608/',
+    parkingNote: 'Parking is layby-based along the road below the crag; the only postcode found for sat nav purposes is explicitly a wide-area one, not the layby itself, so no coordinate could be confirmed.',
   },
   {
     id: 'malham',
@@ -455,6 +486,8 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: 'Big limestone amphitheatre. The left wing takes drainage over the lip for hours after rain stops.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/malham_cove-610/',
+    parkingLat: 54.06094,
+    parkingLon: -2.15256,
   },
   {
     id: 'lpt',
@@ -477,6 +510,7 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: 'Fully exposed coastal limestone. Dries quickly once the rain stops.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/lower_pen_trwyn-1004/',
+    parkingNote: "This tidal crag is reached on foot along Marine Drive from Parisella's Cave rather than via its own car park, so no coordinate could be confirmed.",
   },
   {
     id: 'parisellas',
@@ -499,6 +533,7 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: 'A true cave: rain barely reaches it. Surfaces as a top result specifically when the forecast is bad everywhere.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/parisellas_cave-3422/',
+    parkingNote: 'Access is via informal, contested roadside parking on the one-way Marine Drive, so no fixed coordinate could be confirmed.',
   },
   {
     id: 'slate',
@@ -520,6 +555,7 @@ const SEEDS: CragSeed[] = [
     coastal: false,
     softRock: false,
     notes: 'Dries almost instantly and never seeps, but gets glassy and unpleasant in strong summer sun, a friction problem rather than a wetness one.',
+    parkingNote: 'The quarry has several informal free parking areas (near the entrance, or via the Slate Museum) rather than one agreed spot, so no single coordinate could be confirmed.',
   },
   {
     id: 'trevor',
@@ -542,6 +578,7 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: 'Open, quick-drying North Wales limestone.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/trevor_quarry-427/',
+    parkingNote: 'Approach notes describe an informal parking bay along a narrow lane rather than a named car park, so no coordinate could be confirmed.',
   },
   {
     id: 'stanage',
@@ -564,6 +601,8 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: 'Fully exposed grit edge, thin thermal mass. Dries fast but condenses readily on clear still nights.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/stanage_plantation-101/',
+    parkingLat: 53.35328,
+    parkingLon: -1.63861,
   },
   {
     id: 'curbar',
@@ -586,6 +625,8 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: 'Exposed grit edge, east/south-east facing, catches morning sun.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/curbar_edge-21/',
+    parkingLat: 53.27049,
+    parkingLon: -1.61659,
   },
   {
     id: 'roaches',
@@ -608,6 +649,8 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: 'Exposed gritstone edge, south-west facing.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/roaches_upper_tier-797/',
+    parkingLat: 53.15714,
+    parkingLon: -1.99499,
   },
   {
     id: 'almscliff',
@@ -630,6 +673,8 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: 'Isolated gritstone bouldering outcrop, fully exposed. Very fast drying.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/almscliff-373/',
+    parkingLat: 53.9340,
+    parkingLon: -1.59145,
   },
   {
     id: 'harrisons',
@@ -653,6 +698,8 @@ const SEEDS: CragSeed[] = [
     notes:
       'Soft sandstone: climbing it wet or shortly after a freeze-thaw cycle permanently damages holds. Longest drying requirement in the dataset; hard-blocked, never just low-scored.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/harrisons_rocks-57/',
+    parkingLat: 51.10413,
+    parkingLon: 0.19005,
   },
   {
     id: 'bowles',
@@ -676,6 +723,8 @@ const SEEDS: CragSeed[] = [
     notes:
       "Soft sandstone: same rules as Harrison's. Hard-blocked when wet or after a freeze-thaw cycle, regardless of surface dryness.",
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/bowles_rocks-54/',
+    parkingLat: 51.07581,
+    parkingLon: 0.19699,
   },
 ];
 
@@ -708,6 +757,9 @@ function resolveCrag(seed: CragSeed): Crag {
     notes: seed.notes,
     accessNote: seed.accessNote,
     ukcUrl: seed.ukcUrl,
+    parkingLat: seed.parkingLat,
+    parkingLon: seed.parkingLon,
+    parkingNote: seed.parkingNote,
   };
 }
 
