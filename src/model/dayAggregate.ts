@@ -1,7 +1,7 @@
 import type { CellForecast } from '../api/client';
 import { MODELS, type ModelName } from '../api/request';
 import { buildHourlyInputsForModel } from './buildInputs';
-import { bestFrictionBlock, frictionScoreHour } from './friction';
+import { bestFrictionBlock, FRICTION_BLOCK_LENGTH_HOURS, frictionScoreHour } from './friction';
 import {
   computeScoreBreakdown,
   confidenceAdjustedScore,
@@ -54,6 +54,14 @@ export interface CragDayResult {
    * callers should show that distinction rather than rendering both as "0".
    */
   frictionWindowStartHour: number | null;
+  /**
+   * Mean rock temperature and mean dew point across the friction window above,
+   * °C - the pair the friction score was computed from, so the UI can show why
+   * it is what it is instead of leaving a low number unexplained (§6). Null
+   * exactly when `frictionWindowStartHour` is (no eligible block).
+   */
+  frictionWindowRockTempC: number | null;
+  frictionWindowDewPointC: number | null;
   limitingFactor: LimitingFactor;
   confidence: ModelAgreement;
   /** Showers-mm / total-precipitation-mm for the day, 0 when no rain fell - §4.10. */
@@ -145,6 +153,19 @@ function computeDaysForModel(
         ? Math.round(dayCrossModelPrecipProb.reduce((sum, v) => sum + v, 0) / dayCrossModelPrecipProb.length)
         : Math.round((100 * dayInputs.filter((i) => i.precipitationMm > 0.1).length) / dayInputs.length);
 
+    // Index into a day-aligned 24h slice IS the hour of day, so the window's
+    // start hour doubles as its start index - see `bestFrictionBlock`'s
+    // `startHourOfDay`, which this loop passes 0 for.
+    const blockMeans = (startHour: number) => {
+      const hours: number[] = [];
+      for (let h = startHour; h < startHour + FRICTION_BLOCK_LENGTH_HOURS && h < dayResults.length; h++) hours.push(h);
+      const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+      return {
+        rockTempC: mean(hours.map((h) => dayResults[h].Trock)),
+        dewPointC: mean(hours.map((h) => dayInputs[h].dewPointC)),
+      };
+    };
+
     const frictionScores = dayResults.map((r, idx) =>
       frictionScoreHour({
         trockC: r.Trock,
@@ -163,8 +184,15 @@ function computeDaysForModel(
     // so the reported friction score describes a window you could actually
     // climb in rather than the best-looking 3h stretch of an otherwise wet day.
     const dryDaylightFlags = isDayFlags.map((isDay, idx) => isDay && dayResults[idx].climbable);
-    const frictionBlock = bestFrictionBlock(frictionScores, dryDaylightFlags, 3, 0);
+    const frictionBlock = bestFrictionBlock(frictionScores, dryDaylightFlags, FRICTION_BLOCK_LENGTH_HOURS, 0);
     const bestFriction = frictionBlock.score;
+    // The two temperatures the friction score is actually a statement about,
+    // averaged across the winning block's hours (not the day - see §4.8). Kept
+    // as outputs because the score alone cannot explain itself: when a COLDER
+    // day scores worse than a warmer one, it is almost always this pair closing
+    // on each other, and a reader without both numbers reads that as a bug
+    // rather than as the model working (§6).
+    const frictionWindow = frictionBlock.startHourOfDay != null ? blockMeans(frictionBlock.startHourOfDay) : null;
 
     const underSnowAnyHour = dayResults.some((r) => r.underSnow);
     const frozenAllDaylightHours = totalDaylightHours > 0 && dayResults.every((r, idx) => !isDayFlags[idx] || r.frozen);
@@ -207,6 +235,8 @@ function computeDaysForModel(
       bestContiguousClimbableHours: bestContiguousBlock?.hours ?? 0,
       bestFrictionBlockScore: bestFriction,
       frictionWindowStartHour: frictionBlock.startHourOfDay,
+      frictionWindowRockTempC: frictionWindow?.rockTempC ?? null,
+      frictionWindowDewPointC: frictionWindow?.dewPointC ?? null,
       limitingFactor: limitingFactorAt(results, dayEnd),
       showerDominance,
       avgDaylightTempC,

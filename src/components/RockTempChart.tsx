@@ -11,6 +11,12 @@ const TIME_LABEL = new Intl.DateTimeFormat('en-GB', { weekday: 'short', hour: '2
  * shaded so the overnight cooling that drives dawn condensation is visible
  * directly on the curve, and the ideal band is the same [lo, hi] range that
  * drives the friction score, per rock type.
+ *
+ * Dew point is drawn alongside it because the GAP between the two curves is
+ * what the §4.8 condensation term scores, and it is the usual reason a colder
+ * day reads worse than a warmer one. Plotted rather than tabulated: the two
+ * lines converging is legible at a glance in a way that two columns of numbers
+ * are not, and on a humid day they visibly touch.
  */
 export function RockTempChart({
   results,
@@ -39,8 +45,11 @@ export function RockTempChart({
   const [idealLo, idealHi] = idealTempC;
 
   const H = 132;
-  const lo = Math.min(0, ...results.map((r) => r.Trock)) - 1;
-  const hi = Math.max(...results.map((r) => r.Trock)) + 2;
+  const dewPoints = inputs.map((x) => x.dewPointC);
+  // Both series share one axis - they are the same quantity, and the gap
+  // between them is the point, so it must be read off a common scale.
+  const lo = Math.min(0, ...results.map((r) => r.Trock), ...dewPoints) - 1;
+  const hi = Math.max(...results.map((r) => r.Trock), ...dewPoints) + 2;
   const Y = (c: number) => H - 4 - ((c - lo) / (hi - lo)) * (H - 12);
   const ticks: number[] = [];
   for (let c = Math.ceil(lo / 5) * 5; c <= hi; c += 5) ticks.push(c);
@@ -48,14 +57,28 @@ export function RockTempChart({
   const f = sx(i, n) / VW;
   const isDayFlags = inputs.map((x) => x.isDay);
 
-  const frictionLabel = inBand ? 'in the ideal band' : cur.Trock > idealHi ? 'warm - greasy' : 'cold - hard skin';
+  // Proximity to the dew point outranks the ideal band in the readout: rock
+  // sitting on its dew point grips badly at any temperature, so reporting "in
+  // the ideal band" for an hour that is about to sweat would be the wrong
+  // headline (§4.8 - the condensation term is the model's largest penalty).
+  const spreadC = cur.Trock - dewPoints[i];
+  const nearDewPoint = spreadC < 2;
+  const frictionLabel = nearDewPoint
+    ? 'on the dew point'
+    : inBand
+      ? 'in the ideal band'
+      : cur.Trock > idealHi
+        ? 'warm - greasy'
+        : 'cold - hard skin';
 
   return (
     <div>
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(3,minmax(0,1fr))',
+          // auto-fit so the fourth tile wraps to a second row on a narrow
+          // phone rather than crushing all four into one.
+          gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))',
           gap: 1,
           background: 'var(--border)',
           border: '1px solid var(--border)',
@@ -66,7 +89,8 @@ export function RockTempChart({
           [
             ['time', TIME_LABEL.format(getDate(i)), 'var(--text)'],
             ['rock temp', `${cur.Trock.toFixed(1)}°C`, inBand ? 'var(--signal)' : 'var(--text)'],
-            ['friction', frictionLabel, inBand ? 'var(--signal)' : 'var(--warning)'],
+            ['dew point', `${dewPoints[i].toFixed(1)}°C`, nearDewPoint ? 'var(--warning)' : 'var(--chart-condensation)'],
+            ['friction', frictionLabel, nearDewPoint ? 'var(--warning)' : inBand ? 'var(--signal)' : 'var(--warning)'],
           ] as const
         ).map(([k, v, c], idx) => (
           <div key={idx} style={{ background: 'var(--ground-raised)', padding: '7px 9px' }}>
@@ -117,6 +141,15 @@ export function RockTempChart({
         <rect x={0} y={Y(idealHi)} width={VW} height={Y(idealLo) - Y(idealHi)} fill="var(--signal)" opacity={0.22} />
         {gridlines(ticks, Y, H)}
         <polyline
+          points={poly(dewPoints.map((d, k) => [sx(k, n), Y(d)]))}
+          fill="none"
+          stroke="var(--chart-condensation)"
+          strokeWidth={2}
+          strokeDasharray="5 4"
+          strokeLinejoin="round"
+          {...STROKE}
+        />
+        <polyline
           points={poly(results.map((r, k) => [sx(k, n), Y(r.Trock)]))}
           fill="none"
           stroke="var(--text)"
@@ -133,6 +166,10 @@ export function RockTempChart({
           rock temperature
         </span>
         <span className="flex items-center gap-1.5">
+          <span className="inline-block h-0.5 w-3.5" style={{ background: 'var(--chart-condensation)' }} />
+          dew point
+        </span>
+        <span className="flex items-center gap-1.5">
           <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: 'var(--signal)' }} />
           ideal {idealLo}&ndash;{idealHi}&deg;C
         </span>
@@ -147,8 +184,14 @@ export function RockTempChart({
           Rock temperature drives friction more than air temperature - it's what your skin touches. The shaded band
           is this rock type's ideal grip range.
         </p>
+        <p>
+          The dashed line is the dew point. Where it climbs to meet the rock temperature the rock is on the edge of
+          sweating and will feel greasy however dry it measures - closer than about 2&deg;C is the warning sign, and
+          the two lines touching means condensation. This is why a cooler day can grip worse than a warmer one: what
+          matters is the gap, not the height.
+        </p>
         <p>Dark hours are shaded, so the overnight cooling behind dawn condensation shows directly on the curve.</p>
-        <p>Drag the chart to read temperature and friction at a specific hour.</p>
+        <p>Drag the chart to read temperature, dew point and friction at a specific hour.</p>
       </Explain>
     </div>
   );

@@ -1,6 +1,7 @@
-import { Fragment, useState } from 'react';
+import { Fragment, useState, type ReactNode } from 'react';
 import { formatDayLabel, LIMITING_FACTOR_LABEL } from '../lib/format';
 import type { CragDayResult } from '../model/dayAggregate';
+import { FRICTION_BLOCK_LENGTH_HOURS } from '../model/friction';
 import { confidenceCaveat, confidenceSentence, verdictMessage } from '../model/score';
 import { windChillCaveat } from '../model/windChill';
 import { Explain } from './Explain';
@@ -14,8 +15,8 @@ export function ScoreBar({
   label: string;
   value: number;
   color?: string;
-  /** Small line under the row - e.g. the exact clock window a score describes, so it never reads as a claim about the whole day. */
-  caption?: string;
+  /** Small line (or lines) under the row - e.g. the exact clock window a score describes, so it never reads as a claim about the whole day, and the readings behind it. */
+  caption?: ReactNode;
 }) {
   return (
     <div>
@@ -63,12 +64,48 @@ function formatHourOfDay(hour: number): string {
   return `${String(hour).padStart(2, '0')}:00`;
 }
 
-/** The friction block is always a fixed 3h window - see `bestFrictionBlock` in friction.ts. */
-const FRICTION_BLOCK_LENGTH_HOURS = 3;
-
 function frictionWindowLabel(startHour: number): string {
   const endHour = (startHour + FRICTION_BLOCK_LENGTH_HOURS) % 24;
   return `best window: ${formatHourOfDay(startHour)}–${formatHourOfDay(endHour)}, already counted dry`;
+}
+
+/**
+ * What the dryness bar is actually made of. `rockDrynessScore` is
+ * 0.5*(dry hours / daylight hours) + 0.5*(longest unbroken run / daylight
+ * hours) - so two days showing the same number can be one clean window or the
+ * same hours in scraps, and the bar on its own cannot tell them apart
+ * (`computeScoreBreakdown`, score.ts). It is 60% of the composite score and
+ * was the only row here carrying no explanation at all.
+ */
+function drynessLabel(day: CragDayResult): string {
+  const total = Math.round(day.totalDaylightHours);
+  if (total === 0) return 'no daylight hours to judge';
+  const dry = Math.round(day.climbableDaylightHours);
+  const run = Math.round(day.bestContiguousClimbableHours);
+  return `${dry} of ${total} daylight hours dry · longest unbroken run ${run}h · ${day.rainChancePct}% rain chance`;
+}
+
+/**
+ * The two temperatures behind a friction score, and what the gap between them
+ * means. Rock temperature alone cannot explain the score: a COLDER day scoring
+ * worse than a warmer one is almost always this gap closing, and the
+ * condensation-onset term it drives is the largest single penalty in §4.8 (0.4,
+ * against 0.3 for muggy air and 0.15 for coastal salt). Reported in words as
+ * well as numbers - "17.7 and 14.3" only means something to a reader who
+ * already knows the model.
+ */
+function dewPointSpreadLabel(rockTempC: number, dewPointC: number): string {
+  const spread = rockTempC - dewPointC;
+  const gap = `${spread.toFixed(1)}°C apart`;
+  const note =
+    spread <= 0
+      ? 'rock is at the dew point - condensing'
+      : spread < 2
+        ? `only ${gap} - on the edge of condensing`
+        : spread < 4
+          ? `${gap} - close to the dew point, greasy`
+          : `${gap} - well clear of the dew point`;
+  return `rock ${rockTempC.toFixed(1)}°C · dew point ${dewPointC.toFixed(1)}°C · ${note}`;
 }
 
 function dayTimingLabel(day: CragDayResult): string {
@@ -146,12 +183,19 @@ export function ScoreBreakdownTable({ days, bestDayIndex }: { days: CragDayResul
                         ) : (
                           <div className="space-y-2">
                             <div className="space-y-1">
-                              <ScoreBar label="Crag dryness" value={day.rockDrynessScore} />
+                              <ScoreBar label="Crag dryness" value={day.rockDrynessScore} caption={drynessLabel(day)} />
                               {day.frictionWindowStartHour != null ? (
                                 <ScoreBar
                                   label="Rock friction"
                                   value={day.bestFrictionBlockScore}
-                                  caption={frictionWindowLabel(day.frictionWindowStartHour)}
+                                  caption={
+                                    <>
+                                      <div>{frictionWindowLabel(day.frictionWindowStartHour)}</div>
+                                      {day.frictionWindowRockTempC != null && day.frictionWindowDewPointC != null && (
+                                        <div>{dewPointSpreadLabel(day.frictionWindowRockTempC, day.frictionWindowDewPointC)}</div>
+                                      )}
+                                    </>
+                                  }
                                 />
                               ) : (
                                 <StatRow label="Rock friction" value="no dry window" tone="dim" />
@@ -189,12 +233,19 @@ export function ScoreBreakdownTable({ days, bestDayIndex }: { days: CragDayResul
       <Explain>
         <p>
           <strong>Crag dryness</strong>: how much of the day was dry, weighted toward one unbroken block over the same
-          hours scattered in gaps.
+          hours scattered in gaps - which is why the line underneath gives both the total and the longest unbroken run.
+          Equal scores can mean one clean window or the same hours in scraps.
         </p>
         <p>
           <strong>Rock friction</strong>: grip quality in the driest 3-hour block, shown with its exact clock window -
           always inside hours Crag dryness already counted as dry, never a reading of its own. "No dry window" means
           there wasn't a 3-hour dry block to judge at all, which is different from a low score (dry, but slick).
+        </p>
+        <p>
+          The <strong>rock and dew point temperatures</strong> under it are what that score was judged on. The gap
+          between them matters more than either number: rock within about 2&deg;C of the dew point is on the edge of
+          sweating and grips badly however dry it measures, which is how a colder day can score worse than a warmer
+          one. Wider than about 4&deg;C and condensation isn't a factor at all.
         </p>
         <p>
           <strong>Confidence</strong>: how many forecast models agree the crag is climbable. Shown in blue, not green,
