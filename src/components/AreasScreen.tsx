@@ -10,6 +10,7 @@ import type { Settings } from '../state/settings';
 import { DayStrip } from './CragRow';
 import { DateRangeControls } from './DateRangeControls';
 import { Explain } from './Explain';
+import { HomeAddressSection } from './HomeAddressSection';
 import { SortControl } from './SortControl';
 
 const DAY_SHORT = new Intl.DateTimeFormat('en-GB', { weekday: 'short' });
@@ -179,6 +180,7 @@ export function AreasScreen({
   stale,
   onRefresh,
   settings,
+  updateSettings,
   onSelectCrag,
   dateRange,
   onChangeDateRange,
@@ -192,6 +194,7 @@ export function AreasScreen({
   stale: boolean;
   onRefresh: () => void;
   settings: Settings;
+  updateSettings: (patch: Partial<Settings>) => void;
   onSelectCrag: (cragId: string) => void;
   dateRange: DateRangeSelection;
   onChangeDateRange: (range: DateRangeSelection) => void;
@@ -209,8 +212,9 @@ export function AreasScreen({
   const coveredEnd = coveredRange?.[1];
 
   const entries = useMemo(() => results.map(({ crag, forecast }) => ({ crag, days: forecast ? forecast.days : null })), [results]);
-  // Home set on the Crags tab (the address section lives there); memoised on the
-  // coordinates themselves so the ranking isn't redone on every render.
+  // Home comes from the one `settings` held in App (and saved to localStorage), so an
+  // address set here or on the Crags tab shows on both. Memoised on the coordinates
+  // themselves so the ranking isn't redone on every render.
   const { homeLat, homeLon } = settings;
   const home = useMemo(() => (homeLat != null && homeLon != null ? { lat: homeLat, lon: homeLon } : null), [homeLat, homeLon]);
   const areas = useMemo(
@@ -241,6 +245,8 @@ export function AreasScreen({
           {fetchedAt ? formatAgeWords(fetchedAt) : 'loading...'}
           {stale && ", showing cached data as we couldn't reach the network"}
         </p>
+
+        <HomeAddressSection settings={settings} updateSettings={updateSettings} />
 
         <DateRangeControls dateRange={dateRange} onChangeDateRange={onChangeDateRange} todayIndex={todayIndex} dayCount={dayCount} />
         <SortControl id="areaSortMode" value={sortMode} onChange={setSortMode} hasHome={home != null} />

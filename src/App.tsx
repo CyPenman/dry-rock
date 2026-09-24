@@ -105,6 +105,7 @@ function App() {
                 stale={stale}
                 onRefresh={refresh}
                 settings={settings}
+                updateSettings={update}
                 onSelectCrag={(id) => setView({ name: 'detail', cragId: id })}
                 dateRange={dateRange}
                 onChangeDateRange={setDateRange}
