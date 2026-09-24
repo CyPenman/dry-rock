@@ -71,6 +71,44 @@ describe('frictionScoreHour (§4.8)', () => {
     expect(onshoreHumid).toBeLessThan(onshoreDry);
   });
 
+  // The salt term ramps on rock-surface RH, not dew point (§4.8) - salt goes
+  // sticky by deliquescence, which is an RH threshold, and one dew point maps to
+  // wildly different RH depending on how warm the rock is. Isolated by taking the
+  // coastal/non-coastal difference at a fixed dew point, so the rock temperature
+  // sweep can't leak in through `tempPenalty` or the condensation spread.
+  const saltPenaltyAt = (trockC: number, dewPointC: number) =>
+    frictionScoreHour({ ...base, coastal: false, trockC, dewPointC, windDirectionDeg: 0 }) -
+    frictionScoreHour({ ...base, coastal: true, trockC, dewPointC, windDirectionDeg: 0 });
+
+  it('charges coastal salt on rock-surface humidity, not on dew point alone', () => {
+    // Same dew point, two rock temperatures: 94% RH at the surface vs 37%.
+    expect(saltPenaltyAt(13, 12)).toBeGreaterThan(0.1);
+    expect(saltPenaltyAt(28, 12)).toBeCloseTo(0, 3);
+  });
+
+  it('charges no salt penalty on a warm dry south-facing coastal day (Portland regression)', () => {
+    // Portland: The Cuttings, Sat 26 Sep 2026 12:00 - rock 18.8C, dew point
+    // 10.3C, onshore. Rock-surface RH 58%: salt is dry crystal. The previous
+    // dew-point form charged 0.09 an hour here.
+    expect(saltPenaltyAt(18.8, 10.3)).toBeCloseTo(0, 3);
+  });
+
+  it('still charges full salt penalty on a humid onshore day (Portland regression)', () => {
+    // Same crag, Sun 27 Sep 2026 - rock 17.0C against a 14.3C dew point, 84% RH.
+    expect(saltPenaltyAt(17, 14.3)).toBeGreaterThan(0.1);
+  });
+
+  it('has no cliff edge in the salt ramp as rock-surface humidity crosses deliquescence', () => {
+    let prev = saltPenaltyAt(10, 0);
+    let maxStep = 0;
+    for (let trockC = 10.2; trockC <= 30; trockC += 0.2) {
+      const cur = saltPenaltyAt(trockC, 0);
+      maxStep = Math.max(maxStep, Math.abs(cur - prev));
+      prev = cur;
+    }
+    expect(maxStep).toBeLessThan(0.05);
+  });
+
   it('has no discontinuous jumps across the dew point, wind and spread ramps (no cliff edges)', () => {
     const maxStep = (fn: (x: number) => number, from: number, to: number, steps: number) => {
       let max = 0;

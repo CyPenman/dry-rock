@@ -24,6 +24,34 @@ function deg2rad(d: number): number {
 }
 
 /**
+ * Saturation vapour pressure over water, kPa (Magnus/Tetens). Only ever used as
+ * a ratio below, so the approximation's absolute error doesn't matter; it is
+ * fitted over water rather than ice, which is the right side for the
+ * above-freezing conditions the salt term applies in.
+ */
+function saturationVapourPressureKpa(tempC: number): number {
+  return 0.6108 * Math.exp((17.27 * tempC) / (tempC + 237.3));
+}
+
+/**
+ * Relative humidity AT THE ROCK SURFACE, 0-1 - es(dew point) / es(Trock).
+ * Deliberately not the API's `relative_humidity_2m`: what matters for a salt
+ * film is the humidity the film itself sits in, on rock that can be 10C off air
+ * temperature (§4.2), not the humidity two metres out in front of the face.
+ * Clamped at 1 - past saturation the rock is condensing, which §4.4 handles.
+ */
+function rockSurfaceRh(trockC: number, dewPointC: number): number {
+  return Math.min(1, saturationVapourPressureKpa(dewPointC) / saturationVapourPressureKpa(trockC));
+}
+
+/**
+ * Rock-surface RH ramp over which sea salt goes from dry crystal to sticky.
+ * NaCl deliquesces at about 75% RH; the ramp straddles it rather than snapping
+ * at it, same "no cliff edge" practice as every other modifier here.
+ */
+const SALT_RH_RAMP: [number, number] = [0.72, 0.85];
+
+/**
  * Smooth 0→1 ramp between `lo` and `hi` (cubic Hermite / "smoothstep"). Used in
  * place of hard thresholds throughout this module: a forecast landing a
  * fraction of a degree either side of a spec anchor (e.g. dew point 12°C, wind
@@ -125,9 +153,19 @@ export function frictionScoreHour(inputs: FrictionHourInputs): number {
   // face, same alignment test as wind-driven rain (§4.2). Without a wind
   // direction to judge (older callers/fixtures), fall back to humidity alone
   // rather than silently dropping the effect.
+  //
+  // Judged on rock-surface RH, not dew point. Salt goes sticky by deliquescence,
+  // which is an RH threshold - and one dew point maps to wildly different RH
+  // depending on how warm the rock is: 12C dew point on 13C rock is 94% RH and
+  // greasy, the same dew point on 28C rock is 37% RH and dry crystal. This term
+  // previously ramped on dew point 8-12C, which is §4.8's "use dew point, not
+  // relative humidity" rule over-applied - that rule is about the friction
+  // BAND, where the spec's own wording for this term is "when humidity is high".
+  // The old form charged south-facing Portland up to 0.10 an hour on warm days
+  // whose rock-surface RH never left the 50s.
   if (coastal) {
     const onshore = windDirectionDeg == null || Math.cos(deg2rad(windDirectionDeg - aspectDeg)) > 0;
-    if (onshore) score -= 0.15 * smoothstep(dewPointC, 8, 12);
+    if (onshore) score -= 0.15 * smoothstep(rockSurfaceRh(trockC, dewPointC), SALT_RH_RAMP[0], SALT_RH_RAMP[1]);
   }
 
   // Slate gets glassy in strong sun and heat - a friction problem, not a wetness one.
@@ -145,6 +183,13 @@ export function frictionScoreHour(inputs: FrictionHourInputs): number {
  * returned for whichever block wins is always its own unweighted average.
  */
 const DEFAULT_TYPICAL_HOURS: [number, number] = [9, 17];
+
+/**
+ * A friction score is always a statement about a fixed-length window, never
+ * about the whole day. Exported so the day rollup and the UI caption that
+ * reports the window both read the length from one place.
+ */
+export const FRICTION_BLOCK_LENGTH_HOURS = 3;
 const TYPICAL_HOURS_SELECTION_BONUS = 0.03;
 
 function typicalHoursOverlapFraction(blockStartHourOfDay: number, blockLength: number, window: [number, number]): number {
@@ -185,7 +230,7 @@ export interface FrictionBlockResult {
 export function bestFrictionBlock(
   hourlyScores: number[],
   isDayFlags: boolean[],
-  blockLength = 3,
+  blockLength = FRICTION_BLOCK_LENGTH_HOURS,
   startHourOfDay = 0,
   typicalHours: [number, number] = DEFAULT_TYPICAL_HOURS,
 ): FrictionBlockResult {
