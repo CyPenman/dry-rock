@@ -42,6 +42,7 @@ export function RockTempChart({
   const i = Math.max(0, Math.min(n - 1, scrub));
   const cur = results[i];
   const getDate = (idx: number) => new Date(inputs[idx].time * 1000);
+  const times = inputs.map((x) => x.time);
   const [idealLo, idealHi] = idealTempC;
 
   const H = 132;
@@ -115,7 +116,7 @@ export function RockTempChart({
         onScrub={(fr) => setScrub(Math.round(fr * (n - 1)))}
         ariaLabel="Rock temperature against the ideal friction band"
         yLabels={ticks.map((c) => ({ y: Y(c), label: `${c}°` }))}
-        xLabels={dayLabels(getDate, n)}
+        xLabels={dayLabels(getDate, n, times)}
         overlay={
           <>
             <div

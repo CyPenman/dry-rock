@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { PAST_DAYS } from './api/request';
+import { AboutScreen } from './components/AboutScreen';
 import { CragDetailScreen } from './components/CragDetailScreen';
 import { CragsMap } from './components/CragsMap';
 import { HomeScreen } from './components/HomeScreen';
@@ -9,7 +9,7 @@ import { useForecast } from './hooks/useForecast';
 import { DEFAULT_DATE_RANGE, type DateRangeSelection } from './model/dateRange';
 import { useSettings } from './state/settings';
 
-type View = { name: 'home' } | { name: 'detail'; cragId: string } | { name: 'search' };
+type View = { name: 'home' } | { name: 'detail'; cragId: string } | { name: 'search' } | { name: 'about' };
 type Tab = 'crags' | 'map';
 
 /** How far (px) and how horizontal a touch move must be to count as a tab-switch swipe - spec §6. */
@@ -21,7 +21,7 @@ function App() {
   const [activeTab, setActiveTab] = useState<Tab>('crags');
   const [dateRange, setDateRange] = useState<DateRangeSelection>(DEFAULT_DATE_RANGE);
   const { settings, update, togglePinned } = useSettings();
-  const { loading, error, fetchedAt, stale, results, refresh } = useForecast(CRAGS);
+  const { loading, error, fetchedAt, stale, results, todayIndex, dayCount, refresh } = useForecast(CRAGS);
   const touchRef = useRef<{ x: number; y: number } | null>(null);
 
   const detailEntry = view.name === 'detail' ? results.find((r) => r.crag.id === view.cragId) : undefined;
@@ -61,7 +61,10 @@ function App() {
         // hidden, pushing the bottom tab bar off-screen below the fold.
         style={{ background: 'var(--ground)', height: '100dvh', overscrollBehavior: 'none' }}
       >
-        <div className="flex shrink-0 justify-end px-4 pt-2">
+        <div className="flex shrink-0 justify-end gap-4 px-4 pt-2">
+          <button type="button" onClick={() => setView({ name: 'about' })} className="text-sm" style={{ color: 'var(--signal)' }}>
+            About
+          </button>
           <button type="button" onClick={() => setView({ name: 'search' })} className="text-sm" style={{ color: 'var(--signal)' }}>
             Search
           </button>
@@ -98,12 +101,16 @@ function App() {
                 onSelectCrag={(id) => setView({ name: 'detail', cragId: id })}
                 dateRange={dateRange}
                 onChangeDateRange={setDateRange}
+                todayIndex={todayIndex}
+                dayCount={dayCount}
               />
             </div>
             <div className="h-full w-1/2 min-w-0 overflow-hidden">
               <CragsMap
                 results={results}
                 dateRange={dateRange}
+                todayIndex={todayIndex}
+                dayCount={dayCount}
                 active={activeTab === 'map'}
                 loading={loading}
                 fetchedAt={fetchedAt}
@@ -143,6 +150,11 @@ function App() {
           <SearchScreen onBack={() => setView({ name: 'home' })} onSelectCrag={(id) => setView({ name: 'detail', cragId: id })} />
         </div>
       )}
+      {view.name === 'about' && (
+        <div className="fixed inset-0 z-50 overflow-y-auto" style={{ background: 'var(--ground)' }}>
+          <AboutScreen onBack={() => setView({ name: 'home' })} />
+        </div>
+      )}
       {view.name === 'detail' && detailEntry && (
         <div className="fixed inset-0 z-50 overflow-y-auto" style={{ background: 'var(--ground)' }}>
           <CragDetailScreen
@@ -151,7 +163,8 @@ function App() {
             onTogglePin={() => togglePinned(view.cragId)}
             onBack={() => setView({ name: 'home' })}
             dateRange={dateRange}
-            todayIndex={PAST_DAYS}
+            todayIndex={todayIndex}
+            dayCount={dayCount}
             loading={loading}
             fetchedAt={fetchedAt}
             stale={stale}

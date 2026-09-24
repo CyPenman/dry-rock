@@ -1,4 +1,9 @@
-export type DateRangeSelection = { kind: 'weekend' } | { kind: 'custom'; startIdx: number; endIdx: number };
+/**
+ * A custom range is stored as local calendar dates (ISO `YYYY-MM-DD`), not day
+ * indices, so a picked range stays on the same dates across midnight and across
+ * refreshes - an index means a different date as soon as "today" moves (§6).
+ */
+export type DateRangeSelection = { kind: 'weekend' } | { kind: 'custom'; startDate: string; endDate: string };
 
 export const DEFAULT_DATE_RANGE: DateRangeSelection = { kind: 'weekend' };
 
@@ -15,12 +20,58 @@ export function computeWeekendRange(todayIndex: number, now: Date = new Date()):
 
 /** [startDayIndex, endDayIndexInclusive] into a CragForecastResult's `days` array. */
 export function resolveDateRange(selection: DateRangeSelection, todayIndex: number, now: Date = new Date()): [number, number] {
-  if (selection.kind === 'custom') return [selection.startIdx, selection.endIdx];
+  if (selection.kind === 'custom') {
+    return [
+      dateToDayIndex(parseLocalIsoDate(selection.startDate), todayIndex, now),
+      dateToDayIndex(parseLocalIsoDate(selection.endDate), todayIndex, now),
+    ];
+  }
   return computeWeekendRange(todayIndex, now);
+}
+
+/**
+ * A resolved range against the days the saved forecast actually covers (§2:
+ * disable scoring rather than extrapolate). `range` is null when none of the
+ * requested days are covered; `clamped` says some were cut off.
+ */
+export function clampRangeToData(
+  [start, end]: [number, number],
+  dayCount: number,
+): { range: [number, number] | null; clamped: boolean } {
+  const lo = Math.max(0, start);
+  const hi = Math.min(dayCount - 1, end);
+  if (lo > hi) return { range: null, clamped: true };
+  return { range: [lo, hi], clamped: lo !== start || hi !== end };
 }
 
 function localMidnight(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+/**
+ * Today's day index within a series whose first hour is `firstTimestampSec` -
+ * the number of local calendar days from that hour's date to today's. Derived
+ * from the data rather than assumed to be `PAST_DAYS`, which is only true on
+ * the day the data was fetched: yesterday's cache (the car park with one bar of
+ * signal, §2) would otherwise shift every date range by a day. Rounding absorbs
+ * the 23- and 25-hour days at a clock change.
+ */
+export function computeTodayIndex(firstTimestampSec: number, now: Date = new Date()): number {
+  const diffMs = localMidnight(now).getTime() - localMidnight(new Date(firstTimestampSec * 1000)).getTime();
+  return Math.round(diffMs / 86400000);
+}
+
+/** Local calendar date as ISO `YYYY-MM-DD`. */
+export function toLocalIsoDate(d: Date): string {
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
+/** Inverse of `toLocalIsoDate` - local midnight of that date. */
+export function parseLocalIsoDate(iso: string): Date {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, m - 1, d);
 }
 
 /** Calendar date for a day index, given today's own index into the same series. */

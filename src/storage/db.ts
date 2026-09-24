@@ -1,4 +1,5 @@
 import { openDB, type IDBPDatabase } from 'idb';
+import type { Observation } from '../model/observation';
 
 // §3.6 / §2 - cache raw forecast responses in IndexedDB (not derived scores; the
 // simulation is cheap enough to recompute on every parameter change).
@@ -10,6 +11,7 @@ export interface CachedForecast<T> {
 const DB_NAME = 'dry-rock';
 const STORE_NAME = 'forecastCache';
 const ENSEMBLE_STORE_NAME = 'ensembleCache';
+const OBSERVATION_STORE_NAME = 'observations';
 const CACHE_KEY = 'forecast';
 const DEFAULT_MAX_AGE_MS = 2 * 60 * 60 * 1000; // 2 hours - Open-Meteo updates hourly
 
@@ -17,13 +19,17 @@ let dbPromise: Promise<IDBPDatabase> | null = null;
 
 function getDB(): Promise<IDBPDatabase> {
   if (!dbPromise) {
-    dbPromise = openDB(DB_NAME, 2, {
+    dbPromise = openDB(DB_NAME, 3, {
       upgrade(db) {
         if (!db.objectStoreNames.contains(STORE_NAME)) {
           db.createObjectStore(STORE_NAME);
         }
         if (!db.objectStoreNames.contains(ENSEMBLE_STORE_NAME)) {
           db.createObjectStore(ENSEMBLE_STORE_NAME);
+        }
+        if (!db.objectStoreNames.contains(OBSERVATION_STORE_NAME)) {
+          const store = db.createObjectStore(OBSERVATION_STORE_NAME, { keyPath: 'id' });
+          store.createIndex('cragId', 'cragId');
         }
       },
     });
@@ -62,4 +68,25 @@ export async function writeCachedEnsemble<T>(cragId: string, data: T): Promise<v
   const db = await getDB();
   const entry: CachedForecast<T> = { fetchedAt: Date.now(), data };
   await db.put(ENSEMBLE_STORE_NAME, entry, cragId);
+}
+
+// Observation log (§8.1) - the user's own conditions reports, each with the
+// model's view of the same hour. Unlike the caches above this is the user's
+// data: never expired, never sent anywhere, only exported on request.
+export async function addObservation(observation: Observation): Promise<void> {
+  const db = await getDB();
+  await db.put(OBSERVATION_STORE_NAME, observation);
+}
+
+/** Observations for one crag (or all, without an id), newest first. */
+export async function listObservations(cragId?: string): Promise<Observation[]> {
+  const db = await getDB();
+  const all = (
+    cragId ? await db.getAllFromIndex(OBSERVATION_STORE_NAME, 'cragId', cragId) : await db.getAll(OBSERVATION_STORE_NAME)
+  ) as Observation[];
+  return all.sort((a, b) => b.observedAtSec - a.observedAtSec);
+}
+
+export function listAllObservations(): Promise<Observation[]> {
+  return listObservations();
 }

@@ -9,8 +9,17 @@ import type { CragHourlyInput } from './wetness';
  * Build the per-hour model input series for one crag from one cell's raw
  * per-model variables, computing the plane-of-array irradiance (§3.4) along the
  * way. Returns null if the model didn't resolve the core variables for this cell.
+ *
+ * `sharedSoilMoisture`, when given, replaces the model's own deep soil moisture
+ * hour for hour (indexed like `cell.time`) - see `buildSharedSoilMoisture` in
+ * dayAggregate.ts for why every model is fed the same series (§4.5).
  */
-export function buildHourlyInputsForModel(crag: Crag, cell: CellForecast, model: ModelName): CragHourlyInput[] | null {
+export function buildHourlyInputsForModel(
+  crag: Crag,
+  cell: CellForecast,
+  model: ModelName,
+  sharedSoilMoisture?: (number | null)[] | null,
+): CragHourlyInput[] | null {
   const vars = cell.models[model];
   if (!vars || !vars.temperature_2m || !vars.dew_point_2m) return null;
 
@@ -63,7 +72,11 @@ export function buildHourlyInputsForModel(crag: Crag, cell: CellForecast, model:
       visibilityM: vars.visibility?.[i] ?? 20000,
       isDay: (vars.is_day?.[i] ?? 1) === 1,
       gtiFaceWm2,
-      soilMoistureDeep: soilMoistureDeepSeries ? (soilMoistureDeepSeries[i] ?? null) : null,
+      soilMoistureDeep: sharedSoilMoisture
+        ? (sharedSoilMoisture[i] ?? null)
+        : soilMoistureDeepSeries
+          ? (soilMoistureDeepSeries[i] ?? null)
+          : null,
       precipProbabilityPct: vars.precipitation_probability?.[i] ?? null,
     };
   }

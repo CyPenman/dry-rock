@@ -5,9 +5,9 @@ export interface SoilMoistureCalibration {
   p95: number;
 }
 
-// Placeholder until the weekly background calibration job (§3.5) has collected
-// enough history for a given crag. Deliberately wide so an uncalibrated crag
-// doesn't read as falsely saturated or falsely dry.
+// Fallback for a crag with no entry in the build-time climatology
+// (src/data/soilMoistureCalibration.ts, §3.5). Deliberately wide so an
+// uncalibrated crag doesn't read as falsely saturated or falsely dry.
 export const DEFAULT_SM_CALIBRATION: SoilMoistureCalibration = { p5: 0.1, p95: 0.4 };
 
 /**
@@ -37,8 +37,12 @@ export function computeSeepFluxFromSoilMoisture(
  * precipitation rate (mm/hr) treated as "as good as saturated"; there's no
  * calibration data to anchor it in fallback mode, so it's a documented estimate
  * rather than a measurement, same as every other constant in §4.11.
+ *
+ * refMm 0.15 mm/hr is about 3.6 mm/day sustained - a wet UK upland winter
+ * month - treated as saturated. The old 1.0 mm/hr was never reached: a wet Peak
+ * winter averages about 0.15, so seepage was effectively switched off.
  */
-export function computeSeepFluxFallback(precipEwmaMm: number, seepIndex: number, refMm = 1.0): number {
+export function computeSeepFluxFallback(precipEwmaMm: number, seepIndex: number, refMm = 0.15): number {
   const smNorm = clamp(precipEwmaMm / refMm, 0, 1);
   return seepIndex * PARAMS.maxSeep * smNorm ** PARAMS.seepExp;
 }

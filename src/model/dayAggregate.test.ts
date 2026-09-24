@@ -1,9 +1,23 @@
 import { describe, expect, it } from 'vitest';
 import type { CellForecast } from '../api/client';
 import { CRAGS } from '../data/crags';
-import { computeCragForecast } from './dayAggregate';
+import { buildHourlyInputsForModel } from './buildInputs';
+import { SOIL_MOISTURE_CALIBRATION } from '../data/soilMoistureCalibration';
+import {
+  buildSharedSoilMoisture,
+  computeCragForecast,
+  daylightRainChancePct,
+  soilMoistureCalibrationFor,
+  toModelConfig,
+} from './dayAggregate';
+import { scoreBand } from './scoreBand';
+import { DEFAULT_SM_CALIBRATION } from './seepage';
+import { hourOfDayLondon } from './time';
 
-const LOCAL_MIDNIGHT_UNIX = Date.UTC(2024, 5, 1, 0, 0, 0) / 1000; // 2024-06-01 00:00 UTC, treated as day 0
+// 2024-06-01 00:00 in London (BST, so 2024-05-31 23:00 UTC) - day 0. Days are
+// read from the timestamps in Europe/London (time.ts), so this must be a real
+// London midnight for `i % 24` to be the clock hour in the fixtures below.
+const LOCAL_MIDNIGHT_UNIX = Date.UTC(2024, 4, 31, 23, 0, 0) / 1000;
 
 function makeCellForecast(hours: number, opts: { withGfs?: boolean } = {}): CellForecast {
   const time = Array.from({ length: hours }, (_, i) => LOCAL_MIDNIGHT_UNIX + i * 3600);
@@ -50,6 +64,33 @@ function crag(id: string) {
   if (!found) throw new Error(`fixture crag not found: ${id}`);
   return found;
 }
+
+describe('daylightRainChancePct (§11)', () => {
+  const isDay = Array.from({ length: 24 }, (_, h) => h >= 6 && h <= 18);
+  const dry = Array.from({ length: 24 }, () => 0);
+
+  it('is the daylight maximum, not the 24-hour mean: 4 daylight hours at 60% and the rest 0 gives 60', () => {
+    const probs = Array.from({ length: 24 }, (_, h) => (h >= 10 && h < 14 ? 60 : 0));
+    expect(daylightRainChancePct(probs, dry, isDay)).toBe(60);
+  });
+
+  it('ignores night-time hours', () => {
+    const probs = Array.from({ length: 24 }, (_, h) => (h < 5 ? 90 : 10));
+    expect(daylightRainChancePct(probs, dry, isDay)).toBe(10);
+  });
+
+  it('falls back to 100 when no model publishes a probability but a daylight hour has 0.5mm', () => {
+    const probs = Array.from({ length: 24 }, () => null);
+    const precip = Array.from({ length: 24 }, (_, h) => (h === 12 ? 0.6 : 0));
+    expect(daylightRainChancePct(probs, precip, isDay)).toBe(100);
+  });
+
+  it('otherwise falls back to the share of daylight hours with measurable rain', () => {
+    const probs = Array.from({ length: 24 }, () => null);
+    const precip = Array.from({ length: 24 }, (_, h) => (h >= 6 && h < 9 ? 0.2 : 0)); // 3 of 13 daylight hours
+    expect(daylightRainChancePct(probs, precip, isDay)).toBe(23);
+  });
+});
 
 describe('computeCragForecast', () => {
   it('produces one day result per 24h chunk, scored under dry sunny conditions', () => {
@@ -189,9 +230,129 @@ describe('computeCragForecast', () => {
     expect(day.climbableDaylightHours).toBe(0); // no daylight hour is dry
     const someNightHourClimbable = result.hourly.some((r, i) => !daylight(i) && r.climbable);
     expect(someNightHourClimbable).toBe(true); // but it does clear overnight
-    // Confidence uses the daylight definition, so it agrees with the score.
+    // Confidence is agreement on the score band (P2-12): the one model with
+    // data puts this no-dry-daylight day in the poor band, and agrees with itself.
+    expect(day.score).toBeLessThan(0.45);
     expect(day.confidence.total).toBe(1);
-    expect(day.confidence.agreeCount).toBe(0);
+    expect(day.confidence.agreeCount).toBe(1);
+  });
+
+  it('chooses the headline model per day by lead time, not once per crag (§3.3)', () => {
+    // UKMO resolves 5 days, ECMWF 14, GFS all 16. Today is day 2, so days up to
+    // 4 are short range (UKMO first), then ECMWF while it lasts, then GFS.
+    const cell = makeCellForecast(24 * 16);
+    const base = cell.models.ukmo_seamless;
+    const resolvedFor = (days: number) =>
+      Object.fromEntries(
+        Object.entries(base).map(([k, v]) => [k, v.map((x, i) => (i < days * 24 ? x : (null as unknown as number)))]),
+      ) as Record<string, number[]>;
+    cell.models.ukmo_seamless = resolvedFor(5);
+    cell.models.ecmwf_ifs025 = resolvedFor(14);
+    cell.models.gfs_seamless = resolvedFor(16);
+
+    const todayIndex = 2;
+    const result = computeCragForecast(crag('portland-cuttings'), cell, todayIndex)!;
+
+    expect(result.days).toHaveLength(16);
+    expect(result.modelByDay).toHaveLength(16);
+    expect(result.modelByDay[todayIndex]).toBe('ukmo_seamless');
+    expect(result.modelByDay[todayIndex + 2]).toBe('ukmo_seamless');
+    expect(result.modelByDay[todayIndex + 3]).toBe('ecmwf_ifs025');
+    expect(result.modelByDay[15]).toBe('gfs_seamless');
+    expect(result.days[todayIndex].sourceModel).toBe('ukmo_seamless');
+    expect(result.days[todayIndex + 3].sourceModel).toBe('ecmwf_ifs025');
+    expect(result.days[15].sourceModel).toBe('gfs_seamless');
+    expect(result.primaryModel).toBe('ukmo_seamless');
+    expect(result.hourly.length).toBe(result.days.length * 24);
+    expect(result.inputs.length).toBe(result.days.length * 24);
+  });
+
+  it('feeds every model the same deep soil-moisture series, taken from ECMWF (§4.5)', () => {
+    // Only ECMWF publishes soil moisture, and only for the first two days; UKMO
+    // and GFS publish none. Every model must still see a real, held value.
+    const cell = makeCellForecast(24 * 3, { withGfs: true });
+    const { soil_moisture_28_to_100cm: _omit, ...noSoil } = cell.models.ukmo_seamless;
+    cell.models.ukmo_seamless = noSoil;
+    cell.models.gfs_seamless = noSoil;
+    cell.models.ecmwf_ifs025 = {
+      ...noSoil,
+      soil_moisture_28_to_100cm: cell.time.map((_, i) => (i < 48 ? 0.25 : (null as unknown as number))),
+    };
+
+    const c = crag('portland-cuttings');
+    const result = computeCragForecast(c, cell)!;
+    expect(result.soilMoistureSource).toBe('ecmwf_ifs025');
+    expect(result.availableModels.sort()).toEqual(['ecmwf_ifs025', 'gfs_seamless', 'ukmo_seamless'].sort());
+
+    const shared = buildSharedSoilMoisture(cell)!;
+    expect(shared.source).toBe('ecmwf_ifs025');
+    for (const model of result.availableModels) {
+      const inputs = buildHourlyInputsForModel(c, cell, model, shared.series)!;
+      expect(inputs.every((i) => i.soilMoistureDeep != null)).toBe(true);
+      expect(inputs[inputs.length - 1].soilMoistureDeep).toBe(0.25); // held past ECMWF's last real value
+    }
+    expect(result.inputs.every((i) => i.soilMoistureDeep != null)).toBe(true);
+  });
+
+  it('calibrates seepage against the source model climatology, else the default (§3.5)', () => {
+    const c = crag('wyndcliffe');
+    const ecmwf = SOIL_MOISTURE_CALIBRATION[c.id]?.ecmwf_ifs025;
+    expect(ecmwf).toBeDefined();
+    expect(toModelConfig(c, 'ecmwf_ifs025').smCalibration).toEqual(ecmwf);
+    const icon = SOIL_MOISTURE_CALIBRATION[c.id]?.icon_seamless;
+    if (icon) expect(toModelConfig(c, 'icon_seamless').smCalibration).toEqual(icon);
+
+    // No source, a model with no soil moisture, or an unknown crag: the default.
+    expect(toModelConfig(c, null).smCalibration).toEqual(DEFAULT_SM_CALIBRATION);
+    expect(toModelConfig(c, 'gfs_seamless').smCalibration).toEqual(DEFAULT_SM_CALIBRATION);
+    expect(toModelConfig({ ...c, id: 'not-a-crag' }, 'ecmwf_ifs025').smCalibration).toEqual(DEFAULT_SM_CALIBRATION);
+    expect(soilMoistureCalibrationFor('not-a-crag', 'ecmwf_ifs025')).toBeNull();
+    // A degenerate (sea-point) range is ignored rather than used.
+    expect(SOIL_MOISTURE_CALIBRATION['portland-cheyne']?.icon_seamless?.p95).toBe(0);
+    expect(soilMoistureCalibrationFor('portland-cheyne', 'icon_seamless')).toBeNull();
+  });
+
+  it('slices days on local dates and labels hours from timestamps across the October clock change (§3.1)', () => {
+    // London midnight 25 Oct 2026 (BST) for 3 local days: 25 + 24 + 24 hours.
+    const start = Date.UTC(2026, 9, 24, 23) / 1000;
+    const cell = makeCellForecast(73);
+    cell.time = cell.time.map((_, i) => start + i * 3600);
+    const clock = cell.time.map((t) => hourOfDayLondon(t));
+    const day = (h: number) => (h >= 6 && h <= 17 ? 1 : 0);
+    const vars = cell.models.ukmo_seamless;
+    vars.is_day = clock.map(day);
+    vars.shortwave_radiation = clock.map((h) => (day(h) ? 400 : 0));
+    vars.direct_normal_irradiance = clock.map((h) => (day(h) ? 400 : 0));
+
+    const result = computeCragForecast(crag('portland-cuttings'), cell, 0)!;
+    expect(result.days.map((d) => d.dayEndIdx - d.dayStartIdx + 1)).toEqual([25, 24, 24]);
+    expect(result.days[1].dayStartIdx).toBe(25);
+    expect(result.hourly).toHaveLength(73);
+    // Daylight starts at 06:00 by the clock on the 25-hour day - array position 7.
+    expect(result.days[0].bestWindowStartHour).toBe(6);
+    expect(result.days[0].lastDaylightHour).toBe(17);
+    expect(result.days[1].bestWindowStartHour).toBe(6);
+  });
+
+  it('counts agreement by score band, and reports every model score and their range (§4.10)', () => {
+    // UKMO dry all day; GFS identical but with rain from 06:00 to 12:00, so
+    // its day scores lower and lands in a different band.
+    const cell = makeCellForecast(24, { withGfs: true });
+    cell.models.gfs_seamless = {
+      ...cell.models.ukmo_seamless,
+      precipitation: cell.time.map((_, i) => (i % 24 >= 6 && i % 24 < 12 ? 2 : 0)),
+    };
+    const result = computeCragForecast(crag('portland-cuttings'), cell, 0)!;
+    const day = result.days[0];
+    const ukmo = result.perModelDays.ukmo_seamless![0].score;
+    const gfs = result.perModelDays.gfs_seamless![0].score;
+    expect(day.sourceModel).toBe('ukmo_seamless');
+    expect(day.modelScores.map((s) => s.model).sort()).toEqual(['gfs_seamless', 'ukmo_seamless']);
+    expect(day.modelScoreRange).toEqual({ min: Math.min(ukmo, gfs), max: Math.max(ukmo, gfs) });
+    const sameBand = scoreBand(ukmo * 100) === scoreBand(gfs * 100);
+    expect(day.confidence.total).toBe(2);
+    expect(day.confidence.agreeCount).toBe(sameBand ? 2 : 1);
+    expect(sameBand).toBe(false); // the fixture is meant to split the bands
   });
 
   it('reports the clock hour the friction score is drawn from on a normal dry day', () => {

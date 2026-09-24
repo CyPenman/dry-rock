@@ -700,6 +700,15 @@ const SEEDS: CragSeed[] = [
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/harrisons_rocks-57/',
     parkingLat: 51.10413,
     parkingLon: 0.19005,
+    // Soft-rock drying (§5.5), set so the strict 0.15 "dry inside" test clears
+    // after about two good summer days following 5mm of rain, and not for well
+    // over a week in winter. Mmax 2mm is roughly the outer centimetre of 20%
+    // porous sandstone - the layer where holds snap - rather than the whole
+    // sandstone default; dryingRate 3 reflects capillary wicking bringing
+    // matrix water to the surface faster than the generic stage-II curve.
+    // Shared with Bowles; the two differ only through their own shade and shelter.
+    Mmax: 2,
+    dryingRate: 3,
   },
   {
     id: 'stoney-middleton',
@@ -841,6 +850,9 @@ const SEEDS: CragSeed[] = [
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/bowles_rocks-54/',
     parkingLat: 51.07581,
     parkingLon: 0.19699,
+    // Soft-rock drying - same values and reasoning as Harrison's above.
+    Mmax: 2,
+    dryingRate: 3,
   },
 ];
 

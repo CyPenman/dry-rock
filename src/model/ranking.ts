@@ -1,6 +1,9 @@
 import type { CragDayResult } from './dayAggregate';
 import { greatCircleDistanceKm } from './distance';
 import { confidenceTier } from './score';
+import { scoreBand, type ScoreBand } from './scoreBand';
+
+const BAND_ORDER: Record<ScoreBand, number> = { good: 2, fair: 1, poor: 0 };
 import type { Crag } from './types';
 
 export interface RankedCragDay {
@@ -24,9 +27,11 @@ export function pickBestDayInRange(
 }
 
 /**
- * Rank crag-days for the home list - spec §4.10: "Never rank a low-confidence
- * crag-day above a high-confidence one." Sorts by confidence tier first, then
- * score within the tier.
+ * Rank crag-days for the home list (§4.10). Sort key, in order: the day's score
+ * band (good, then fair, then poor), then confidence tier (high first), then
+ * raw score. Never rank a low-confidence day above a high-confidence one
+ * *within the same band*. A deliberate change from the original "confidence
+ * tier first": that let a certain 25 outrank a probable 90.
  */
 export function rankCragDays(
   entries: { crag: Crag; days: CragDayResult[] | null }[],
@@ -49,6 +54,8 @@ export function rankCragDays(
   }
 
   return ranked.sort((a, b) => {
+    const bandDiff = BAND_ORDER[scoreBand(b.day.score * 100)] - BAND_ORDER[scoreBand(a.day.score * 100)];
+    if (bandDiff !== 0) return bandDiff;
     const tierDiff =
       confidenceTier(b.day.confidence.fraction, b.day.showerDominance) -
       confidenceTier(a.day.confidence.fraction, a.day.showerDominance);

@@ -18,16 +18,22 @@ function makeDay(overrides: Partial<CragDayResult> = {}): CragDayResult {
     climbableDaylightHours: 6,
     totalDaylightHours: 10,
     bestContiguousClimbableHours: 6,
+    bestWindowStartHour: 12,
+    bestWindowEndHour: 18,
+    lastDaylightHour: 17,
     bestFrictionBlockScore: 0.5,
     frictionWindowStartHour: 12,
     frictionWindowRockTempC: 12,
     frictionWindowDewPointC: 5,
     limitingFactor: 'none',
     confidence: { agreeCount: 4, total: 4, fraction: 1 },
+    modelScores: [],
+    modelScoreRange: { min: 0.5, max: 0.5 },
     showerDominance: 0,
     avgDaylightTempC: 12,
     rainChancePct: 0,
     worstDaylightWindChillC: null,
+    sourceModel: 'ecmwf_ifs025',
     ...overrides,
   };
 }
@@ -52,10 +58,21 @@ describe('rankCragDays', () => {
   const portland = CRAGS.find((c) => c.id === 'portland-cuttings')!;
   const stanage = CRAGS.find((c) => c.id === 'stanage')!;
 
-  it('never ranks a low-confidence day above a high-confidence one, even with a lower score', () => {
+  // Deliberate change to §4.10 (P2-12): band first, so a certain poor day no
+  // longer outranks a probable good one.
+  it('sorts a high-confidence poor day below a medium-confidence good day', () => {
+    const entries = [
+      { crag: portland, days: [makeDay({ score: 0.9, confidence: { agreeCount: 2, total: 4, fraction: 0.5 } })] },
+      { crag: stanage, days: [makeDay({ score: 0.25, confidence: { agreeCount: 4, total: 4, fraction: 1 } })] },
+    ];
+    const ranked = rankCragDays(entries, [0, 0], null);
+    expect(ranked[0].crag.id).toBe('portland-cuttings');
+  });
+
+  it('never ranks a low-confidence day above a high-confidence one within the same band, even with a higher score', () => {
     const entries = [
       { crag: portland, days: [makeDay({ score: 0.95, confidence: { agreeCount: 1, total: 4, fraction: 0.25 } })] },
-      { crag: stanage, days: [makeDay({ score: 0.4, confidence: { agreeCount: 4, total: 4, fraction: 1 } })] },
+      { crag: stanage, days: [makeDay({ score: 0.72, confidence: { agreeCount: 4, total: 4, fraction: 1 } })] },
     ];
     const ranked = rankCragDays(entries, [0, 0], null);
     expect(ranked[0].crag.id).toBe('stanage');
@@ -86,7 +103,8 @@ describe('rankCragDays', () => {
       },
       {
         crag: stanage,
-        days: [makeDay({ score: 0.6, confidence: { agreeCount: 3, total: 4, fraction: 0.75 }, showerDominance: 0 })],
+        // Same (good) band as the showery day, so the tier decides - since P2-12 a lower band sorts below regardless.
+        days: [makeDay({ score: 0.75, confidence: { agreeCount: 3, total: 4, fraction: 0.75 }, showerDominance: 0 })],
       },
     ];
     const ranked = rankCragDays(entries, [0, 0], null);

@@ -1,4 +1,5 @@
 import type { Discipline, RockType } from './types';
+import { saturationVapourPressureKpa } from './vapour';
 
 export interface FrictionHourInputs {
   trockC: number;
@@ -23,15 +24,6 @@ function deg2rad(d: number): number {
   return (d * Math.PI) / 180;
 }
 
-/**
- * Saturation vapour pressure over water, kPa (Magnus/Tetens). Only ever used as
- * a ratio below, so the approximation's absolute error doesn't matter; it is
- * fitted over water rather than ice, which is the right side for the
- * above-freezing conditions the salt term applies in.
- */
-function saturationVapourPressureKpa(tempC: number): number {
-  return 0.6108 * Math.exp((17.27 * tempC) / (tempC + 237.3));
-}
 
 /**
  * Relative humidity AT THE ROCK SURFACE, 0-1 - es(dew point) / es(Trock).
@@ -192,14 +184,13 @@ const DEFAULT_TYPICAL_HOURS: [number, number] = [9, 17];
 export const FRICTION_BLOCK_LENGTH_HOURS = 3;
 const TYPICAL_HOURS_SELECTION_BONUS = 0.03;
 
-function typicalHoursOverlapFraction(blockStartHourOfDay: number, blockLength: number, window: [number, number]): number {
+function typicalHoursOverlapFraction(blockHoursOfDay: number[], window: [number, number]): number {
   const [winStart, winEnd] = window;
   let coveredHours = 0;
-  for (let h = 0; h < blockLength; h++) {
-    const hourOfDay = (blockStartHourOfDay + h) % 24;
+  for (const hourOfDay of blockHoursOfDay) {
     if (hourOfDay >= winStart && hourOfDay < winEnd) coveredHours++;
   }
-  return coveredHours / blockLength;
+  return coveredHours / blockHoursOfDay.length;
 }
 
 export interface FrictionBlockResult {
@@ -213,6 +204,8 @@ export interface FrictionBlockResult {
    * it against a wholly different hour's reading elsewhere on screen.
    */
   startHourOfDay: number | null;
+  /** Array index the winning block starts at (not a clock hour - they differ across a clock change); null with no block. */
+  startIdx: number | null;
 }
 
 /**
@@ -223,19 +216,23 @@ export interface FrictionBlockResult {
  * reported friction score always describes an hour you could actually be on
  * the rock, not a dry-looking number stranded inside a wet spell.
  *
- * `startHourOfDay` is the clock hour index 0 of the array corresponds to
- * (0 for a day-aligned 24-length slice, the normal case); it only affects the
+ * `hoursOfDay` gives the clock hour of each element - pass the real hours
+ * (from the timestamps, see time.ts) so a 23- or 25-hour day at a clock change
+ * is labelled correctly. A plain number is the older form, the clock hour index
+ * 0 corresponds to, each later element one hour on. It only affects the
  * typical-hours selection preference and the returned window, never the score.
  */
 export function bestFrictionBlock(
   hourlyScores: number[],
   isDayFlags: boolean[],
   blockLength = FRICTION_BLOCK_LENGTH_HOURS,
-  startHourOfDay = 0,
+  hoursOfDay: number[] | number = 0,
   typicalHours: [number, number] = DEFAULT_TYPICAL_HOURS,
 ): FrictionBlockResult {
+  const hourAt = (i: number) => (Array.isArray(hoursOfDay) ? hoursOfDay[i] : (hoursOfDay + i) % 24);
   let best = 0;
   let bestStartHourOfDay: number | null = null;
+  let bestStartIdx: number | null = null;
   let bestRank = -Infinity;
   for (let i = 0; i + blockLength <= hourlyScores.length; i++) {
     let allDay = true;
@@ -249,14 +246,15 @@ export function bestFrictionBlock(
     }
     if (!allDay) continue;
     const avg = sum / blockLength;
-    const blockStartHourOfDay = (startHourOfDay + i) % 24;
-    const bonus = TYPICAL_HOURS_SELECTION_BONUS * typicalHoursOverlapFraction(blockStartHourOfDay, blockLength, typicalHours);
+    const blockHours = Array.from({ length: blockLength }, (_, k) => hourAt(i + k));
+    const bonus = TYPICAL_HOURS_SELECTION_BONUS * typicalHoursOverlapFraction(blockHours, typicalHours);
     const rank = avg + bonus;
     if (rank > bestRank) {
       bestRank = rank;
       best = avg;
-      bestStartHourOfDay = blockStartHourOfDay;
+      bestStartHourOfDay = blockHours[0];
+      bestStartIdx = i;
     }
   }
-  return { score: best, startHourOfDay: bestStartHourOfDay };
+  return { score: best, startHourOfDay: bestStartHourOfDay, startIdx: bestStartIdx };
 }

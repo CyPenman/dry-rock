@@ -1,12 +1,9 @@
-import { formatDayLabel, formatDistanceMiles, LIMITING_FACTOR_LABEL } from '../lib/format';
+import { formatDayLabel, formatDistanceMiles, formatDryTiming, LIMITING_FACTOR_LABEL } from '../lib/format';
 import type { RankedCragDay } from '../model/ranking';
 import { confidenceSentence, verdictMessage } from '../model/score';
+import { scoreBand } from '../model/scoreBand';
 
 const DAY_LETTER = new Intl.DateTimeFormat('en-GB', { weekday: 'short' });
-
-function formatHourOfDay(hour: number): string {
-  return `${String(hour).padStart(2, '0')}:00`;
-}
 
 /**
  * Day-by-day score strip - score cells (design study "Crag Charts", option
@@ -118,13 +115,7 @@ export function CragRow({
           <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-sm" style={{ color: 'var(--text-dim)' }}>
             <span style={{ color: 'var(--text)' }}>{formatDayLabel(day.date)}</span>
             <span>&middot;</span>
-            <span>
-              {day.climbableDaylightHours >= day.totalDaylightHours && day.totalDaylightHours > 0
-                ? 'dry all day'
-                : day.dryFromHourOfDay != null
-                  ? `dry from ${formatHourOfDay(day.dryFromHourOfDay)}`
-                  : 'not dry'}
-            </span>
+            <span>{formatDryTiming(day)}</span>
             {day.limitingFactor !== 'none' && (
               <>
                 <span>&middot;</span>
@@ -138,7 +129,7 @@ export function CragRow({
               </>
             )}
             <span>&middot;</span>
-            <span>{confidenceSentence(day.confidence)}</span>
+            <span>{confidenceSentence(day.confidence, scoreBand(day.score * 100))}</span>
           </div>
         )}
 

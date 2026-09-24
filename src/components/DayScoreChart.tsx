@@ -2,15 +2,9 @@ import { useState } from 'react';
 import type { ModelName } from '../api/request';
 import type { CragDayResult } from '../model/dayAggregate';
 import type { Verdict } from '../model/score';
+import { formatHeadlineModelCaption, MODEL_DISPLAY_NAME } from '../lib/format';
 import { Plot, STROKE, VW, dot, gridlines, pillStyle, poly, sx, xAxisRotation } from './chart/kit';
 import { Explain } from './Explain';
-
-const MODEL_LABELS: Record<ModelName, string> = {
-  ukmo_seamless: 'UKMO',
-  ecmwf_ifs025: 'ECMWF',
-  icon_seamless: 'ICON',
-  gfs_seamless: 'GFS',
-};
 
 // Fixed categorical order, validated against the app's dark surface with the
 // dataviz skill's palette checker (adjacent CVD Delta E + contrast).
@@ -26,6 +20,7 @@ const GATED_LABEL: Record<Verdict, string> = {
   under_snow: 'SNOW',
   frozen: 'FROZEN',
   rock_damage: 'DAMAGE',
+  soft_rock_wet: 'DAMP',
 };
 
 const DAY_LABEL_SHORT = new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric' });
@@ -46,15 +41,18 @@ function median(values: number[]): number {
  * hatched rather than plotted at zero.
  */
 export function DayScoreChart({
+  headlineDays,
+  modelByDay,
   perModelDays,
   availableModels,
-  primaryModel,
   startIdx,
   endIdx,
 }: {
+  /** The stitched headline days (`CragForecastResult.days`), each from its own `sourceModel`. */
+  headlineDays: CragDayResult[];
+  modelByDay: ModelName[];
   perModelDays: Partial<Record<ModelName, CragDayResult[]>>;
   availableModels: ModelName[];
-  primaryModel: ModelName;
   startIdx: number;
   endIdx: number;
 }) {
@@ -63,12 +61,15 @@ export function DayScoreChart({
   const dayCount = endIdx - startIdx + 1;
   if (dayCount < 1 || availableModels.length === 0) return null;
 
-  // Dates and the gating verdict come from the primary model - the one
-  // `dayAggregate.ts` already picked for having the longest real coverage -
-  // not just availableModels[0], which can be a shorter-horizon model (e.g.
-  // UKMO/ICON commonly resolve only ~7 days ahead; buildInputs.ts truncates
-  // them there rather than feed the physics model null-derived garbage).
-  const referenceDays = (perModelDays[primaryModel] ?? []).slice(startIdx, endIdx + 1);
+  // Dates and the gating verdict come from the headline days - one per day,
+  // each from the model `dayAggregate.ts` chose for it (§3.3) - so the chart
+  // covers exactly the days the rest of the screen does, even past a
+  // shorter-horizon model's last day.
+  const referenceDays = headlineDays.slice(startIdx, endIdx + 1);
+  const headlineCaption = formatHeadlineModelCaption(
+    referenceDays.map((d) => d.date),
+    modelByDay.slice(startIdx, endIdx + 1),
+  );
   const days = referenceDays.map((refDay, i) => {
     // A model with no day at this index simply hasn't resolved that far
     // (excluded from the spread entirely) - distinct from a model that
@@ -201,7 +202,7 @@ export function DayScoreChart({
             onClick={() => setHighlight(m)}
             style={{ ...pillStyle(highlight === m), borderLeftWidth: 4, borderLeftStyle: 'solid', borderLeftColor: MODEL_COLOURS[m] }}
           >
-            {MODEL_LABELS[m]}
+            {MODEL_DISPLAY_NAME[m]}
           </button>
         ))}
       </div>
@@ -209,6 +210,11 @@ export function DayScoreChart({
         The shaded band is the full spread between the resolved models; the line is their median. A wide band means
         low confidence whatever the number says.
       </p>
+      {headlineCaption && (
+        <p style={{ margin: '4px 0 0 34px', font: '11px/1.45 system-ui,sans-serif', color: 'var(--text-dim)' }}>
+          {headlineCaption}
+        </p>
+      )}
 
       <Explain>
         <p>Score is 0 to 100, higher is better - see the score breakdown table above for what makes up each number.</p>

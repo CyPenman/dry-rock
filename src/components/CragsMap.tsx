@@ -1,10 +1,9 @@
 import { divIcon } from 'leaflet';
 import { useEffect, useMemo } from 'react';
 import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet';
-import { PAST_DAYS } from '../api/request';
 import type { CragWithForecast } from '../hooks/useForecast';
 import { formatAgeWords } from '../lib/format';
-import { resolveDateRange, type DateRangeSelection } from '../model/dateRange';
+import { clampRangeToData, resolveDateRange, type DateRangeSelection } from '../model/dateRange';
 import { rankCragDays } from '../model/ranking';
 import { SCORE_BAND_COLOR_VAR, SCORE_BAND_LABEL, scoreBand } from '../model/scoreBand';
 import type { CragDayResult } from '../model/dayAggregate';
@@ -78,6 +77,8 @@ function MapSizeInvalidator({ active }: { active: boolean }) {
 export function CragsMap({
   results,
   dateRange,
+  todayIndex,
+  dayCount,
   active,
   loading,
   fetchedAt,
@@ -87,6 +88,8 @@ export function CragsMap({
 }: {
   results: CragWithForecast[];
   dateRange: DateRangeSelection;
+  todayIndex: number;
+  dayCount: number;
   active: boolean;
   loading: boolean;
   fetchedAt: number | null;
@@ -94,9 +97,16 @@ export function CragsMap({
   onRefresh: () => void;
   onSelectCrag: (id: string) => void;
 }) {
-  const [startIdx, endIdx] = useMemo(() => resolveDateRange(dateRange, PAST_DAYS), [dateRange]);
+  const [startIdx, endIdx] = useMemo(() => resolveDateRange(dateRange, todayIndex), [dateRange, todayIndex]);
+  // Only the days the saved forecast covers (§2) - the home list says so in words.
+  const { range: coveredRange } = clampRangeToData([startIdx, endIdx], dayCount);
+  const coveredStart = coveredRange?.[0];
+  const coveredEnd = coveredRange?.[1];
   const entries = useMemo(() => results.map(({ crag, forecast }) => ({ crag, days: forecast ? forecast.days : null })), [results]);
-  const ranked = useMemo(() => rankCragDays(entries, [startIdx, endIdx], null), [entries, startIdx, endIdx]);
+  const ranked = useMemo(
+    () => (coveredStart != null && coveredEnd != null ? rankCragDays(entries, [coveredStart, coveredEnd], null) : []),
+    [entries, coveredStart, coveredEnd],
+  );
 
   return (
     <div className="flex h-full flex-col">

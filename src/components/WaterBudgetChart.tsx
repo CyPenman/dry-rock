@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { niceScale } from '../lib/chartScale';
+import type { CragDayResult } from '../model/dayAggregate';
 import type { HourResult } from '../model/wetness';
 import { Plot, VW, fmt, fmtFine, gridlines, poly, sx, xAxisRotation } from './chart/kit';
 import { Explain } from './Explain';
@@ -81,11 +82,14 @@ interface DayBucket {
  */
 export function WaterBudgetChart({
   hourly,
+  days,
   todayIndex,
   rangeStart,
   rangeEnd,
 }: {
   hourly: HourResult[];
+  /** Headline days - their `dayStartIdx`/`dayEndIdx` bound each bar, since a day can be 23 or 25 hours (§3.1). */
+  days: Pick<CragDayResult, 'dayStartIdx' | 'dayEndIdx'>[];
   todayIndex: number;
   rangeStart: number;
   rangeEnd: number;
@@ -95,16 +99,16 @@ export function WaterBudgetChart({
 
   const historyDays = Math.min(HISTORY_DAYS, rangeStart);
   const windowStartIdx = rangeStart - historyDays;
-  const startHour = windowStartIdx * 24;
-  const endHour = Math.min(hourly.length, (rangeEnd + 1 + extraDays) * 24);
+  const windowEndIdx = Math.min(days.length - 1, rangeEnd + extraDays);
+  const startHour = days[windowStartIdx]?.dayStartIdx ?? 0;
+  const endHour = Math.min(hourly.length, (days[windowEndIdx]?.dayEndIdx ?? -1) + 1);
   const slice = useMemo(() => hourly.slice(Math.max(0, startHour), endHour), [hourly, startHour, endHour]);
 
   const buckets: DayBucket[] = useMemo(() => {
     const out: DayBucket[] = [];
-    for (let i = 0; i < slice.length; i += 24) {
-      const chunk = slice.slice(i, i + 24);
+    for (let dayIndex = windowStartIdx; dayIndex <= windowEndIdx; dayIndex++) {
+      const chunk = hourly.slice(days[dayIndex].dayStartIdx, days[dayIndex].dayEndIdx + 1);
       if (chunk.length === 0) continue;
-      const dayIndex = windowStartIdx + Math.floor(i / 24);
       out.push({
         label: DAY_LABEL.format(new Date(chunk[0].time * 1000)),
         totals: sumFluxes(chunk),
@@ -114,7 +118,7 @@ export function WaterBudgetChart({
       });
     }
     return out;
-  }, [slice, windowStartIdx, todayIndex, rangeStart]);
+  }, [hourly, days, windowStartIdx, windowEndIdx, todayIndex, rangeStart]);
 
   if (slice.length === 0 || buckets.length === 0) {
     return (

@@ -1,4 +1,5 @@
 import type { CSSProperties, PointerEvent, ReactNode } from 'react';
+import { localDateKeyLondon } from '../../model/time';
 
 /**
  * Shared drawing primitives for the redesigned charts (design study "Crag
@@ -166,13 +167,34 @@ export function gridlines(ticks: number[], y: (v: number) => number, _h: number)
   ));
 }
 
-/** Alternating day columns - the cheapest way to make "which day is this" read. */
-export function dayBands(n: number, h: number, y0 = 0, hoursPerDay = 24): ReactNode[] {
+/**
+ * [start, endExclusive) index ranges of each local day in an hourly series.
+ * With `times`, grouped by London calendar date, so a 23- or 25-hour day at a
+ * clock change gets its real width (§3.1); without, fixed 24-hour chunks.
+ */
+function dayRanges(n: number, times?: number[]): [number, number][] {
+  const out: [number, number][] = [];
+  if (times && times.length >= n) {
+    let start = 0;
+    for (let i = 1; i <= n; i++) {
+      if (i === n || localDateKeyLondon(times[i]) !== localDateKeyLondon(times[start])) {
+        out.push([start, i]);
+        start = i;
+      }
+    }
+    return out;
+  }
+  for (let d = 0; d * 24 < n; d++) out.push([d * 24, Math.min(n, (d + 1) * 24)]);
+  return out;
+}
+
+/** Alternating day columns - the cheapest way to make "which day is this" read. Pass `times` for clock-change-correct days. */
+export function dayBands(n: number, h: number, y0 = 0, times?: number[]): ReactNode[] {
   const out: ReactNode[] = [];
-  const days = Math.ceil(n / hoursPerDay);
-  for (let d = 0; d < days; d += 2) {
-    const x0 = sx(d * hoursPerDay, n);
-    const x1 = sx(Math.min(n - 1, (d + 1) * hoursPerDay), n);
+  const ranges = dayRanges(n, times);
+  for (let d = 0; d < ranges.length; d += 2) {
+    const x0 = sx(ranges[d][0], n);
+    const x1 = sx(Math.min(n - 1, ranges[d][1]), n);
     out.push(<rect key={`db${d}`} x={x0} y={y0} width={Math.max(1, x1 - x0)} height={h - y0} fill="#ffffff" opacity={0.028} />);
   }
   return out;
@@ -208,13 +230,12 @@ export function dot(f: number, top: number, colour: string, size = 9, key?: stri
   );
 }
 
-export function dayLabels(getDate: (i: number) => Date, n: number, hoursPerDay = 24): XLabel[] {
-  const out: XLabel[] = [];
-  for (let d = 0; d * hoursPerDay < n; d++) {
-    const mid = Math.min(d * hoursPerDay + Math.floor(hoursPerDay / 2), n - 1);
-    out.push({ f: sx(mid, n) / VW, label: DAY_LABEL.format(getDate(d * hoursPerDay)), strong: true });
-  }
-  return out;
+/** One label per day, centred on it. Pass `times` for clock-change-correct days. */
+export function dayLabels(getDate: (i: number) => Date, n: number, times?: number[]): XLabel[] {
+  return dayRanges(n, times).map(([start, end]) => {
+    const mid = Math.min(start + Math.floor((end - start) / 2), n - 1);
+    return { f: sx(mid, n) / VW, label: DAY_LABEL.format(getDate(start)), strong: true };
+  });
 }
 
 /** Slim ribbon of climbable/not-climbable bands over the full series. */

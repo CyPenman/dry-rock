@@ -1,5 +1,5 @@
-import { computeCondensationFlux } from './condensation';
-import { computeE0 } from './evaporation';
+import { PAST_DAYS } from '../api/request';
+import { computeAeroFlux, computeE0 } from './evaporation';
 import { PARAMS } from './params';
 import { updateRockTemperature } from './rockTemperature';
 import {
@@ -33,7 +33,7 @@ export interface CragHourlyInput {
   isDay: boolean;
   gtiFaceWm2: number; // pre-computed plane-of-array irradiance, §3.4
   soilMoistureDeep: number | null; // null when unavailable for the resolved model, §3.5
-  /** Open-Meteo's own precipitation_probability, % - null for models that don't publish it (UKMO doesn't). */
+  /** Open-Meteo's own precipitation_probability, % - null for hours a model doesn't publish it (UKMO only covers part of its horizon). */
   precipProbabilityPct?: number | null;
 }
 
@@ -50,6 +50,8 @@ export interface CragModelConfig {
   Smax: number;
   Mmax: number;
   infiltrationRate: number;
+  /** Soft sandstone (§5.5): judged dry inside on the stricter `softRockMatrixDryFraction`. */
+  softRock: boolean;
   smCalibration?: SoilMoistureCalibration;
 }
 
@@ -61,7 +63,7 @@ export interface CragState {
   precipEwma: number;
 }
 
-export type LimitingFactor = 'rain' | 'seepage' | 'condensation' | 'snow' | 'frozen' | 'none';
+export type LimitingFactor = 'rain' | 'seepage' | 'condensation' | 'snow' | 'frozen' | 'drying' | 'none';
 
 export interface HourFluxes {
   rain: number;
@@ -162,7 +164,19 @@ export function stepHour(
     runoffAbove = computeRunoffAbove(config.catchmentAbove, pfaceEwma);
     S += pface + runoffAbove;
 
-    condensation = computeCondensationFlux(trock, input.dewPointC, input.windSpeedMs);
+    // Dew is the negative side of the same vapour-pressure flux that dries the
+    // rock (§4.3/§4.4): rock below the dew point draws water out of the air.
+    condensation = Math.max(
+      0,
+      -computeAeroFlux({
+        vpdKpa: input.vpdKpa,
+        dewPointC: input.dewPointC,
+        windSpeedMs: input.windSpeedMs,
+        windShelter: config.windShelter,
+        dryingRate: config.dryingRate,
+        trockC: trock,
+      }),
+    );
     S += condensation;
   }
 
@@ -189,6 +203,7 @@ export function stepHour(
     const E0 = computeE0({
       gtiFaceWm2: input.gtiFaceWm2,
       vpdKpa: input.vpdKpa,
+      dewPointC: input.dewPointC,
       windSpeedMs: input.windSpeedMs,
       canopyLight: config.canopyLight,
       windShelter: config.windShelter,
@@ -213,7 +228,11 @@ export function stepHour(
   const frozen = !underSnow && trock < 0 && S + M > PARAMS.frozenWetThreshold;
 
   // 8. Climbability - never while under snow, regardless of the reservoir state.
-  const climbable = !underSnow && S < PARAMS.S_dry && M / config.Mmax < PARAMS.matrixDryFraction && !frozen;
+  // Soft sandstone needs to be much drier inside (§5.5): the global 0.35 still
+  // leaves about 2mm of water in a 6mm sandstone matrix, enough for holds to
+  // snap or wear away.
+  const matrixDryFraction = config.softRock ? PARAMS.softRockMatrixDryFraction : PARAMS.matrixDryFraction;
+  const climbable = !underSnow && S < PARAMS.S_dry && M / config.Mmax < matrixDryFraction && !frozen;
 
   return {
     state: { S, M, Trock: trock, pfaceEwma, precipEwma },
@@ -234,6 +253,13 @@ export function runSimulation(inputs: CragHourlyInput[], config: CragModelConfig
   if (inputs.length === 0) return [];
 
   let state = initialState(inputs[0].tempC, inputs[0].soilMoistureDeep, config.Mmax, config.smCalibration);
+  // Spin-up bias (§4.5 fallback): a tauSeep-day kernel starting from 0 cannot
+  // fill in the PAST_DAYS of history we have, so it would under-read seepage
+  // for the whole run. Start it at the mean rate over that history instead.
+  const spinUpHours = Math.min(inputs.length, PAST_DAYS * 24);
+  let spinUpPrecip = 0;
+  for (let i = 0; i < spinUpHours; i++) spinUpPrecip += inputs[i].precipitationMm;
+  state = { ...state, precipEwma: spinUpPrecip / spinUpHours };
   const results: HourResult[] = [];
 
   for (const input of inputs) {
@@ -303,8 +329,12 @@ export function climbableHoursForDay(
 
 /**
  * Which term is keeping the crag wet at hour `idx` - spec §4.7. Snow and frozen
- * are hard states reported directly; otherwise report whichever flux
- * contributed the most water over the preceding 24 hours.
+ * are hard states reported directly. While the surface is wet, report whichever
+ * flux contributed the most water over the preceding 24 hours. Once the surface
+ * has dried but the rock is still wet inside, look back 72 hours instead - the
+ * water in the matrix can be days old - and report seepage or condensation if
+ * one of those dominates; otherwise the rock is simply still drying out from
+ * earlier rain, which is its own answer rather than "none".
  */
 export function limitingFactorAt(results: HourResult[], idx: number): LimitingFactor {
   const r = results[idx];
@@ -312,7 +342,8 @@ export function limitingFactorAt(results: HourResult[], idx: number): LimitingFa
   if (r.frozen) return 'frozen';
   if (r.climbable) return 'none';
 
-  const windowStart = Math.max(0, idx - 23);
+  const surfaceWet = r.S >= PARAMS.S_dry;
+  const windowStart = Math.max(0, idx - (surfaceWet ? 23 : 71));
   let rain = 0;
   let seepage = 0;
   let condensation = 0;
@@ -328,5 +359,40 @@ export function limitingFactorAt(results: HourResult[], idx: number): LimitingFa
     ['condensation', condensation],
   ];
   entries.sort((a, b) => b[1] - a[1]);
-  return entries[0][1] > 0 ? entries[0][0] : 'none';
+  if (surfaceWet) return entries[0][1] > 0 ? entries[0][0] : 'none';
+  const [top, amount] = entries[0];
+  return amount > 0 && (top === 'seepage' || top === 'condensation') ? top : 'drying';
+}
+
+/**
+ * The day's limiting factor (§4.7): the most common `limitingFactorAt` across
+ * the daylight hours that were NOT climbable, ties going to whichever occurs
+ * first. 'none' when every daylight hour was climbable. Replaces reading it at
+ * 23:00, which reported nothing for a crag wet all morning and dry by evening.
+ * `isDayFlags` is indexed from `dayStart`.
+ */
+export function dayLimitingFactor(
+  results: HourResult[],
+  dayStart: number,
+  dayEnd: number,
+  isDayFlags: boolean[],
+): LimitingFactor {
+  const counts = new Map<LimitingFactor, number>();
+  const firstSeen: LimitingFactor[] = [];
+  for (let i = dayStart; i <= dayEnd; i++) {
+    if (!isDayFlags[i - dayStart] || results[i].climbable) continue;
+    const factor = limitingFactorAt(results, i);
+    if (!counts.has(factor)) firstSeen.push(factor);
+    counts.set(factor, (counts.get(factor) ?? 0) + 1);
+  }
+  let best: LimitingFactor = 'none';
+  let bestCount = 0;
+  for (const factor of firstSeen) {
+    const n = counts.get(factor)!;
+    if (n > bestCount) {
+      best = factor;
+      bestCount = n;
+    }
+  }
+  return best;
 }

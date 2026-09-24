@@ -1,8 +1,13 @@
 import { useMemo, useState } from 'react';
-import { FORECAST_DAYS, PAST_DAYS } from '../api/request';
 import type { CragWithForecast } from '../hooks/useForecast';
 import { formatAgeWords, formatDayLabel } from '../lib/format';
-import { dayIndexToDate, resolveDateRange, type DateRangeSelection } from '../model/dateRange';
+import {
+  clampRangeToData,
+  dayIndexToDate,
+  resolveDateRange,
+  toLocalIsoDate,
+  type DateRangeSelection,
+} from '../model/dateRange';
 import { rankCragDays, sortByDistance, sortByName, sortByWorthTheDrive, type RankedCragDay } from '../model/ranking';
 import type { Settings } from '../state/settings';
 import { CalendarRangePicker } from './CalendarRangePicker';
@@ -32,6 +37,8 @@ export function HomeScreen({
   onSelectCrag,
   dateRange,
   onChangeDateRange,
+  todayIndex,
+  dayCount,
 }: {
   results: CragWithForecast[];
   loading: boolean;
@@ -45,25 +52,38 @@ export function HomeScreen({
   onSelectCrag: (cragId: string) => void;
   dateRange: DateRangeSelection;
   onChangeDateRange: (range: DateRangeSelection) => void;
+  /** Today's day index in the loaded series (from useForecast, derived from the data). */
+  todayIndex: number;
+  /** Whole days the loaded series covers. */
+  dayCount: number;
 }) {
   const [sortMode, setSortMode] = useState<SortMode>('score');
   const [pickerOpen, setPickerOpen] = useState(false);
 
-  const maxDayIndex = PAST_DAYS + FORECAST_DAYS - 1;
-  const [startIdx, endIdx] = useMemo(() => resolveDateRange(dateRange, PAST_DAYS), [dateRange]);
+  const maxDayIndex = dayCount - 1;
+  const [startIdx, endIdx] = useMemo(() => resolveDateRange(dateRange, todayIndex), [dateRange, todayIndex]);
+  // §2: never extrapolate past the saved forecast - a stale cache may not reach
+  // the dates asked for, in which case say so rather than silently rank nothing.
+  const { range: coveredRange, clamped } = clampRangeToData([startIdx, endIdx], dayCount);
+  const outOfData = !loading && dayCount > 0 && coveredRange == null;
 
   const rangeLabel =
     dateRange.kind === 'weekend'
       ? 'This weekend'
       : startIdx === endIdx
-        ? formatDayLabel(dayIndexToDate(startIdx, PAST_DAYS))
-        : `${formatDayLabel(dayIndexToDate(startIdx, PAST_DAYS))} to ${formatDayLabel(dayIndexToDate(endIdx, PAST_DAYS))}`;
+        ? formatDayLabel(dayIndexToDate(startIdx, todayIndex))
+        : `${formatDayLabel(dayIndexToDate(startIdx, todayIndex))} to ${formatDayLabel(dayIndexToDate(endIdx, todayIndex))}`;
 
   const home = settings.homeLat != null && settings.homeLon != null ? { lat: settings.homeLat, lon: settings.homeLon } : null;
 
   const entries = useMemo(() => results.map(({ crag, forecast }) => ({ crag, days: forecast ? forecast.days : null })), [results]);
 
-  const ranked = useMemo(() => rankCragDays(entries, [startIdx, endIdx], home), [entries, startIdx, endIdx, home]);
+  const coveredStart = coveredRange?.[0];
+  const coveredEnd = coveredRange?.[1];
+  const ranked = useMemo(
+    () => (coveredStart != null && coveredEnd != null ? rankCragDays(entries, [coveredStart, coveredEnd], home) : []),
+    [entries, coveredStart, coveredEnd, home],
+  );
   const scored = ranked.filter((r) => r.day.verdict === 'scored');
   const gated = ranked.filter((r) => r.day.verdict !== 'scored');
 
@@ -153,6 +173,17 @@ export function HomeScreen({
         </div>
       )}
 
+      {outOfData && (
+        <p className="mx-4 mt-3 rounded border px-3 py-2 text-sm" style={{ borderColor: 'var(--warning)', color: 'var(--warning)' }}>
+          Your saved forecast doesn't reach these dates - refresh when you have signal.
+        </p>
+      )}
+      {!outOfData && clamped && coveredRange && (
+        <p className="mx-4 mt-3 text-sm" style={{ color: 'var(--text-dim)' }}>
+          Showing the days the saved forecast covers.
+        </p>
+      )}
+
       {pinnedRows.length > 0 && (
         <section>
           <h2 className="px-4 pb-1 pt-3 text-xs uppercase tracking-wide" style={{ color: 'var(--text-dim)' }}>
@@ -168,7 +199,7 @@ export function HomeScreen({
         <h2 className="px-4 pb-1 pt-3 text-xs uppercase tracking-wide" style={{ color: 'var(--text-dim)' }}>
           Ranked
         </h2>
-        {!loading && sorted.length === 0 && (
+        {!loading && !outOfData && sorted.length === 0 && (
           <p className="px-4 py-6 text-sm" style={{ color: 'var(--text-dim)' }}>
             Nothing qualifies in this window. Check the sheltered venues below: caves and roofs are their whole
             value when the forecast is bad everywhere.
@@ -202,15 +233,27 @@ export function HomeScreen({
         </details>
       )}
 
+      <p className="px-4 pt-6 text-xs" style={{ color: 'var(--text-dim)' }}>
+        Weather data:{' '}
+        <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: 'var(--text-dim)' }}>
+          Open-Meteo.com
+        </a>{' '}
+        (CC BY 4.0)
+      </p>
+
       {pickerOpen && (
         <CalendarRangePicker
-          todayIndex={PAST_DAYS}
+          todayIndex={todayIndex}
           maxDayIndex={maxDayIndex}
-          initialStartIdx={dateRange.kind === 'custom' ? dateRange.startIdx : startIdx}
-          initialEndIdx={dateRange.kind === 'custom' ? dateRange.endIdx : endIdx}
+          initialStartIdx={Math.min(Math.max(startIdx, todayIndex), maxDayIndex)}
+          initialEndIdx={Math.min(Math.max(endIdx, todayIndex), maxDayIndex)}
           onCancel={() => setPickerOpen(false)}
           onApply={(s, e) => {
-            onChangeDateRange({ kind: 'custom', startIdx: s, endIdx: e });
+            onChangeDateRange({
+              kind: 'custom',
+              startDate: toLocalIsoDate(dayIndexToDate(s, todayIndex)),
+              endDate: toLocalIsoDate(dayIndexToDate(e, todayIndex)),
+            });
             setPickerOpen(false);
           }}
         />

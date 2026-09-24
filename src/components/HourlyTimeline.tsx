@@ -37,6 +37,7 @@ export function HourlyTimeline({
   const cur = results[i];
   const curInput = inputs[i];
   const getDate = (idx: number) => new Date(inputs[idx].time * 1000);
+  const times = inputs.map((x) => x.time);
 
   const rainScale = niceScale(Math.max(...inputs.map((x) => x.precipitationMm)));
   const waterScale = niceScale(Math.max(...results.map((r) => Math.max(r.S, r.M))));
@@ -123,7 +124,7 @@ export function HourlyTimeline({
         Rain <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>mm/hr</span>
       </div>
       <Plot h={RH} xAxisH={0} onScrub={onScrub} ariaLabel="Hourly rain" yLabels={rainScale.ticks.map((v) => ({ y: yR(v), label: fmt(v) }))} overlay={cursorRail}>
-        {dayBands(n, RH)}
+        {dayBands(n, RH, 0, times)}
         {gridlines(rainScale.ticks, yR, RH)}
         <polygon points={`0,${RH} ${poly(inputs.map((x, k) => [sx(k, n), yR(x.precipitationMm)]))} ${VW},${RH}`} fill="var(--chart-water)" opacity={0.3} />
         <polyline
@@ -147,7 +148,7 @@ export function HourlyTimeline({
         xAxisH={xAxisH}
         xLabelRotateDeg={xLabelRotateDeg}
         yLabels={waterScale.ticks.map((v) => ({ y: yW(v), label: fmt(v) }))}
-        xLabels={dayLabels(getDate, n)}
+        xLabels={dayLabels(getDate, n, times)}
         overlay={
           <>
             {cursorRail}
@@ -156,7 +157,7 @@ export function HourlyTimeline({
           </>
         }
       >
-        {dayBands(n, WH)}
+        {dayBands(n, WH, 0, times)}
         {gridlines(waterScale.ticks, yW, WH)}
         <polygon points={`0,${WH} ${poly(results.map((r, k) => [sx(k, n), yW(r.M)]))} ${VW},${WH}`} fill="var(--chart-water-soft)" opacity={0.34} />
         <polyline

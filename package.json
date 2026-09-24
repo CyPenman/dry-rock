@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "calibrate:soil": "node scripts/calibrate-soil-moisture.mjs"
   },
   "dependencies": {
     "idb": "^8.0.3",

@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { CRAGS } from '../data/crags';
-import { computeE0 } from './evaporation';
+import { computeAeroFlux, computeE0 } from './evaporation';
 import { DEFAULT_SM_CALIBRATION } from './seepage';
 import type { Crag } from './types';
 import {
   type CragHourlyInput,
   type CragModelConfig,
+  dayLimitingFactor,
   initialState,
+  limitingFactorAt,
   runSimulation,
   stepHour,
 } from './wetness';
@@ -29,6 +31,7 @@ function toConfig(crag: Crag): CragModelConfig {
     Smax: crag.Smax,
     Mmax: crag.Mmax,
     infiltrationRate: crag.infiltrationRate,
+    softRock: crag.softRock,
   };
 }
 
@@ -136,7 +139,7 @@ describe('§8.4 validation cases', () => {
 
   it('Stanage: a clear calm September night visibly dampens the rock, which then dries through the morning', () => {
     // Gritstone's infiltrationRate (0.2 mm/hr, §5.3) is far larger than any
-    // plausible condensation flux (kCond 0.008 x a few degrees of spread), so a
+    // plausible condensation flux (about 0.008 mm/hr per degree below the dew point), so a
     // night's condensation drains into M within the same hour rather than
     // sitting as a visible surface film (S) - porous grit wicks dew into the
     // matrix rather than beading it on the surface, which is physically the
@@ -370,5 +373,122 @@ describe('§8.4 validation cases', () => {
       visibilityM: 20000,
     });
     expect(clearNight).toBeLessThan(0.01);
+  });
+});
+
+describe('limiting factor (§4.7)', () => {
+  const daylightFlags = (inputs: CragHourlyInput[], dayStart: number) =>
+    inputs.slice(dayStart, dayStart + 24).map((i) => i.isDay);
+
+  it('reports rain for a wet morning and dry afternoon, not "none" from 23:00', () => {
+    const config = toConfig(crag('portland-cuttings'));
+    const inputs = buildSeries(24, (_, hod) => ({
+      precipitationMm: hod >= 6 && hod < 9 ? 1 : 0, // a 3mm morning shower
+      tempC: 18,
+      dewPointC: 9,
+      vpdKpa: hod < 9 ? 0.1 : vpdKpa(18, 9),
+      windSpeedMs: 5,
+      cloudCoverPct: hod < 9 ? 100 : 10,
+      gtiFaceWm2: hod < 9 ? 0 : defaultGti(hod, 600),
+      soilMoistureDeep: smAtPercentile(0),
+    }));
+    const results = runSimulation(inputs, config);
+
+    expect(results.slice(6, 9).every((r) => !r.climbable)).toBe(true); // wet morning
+    expect(results.slice(14, 19).some((r) => r.climbable)).toBe(true); // dry by the afternoon
+    expect(limitingFactorAt(results, 23)).toBe('none'); // what the old 23:00 reading said
+    expect(dayLimitingFactor(results, 0, 23, daylightFlags(inputs, 0))).toBe('rain');
+  });
+
+  it('reports "drying" for grit whose surface is dry but whose inside is still wet from rain 40 hours ago', () => {
+    const c = crag('stanage');
+    const config = toConfig(c);
+    const inputs = buildSeries(50, (i) => ({
+      precipitationMm: i < 10 ? 1 : 0,
+      tempC: 10,
+      dewPointC: 6,
+      vpdKpa: vpdKpa(10, 6),
+      windSpeedMs: 3,
+      cloudCoverPct: 70,
+      gtiFaceWm2: i < 10 ? 0 : defaultGti(i % 24, 150),
+      soilMoistureDeep: smAtPercentile(0),
+    }));
+    const results = runSimulation(inputs, config);
+    const idx = 49; // 40 hours after the rain stopped
+
+    expect(results[idx].S).toBeLessThan(0.02); // surface reads dry
+    expect(results[idx].M / c.Mmax).toBeGreaterThanOrEqual(0.35); // still wet inside
+    expect(results[idx].climbable).toBe(false);
+    expect(limitingFactorAt(results, idx)).toBe('drying');
+  });
+
+  it('reports "none" for a day dry in every daylight hour', () => {
+    const config = toConfig(crag('portland-cuttings'));
+    const inputs = buildSeries(24, (_, hod) => ({
+      tempC: 18,
+      dewPointC: 8,
+      vpdKpa: vpdKpa(18, 8),
+      windSpeedMs: 4,
+      gtiFaceWm2: defaultGti(hod, 600),
+      soilMoistureDeep: smAtPercentile(0),
+    }));
+    const results = runSimulation(inputs, config);
+    expect(results.every((r, i) => !inputs[i].isDay || r.climbable)).toBe(true);
+    expect(dayLimitingFactor(results, 0, 23, daylightFlags(inputs, 0))).toBe('none');
+  });
+});
+
+describe('one vapour-pressure equation for drying and dew (§4.3/§4.4)', () => {
+  // Inverse Magnus: the dew point whose saturation vapour pressure is `e` kPa.
+  const dewPointForVapourPressure = (e: number) => {
+    const g = Math.log(e / 0.6108);
+    return (237.3 * g) / (17.27 - g);
+  };
+  const dewForSurfaceDeficit = (trockC: number, deficitKpa: number) =>
+    dewPointForVapourPressure(saturationVaporPressureKpa(trockC) - deficitKpa);
+
+  it('deposits 0.004-0.012 mm/hr of dew on 10°C rock under an 11°C dew point in a 5 m/s wind', () => {
+    const flux = computeAeroFlux({ vpdKpa: 0, dewPointC: 11, windSpeedMs: 5, windShelter: 1, dryingRate: 1, trockC: 10 });
+    const condensation = Math.max(0, -flux);
+    expect(condensation).toBeGreaterThanOrEqual(0.004);
+    expect(condensation).toBeLessThanOrEqual(0.012);
+  });
+
+  it('keeps the E0 magnitudes when driven by the rock-surface deficit instead of the air VPD', () => {
+    // Same cases as the E0 magnitude check above, with the dew point chosen so
+    // the surface deficit equals the VPD that test used.
+    const summerMidday = computeE0({
+      gtiFaceWm2: 800,
+      vpdKpa: 0,
+      dewPointC: dewForSurfaceDeficit(25, 1.2),
+      windSpeedMs: 4,
+      canopyLight: 1,
+      windShelter: 1,
+      dryingRate: 1,
+      trockC: 25,
+      visibilityM: 20000,
+    });
+    expect(summerMidday).toBeGreaterThan(0.2);
+    expect(summerMidday).toBeLessThan(0.45);
+
+    const winterOvercast = computeE0({
+      gtiFaceWm2: 50,
+      vpdKpa: 0,
+      dewPointC: dewForSurfaceDeficit(5, 0.2),
+      windSpeedMs: 2,
+      canopyLight: 1,
+      windShelter: 1,
+      dryingRate: 1,
+      trockC: 5,
+      visibilityM: 20000,
+    });
+    expect(winterOvercast).toBeGreaterThan(0.005);
+    expect(winterOvercast).toBeLessThan(0.05);
+  });
+
+  it('dries sun-warmed rock faster than cold rock under the same air', () => {
+    const common = { gtiFaceWm2: 0, vpdKpa: 0, dewPointC: 8, windSpeedMs: 3, canopyLight: 1, windShelter: 1, dryingRate: 1, visibilityM: 20000 };
+    expect(computeE0({ ...common, trockC: 20 })).toBeGreaterThan(computeE0({ ...common, trockC: 10 }));
+    expect(computeE0({ ...common, trockC: 7 })).toBe(0); // below the dew point: no drying, dew instead
   });
 });
