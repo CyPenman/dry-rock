@@ -46,6 +46,12 @@ export interface Crag {
   softRock: boolean;
   notes: string;
   accessNote?: string;
+  /**
+   * A restriction that only applies part of the year (e.g. bird nesting), months
+   * 1-12 inclusive; `fromMonth` after `toMonth` wraps over the new year. The
+   * detail screen shows it as a warning only when the selected dates overlap it.
+   */
+  seasonalRestriction?: { fromMonth: number; toMonth: number; text: string };
   ukcUrl?: string;
 
   // Parking - only set where a specific car park could be confirmed from

@@ -1,7 +1,8 @@
 import type { EnsembleCellForecast } from '../api/ensembleClient';
 import { getSoilMoistureDeep } from '../api/soilMoisture';
 import { FRICTION_BLOCK_LENGTH_HOURS } from './friction';
-import { computeGtiFace, solarPosition } from './solar';
+import { STEEPNESS_TILT_DEG } from './rockDefaults';
+import { computeGtiFace, solarPositionForHourlyRadiation } from './solar';
 import { dayBoundaries, hourOfDayLondon, localDateKeyLondon } from './time';
 import { saturationVapourPressureKpa } from './vapour';
 import type { Crag } from './types';
@@ -56,7 +57,7 @@ function buildHourlyInputsForMember(
     } else {
       soilMoistureDeep = soilMoistureDeepSeries ? (soilMoistureDeepSeries[i] ?? null) : null;
     }
-    const { elevationDeg, azimuthDeg } = solarPosition(time, crag.lat, crag.lon);
+    const { elevationDeg, azimuthDeg } = solarPositionForHourlyRadiation(time, crag.lat, crag.lon);
     const gtiFaceWm2 = computeGtiFace({
       dni: vars.direct_normal_irradiance?.[i] ?? 0,
       dhi: vars.diffuse_radiation?.[i] ?? 0,
@@ -64,6 +65,7 @@ function buildHourlyInputsForMember(
       elevationDeg,
       azimuthDeg,
       aspectDeg: crag.aspectDeg,
+      tiltDeg: STEEPNESS_TILT_DEG[crag.steepness],
     });
 
     inputs[i - offset] = {

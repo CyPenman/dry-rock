@@ -1,7 +1,8 @@
 import { getSoilMoistureDeep } from '../api/soilMoisture';
 import type { CellForecast } from '../api/client';
 import type { ModelName } from '../api/request';
-import { computeGtiFace, solarPosition } from './solar';
+import { STEEPNESS_TILT_DEG } from './rockDefaults';
+import { computeGtiFace, solarPositionForHourlyRadiation } from './solar';
 import type { Crag } from './types';
 import type { CragHourlyInput } from './wetness';
 
@@ -48,7 +49,7 @@ export function buildHourlyInputsForModel(
 
   for (let i = 0; i < n; i++) {
     const time = cell.time[i];
-    const { elevationDeg, azimuthDeg } = solarPosition(time, crag.lat, crag.lon);
+    const { elevationDeg, azimuthDeg } = solarPositionForHourlyRadiation(time, crag.lat, crag.lon);
     const gtiFaceWm2 = computeGtiFace({
       dni: vars.direct_normal_irradiance?.[i] ?? 0,
       dhi: vars.diffuse_radiation?.[i] ?? 0,
@@ -56,6 +57,7 @@ export function buildHourlyInputsForModel(
       elevationDeg,
       azimuthDeg,
       aspectDeg: crag.aspectDeg,
+      tiltDeg: STEEPNESS_TILT_DEG[crag.steepness],
     });
 
     inputs[i] = {

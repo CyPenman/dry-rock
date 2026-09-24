@@ -6,7 +6,10 @@ import type { Crag } from './types';
 import {
   type CragHourlyInput,
   type CragModelConfig,
+  climbableHoursForDay,
   dayLimitingFactor,
+  hourDryness,
+  type HourResult,
   initialState,
   limitingFactorAt,
   runSimulation,
@@ -490,5 +493,76 @@ describe('one vapour-pressure equation for drying and dew (§4.3/§4.4)', () => 
     const common = { gtiFaceWm2: 0, vpdKpa: 0, dewPointC: 8, windSpeedMs: 3, canopyLight: 1, windShelter: 1, dryingRate: 1, visibilityM: 20000 };
     expect(computeE0({ ...common, trockC: 20 })).toBeGreaterThan(computeE0({ ...common, trockC: 10 }));
     expect(computeE0({ ...common, trockC: 7 })).toBe(0); // below the dew point: no drying, dew instead
+  });
+});
+
+describe('tree shade on rock heating (§4.2, canopyLight)', () => {
+  it('the same sun warms a wooded face less than an open one', () => {
+    const base = toConfig(crag('harrisons'));
+    const sunnyDay = Array.from({ length: 24 }, (_, i) => makeHour(i, { gtiFaceWm2: defaultGti(i % 24, 700), cloudCoverPct: 0, windSpeedMs: 1 }));
+    const peak = (canopyLight: number) =>
+      Math.max(...runSimulation(sunnyDay, { ...base, canopyLight }).map((r) => r.Trock)) - 15;
+    const open = peak(1);
+    const wooded = peak(0.35);
+    expect(open).toBeGreaterThan(5);
+    expect(wooded).toBeLessThan(0.5 * open);
+    expect(wooded).toBeGreaterThan(0);
+  });
+});
+
+describe('graded dryness - no cliff edge at the dry-inside line (§4.7)', () => {
+  it('gives full credit below the line and fades smoothly to none 0.1 above it', () => {
+    expect(hourDryness(true, 0.2, false)).toBe(1);
+    expect(hourDryness(true, 0.3499, false)).toBe(1);
+    expect(hourDryness(true, 0.4, false)).toBeCloseTo(0.5, 5);
+    expect(hourDryness(true, 0.45, false)).toBe(0);
+    expect(hourDryness(true, 0.6, false)).toBe(0);
+  });
+
+  it('never jumps: a 0.001 step in wetness moves the credit by under 2%', () => {
+    for (let f = 0.3; f < 0.5; f += 0.001) {
+      expect(Math.abs(hourDryness(true, f + 0.001, false) - hourDryness(true, f, false))).toBeLessThan(0.02);
+    }
+  });
+
+  it('is 0 whenever the surface is wet, whatever the inside', () => {
+    expect(hourDryness(false, 0.1, false)).toBe(0);
+  });
+
+  it('keeps the hard cut-off for soft sandstone - damp soft rock earns nothing (§5.5)', () => {
+    expect(hourDryness(true, 0.14, true)).toBe(1);
+    expect(hourDryness(true, 0.16, true)).toBe(0);
+  });
+
+  it('sums partial hours for the score while the whole-hour counts stay for the wording', () => {
+    const hour = (dryness: number): HourResult => ({
+      time: 0, S: 0, M: 0, Trock: 10, climbable: dryness === 1, dryness, frozen: false, underSnow: false,
+      fluxes: { rain: 0, seepage: 0, condensation: 0, melt: 0 },
+    });
+    const day = [hour(0), hour(0.5), hour(0.5), hour(1), hour(1), hour(0), hour(0.25)];
+    const r = climbableHoursForDay(day, day.map(() => true));
+    expect(r.totalClimbableDaylightHours).toBe(2);
+    expect(r.bestContiguousBlock?.hours).toBe(2);
+    expect(r.effectiveDryDaylightHours).toBeCloseTo(3.25, 10);
+    expect(r.bestEffectiveRunHours).toBeCloseTo(3, 10); // 0.5 + 0.5 + 1 + 1
+  });
+});
+
+describe('air movement (§4.3) - shelter only cuts the wind-driven part', () => {
+  const base = { vpdKpa: 0, dewPointC: 5, trockC: 15, dryingRate: 1 };
+
+  it('in dead calm a sheltered face dries as fast as an open one', () => {
+    expect(computeAeroFlux({ ...base, windSpeedMs: 0, windShelter: 0.3 })).toBeCloseTo(
+      computeAeroFlux({ ...base, windSpeedMs: 0, windShelter: 1 }),
+      10,
+    );
+  });
+
+  it('in wind the sheltered face dries slower, but never below the still-air rate', () => {
+    const sheltered = computeAeroFlux({ ...base, windSpeedMs: 8, windShelter: 0.3 });
+    const open = computeAeroFlux({ ...base, windSpeedMs: 8, windShelter: 1 });
+    const calm = computeAeroFlux({ ...base, windSpeedMs: 0, windShelter: 0.3 });
+    expect(sheltered).toBeLessThan(open);
+    expect(sheltered).toBeGreaterThan(calm);
   });
 });

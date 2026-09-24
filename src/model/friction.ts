@@ -51,7 +51,7 @@ const SALT_RH_RAMP: [number, number] = [0.72, 0.85];
  * artefact, not a real signal, and the same "no cliff edge" reasoning the
  * seepage fallback already applies (§4.5).
  */
-function smoothstep(x: number, lo: number, hi: number): number {
+export function smoothstep(x: number, lo: number, hi: number): number {
   if (lo === hi) return x >= hi ? 1 : 0;
   const t = Math.max(0, Math.min(1, (x - lo) / (hi - lo)));
   return t * t * (3 - 2 * t);
@@ -98,6 +98,25 @@ function tempPenalty(trockC: number, idealTempC: [number, number]): number {
 }
 
 /**
+ * Each friction penalty for one hour, as the (positive) amount it took off the
+ * score, so a day can say WHY its friction was poor in one line (§1, §6).
+ * `score` is exactly `frictionScoreHour`'s result. Terms that don't apply to
+ * this crag (sun-baked on a non-south face, slate glassiness on other rock,
+ * salt inland or offshore) are 0.
+ */
+export interface FrictionBreakdown {
+  /** Distance of the rock temperature outside the ideal band, 0-1 - too warm or too cold. */
+  temp: number;
+  muggy: number;
+  nearDewPoint: number;
+  windy: number;
+  sunBaked: number;
+  salt: number;
+  slateGlassy: number;
+  score: number;
+}
+
+/**
  * Friction score for one daylight hour - spec §4.8. Dry is necessary, not
  * sufficient: grit in a damp heatwave is greasy even bone dry. Judged on rock
  * temperature (what your skin touches) and dew point (what climbers actually
@@ -108,10 +127,16 @@ function tempPenalty(trockC: number, idealTempC: [number, number]): number {
  * continuously with conditions instead of jumping at an arbitrary threshold.
  */
 export function frictionScoreHour(inputs: FrictionHourInputs): number {
+  return frictionBreakdownHour(inputs).score;
+}
+
+/** `frictionScoreHour` with every penalty term reported separately - see `FrictionBreakdown`. */
+export function frictionBreakdownHour(inputs: FrictionHourInputs): FrictionBreakdown {
   const { trockC, idealTempC, dewPointC, windSpeedMs, windDirectionDeg, gtiFaceWm2, aspectDeg, coastal, rock, disciplines } =
     inputs;
 
-  let score = 1 - tempPenalty(trockC, idealTempC);
+  const temp = tempPenalty(trockC, idealTempC);
+  let score = 1 - temp;
 
   // Dew point: greasy above ~12C, crisp below ~5C - ramped across a band
   // centred on each anchor rather than snapping at it.
@@ -122,7 +147,8 @@ export function frictionScoreHour(inputs: FrictionHourInputs): number {
   // Condensation onset: heavy penalty as Trock closes in on the dew point -
   // the rock is on the edge of sweating, regardless of the absolute dew point.
   const spread = trockC - dewPointC;
-  score -= 0.4 * (1 - smoothstep(spread, 0, 4));
+  const nearDewPoint = 0.4 * (1 - smoothstep(spread, 0, 4));
+  score -= nearDewPoint;
 
   // Wind: reward a discipline-appropriate sweet spot, penalise above its top end.
   const windBand = windBandFor(disciplines);
@@ -137,7 +163,8 @@ export function frictionScoreHour(inputs: FrictionHourInputs): number {
   // though the same aspect is why it's a brilliant winter venue.
   const facingSouth = Math.abs(((aspectDeg - 180 + 180) % 360) - 180) < 45;
   const sunHeat = smoothstep(gtiFaceWm2, 400, 600) * smoothstep(trockC, 18, 22);
-  if (facingSouth) score -= 0.3 * sunHeat;
+  const sunBaked = facingSouth ? 0.3 * sunHeat : 0;
+  score -= sunBaked;
 
   // Coastal salt is hygroscopic and holds damp in a humid onshore breeze - a
   // friction effect even when the rock is dry by any direct measurement (§4.8:
@@ -155,15 +182,61 @@ export function frictionScoreHour(inputs: FrictionHourInputs): number {
   // BAND, where the spec's own wording for this term is "when humidity is high".
   // The old form charged south-facing Portland up to 0.10 an hour on warm days
   // whose rock-surface RH never left the 50s.
+  let salt = 0;
   if (coastal) {
     const onshore = windDirectionDeg == null || Math.cos(deg2rad(windDirectionDeg - aspectDeg)) > 0;
-    if (onshore) score -= 0.15 * smoothstep(rockSurfaceRh(trockC, dewPointC), SALT_RH_RAMP[0], SALT_RH_RAMP[1]);
+    if (onshore) salt = 0.15 * smoothstep(rockSurfaceRh(trockC, dewPointC), SALT_RH_RAMP[0], SALT_RH_RAMP[1]);
   }
+  score -= salt;
 
   // Slate gets glassy in strong sun and heat - a friction problem, not a wetness one.
-  if (rock === 'slate') score -= 0.3 * sunHeat;
+  const slateGlassy = rock === 'slate' ? 0.3 * sunHeat : 0;
+  score -= slateGlassy;
 
-  return Math.max(0, Math.min(1, score));
+  return {
+    temp,
+    muggy: muggyPenalty,
+    nearDewPoint,
+    windy: windPenalty,
+    sunBaked,
+    salt,
+    slateGlassy,
+    score: Math.max(0, Math.min(1, score)),
+  };
+}
+
+export type FrictionReason = 'too_warm' | 'too_cold' | 'humid' | 'near_dew_point' | 'windy' | 'sun_baked' | 'salt';
+
+/** Below this average penalty a term is not worth naming as the day's reason. */
+const FRICTION_REASON_MIN_PENALTY = 0.1;
+
+/**
+ * The single biggest friction penalty across a window's hours (§1: every result
+ * answers "why?" in one line), or null when none averages at least 0.1. The
+ * temperature term becomes too warm or too cold by which side of the ideal band
+ * the window's mean rock temperature is on. Slate glassiness counts as
+ * sun-baked - it is the same sun-and-heat term, on a different rock.
+ */
+export function frictionReasonForWindow(
+  breakdowns: FrictionBreakdown[],
+  meanRockTempC: number,
+  idealTempC: [number, number],
+): FrictionReason | null {
+  if (breakdowns.length === 0) return null;
+  const mean = (pick: (b: FrictionBreakdown) => number) =>
+    breakdowns.reduce((sum, b) => sum + pick(b), 0) / breakdowns.length;
+  const tempReason: FrictionReason = meanRockTempC > (idealTempC[0] + idealTempC[1]) / 2 ? 'too_warm' : 'too_cold';
+  const candidates: [FrictionReason, number][] = [
+    [tempReason, mean((b) => b.temp)],
+    ['humid', mean((b) => b.muggy)],
+    ['near_dew_point', mean((b) => b.nearDewPoint)],
+    ['windy', mean((b) => b.windy)],
+    ['sun_baked', mean((b) => b.sunBaked + b.slateGlassy)],
+    ['salt', mean((b) => b.salt)],
+  ];
+  let best: [FrictionReason, number] = candidates[0];
+  for (const c of candidates) if (c[1] > best[1]) best = c;
+  return best[1] >= FRICTION_REASON_MIN_PENALTY ? best[0] : null;
 }
 
 /**

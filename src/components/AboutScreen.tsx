@@ -83,6 +83,10 @@ export function AboutScreen({ onBack }: { onBack: () => void }) {
             <li>Shade from trees and neighbouring walls is only roughly allowed for.</li>
             <li>Sea state and tide are not modelled, so spray and tidal access at sea cliffs are invisible.</li>
             <li>Local effects such as sea breezes, rain shadows and valley inversions are mostly missed.</li>
+            <li>
+              Drive times are estimates from straight-line distance (roads about 1.3 times longer, 65 km/h on average,
+              plus 15 minutes), not a route - traffic, ferries and mountain roads are not known.
+            </li>
           </ul>
         </section>
 

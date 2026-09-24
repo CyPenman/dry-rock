@@ -15,12 +15,15 @@ export const PARAMS = {
   // Rock temperature
   kSolar: 12, // degC above air on a fully sunlit face
   kNight: 2.5, // degC below air under clear skies
+  tauSurface: 1.5, // hours - rock skin responds quickly
+  kWindCoupling: 0.15, // per m/s - wind pulls the surface back toward air temperature
 
   // Drying law
   stageIIExp: 1.5,
   S_dry: 0.02, // mm - below this the surface reads dry
   matrixDryFraction: 0.35, // M/Mmax below which the rock feels dry
   softRockMatrixDryFraction: 0.15, // M/Mmax below which soft sandstone is safe to climb (§5.5) - stricter than matrixDryFraction
+  matrixDampCreditWidth: 0.1, // M/Mmax above the dry line over which an hour's dryness credit fades from full to none - no cliff edge (§4.7). Not for soft rock.
 
   // Seepage
   maxSeep: 0.08, // mm/hr at full saturation, seepIndex 1.0

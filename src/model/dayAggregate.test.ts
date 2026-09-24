@@ -7,19 +7,29 @@ import {
   buildSharedSoilMoisture,
   computeCragForecast,
   daylightRainChancePct,
+  daylightWeatherSummary,
   soilMoistureCalibrationFor,
   toModelConfig,
 } from './dayAggregate';
 import { scoreBand } from './scoreBand';
 import { DEFAULT_SM_CALIBRATION } from './seepage';
 import { hourOfDayLondon } from './time';
+import type { CragHourlyInput } from './wetness';
 
 // 2024-06-01 00:00 in London (BST, so 2024-05-31 23:00 UTC) - day 0. Days are
 // read from the timestamps in Europe/London (time.ts), so this must be a real
 // London midnight for `i % 24` to be the clock hour in the fixtures below.
 const LOCAL_MIDNIGHT_UNIX = Date.UTC(2024, 4, 31, 23, 0, 0) / 1000;
 
-function makeCellForecast(hours: number, opts: { withGfs?: boolean } = {}): CellForecast {
+interface CellWeather {
+  tempC?: number;
+  dewPointC?: number;
+  vpdKpa?: number;
+  cloudCoverPct?: number;
+}
+
+function makeCellForecast(hours: number, opts: { withGfs?: boolean; weather?: CellWeather } = {}): CellForecast {
+  const w = opts.weather ?? {};
   const time = Array.from({ length: hours }, (_, i) => LOCAL_MIDNIGHT_UNIX + i * 3600);
   const hourOfDay = (i: number) => i % 24;
   const isDay = (i: number) => (hourOfDay(i) >= 6 && hourOfDay(i) <= 18 ? 1 : 0);
@@ -28,12 +38,12 @@ function makeCellForecast(hours: number, opts: { withGfs?: boolean } = {}): Cell
   const ukmoVars = {
     precipitation: time.map(() => 0),
     snow_depth: time.map(() => 0),
-    temperature_2m: time.map((_, i) => 16 + 4 * Math.sin((Math.PI * (hourOfDay(i) - 6)) / 12)),
-    dew_point_2m: time.map(() => 8),
-    vapour_pressure_deficit: time.map(() => 0.8),
+    temperature_2m: time.map((_, i) => w.tempC ?? 16 + 4 * Math.sin((Math.PI * (hourOfDay(i) - 6)) / 12)),
+    dew_point_2m: time.map(() => w.dewPointC ?? 8),
+    vapour_pressure_deficit: time.map(() => w.vpdKpa ?? 0.8),
     wind_speed_10m: time.map(() => 4),
     wind_direction_10m: time.map(() => 180),
-    cloud_cover: time.map(() => 10),
+    cloud_cover: time.map(() => w.cloudCoverPct ?? 10),
     visibility: time.map(() => 20000),
     shortwave_radiation: time.map((_, i) => gti(i)),
     direct_normal_irradiance: time.map((_, i) => gti(i)),
@@ -363,5 +373,35 @@ describe('computeCragForecast', () => {
     expect(day.frictionWindowStartHour).not.toBeNull();
     expect(day.frictionWindowStartHour).toBeGreaterThanOrEqual(0);
     expect(day.frictionWindowStartHour).toBeLessThan(24);
+  });
+
+  it('names humidity as the reason on a muggy dry day, and nothing on an ideal one (§1)', () => {
+    // Overcast so the rock never dips to the dew point overnight - dry, but greasy.
+    const humid = makeCellForecast(24, { weather: { tempC: 16, dewPointC: 13.5, vpdKpa: 0.3, cloudCoverPct: 100 } });
+    const humidDay = computeCragForecast(crag('cheddar-shade'), humid)!.days[0];
+    expect(humidDay.frictionWindowStartHour).not.toBeNull();
+    expect(humidDay.frictionReason).toBe('humid');
+
+    const ideal = makeCellForecast(24, { weather: { tempC: 12, dewPointC: 3, vpdKpa: 0.9, cloudCoverPct: 100 } });
+    const idealDay = computeCragForecast(crag('cheddar-shade'), ideal)!.days[0];
+    expect(idealDay.frictionWindowStartHour).not.toBeNull();
+    expect(idealDay.frictionReason).toBeNull();
+  });
+});
+
+describe('daylightWeatherSummary', () => {
+  const hour = (tempC: number, windSpeedMs: number, windDirectionDeg: number, cloudCoverPct: number) =>
+    ({ tempC, windSpeedMs, windDirectionDeg, cloudCoverPct }) as CragHourlyInput;
+
+  it('gives daylight ranges, mean cloud, and a vector-mean wind direction (350° and 10° average to north)', () => {
+    const w = daylightWeatherSummary([hour(2, 1, 180, 0), hour(9, 4, 350, 40), hour(14, 6, 10, 80)], [false, true, true]);
+    expect(w!.airTempC).toEqual({ min: 9, max: 14 });
+    expect(w!.windSpeedMs).toEqual({ min: 4, max: 6 });
+    expect(w!.cloudCoverPct).toBe(60);
+    expect(Math.min(w!.windFromDeg, 360 - w!.windFromDeg)).toBeLessThan(5);
+  });
+
+  it('is null with no daylight hours', () => {
+    expect(daylightWeatherSummary([hour(2, 1, 180, 0)], [false])).toBeNull();
   });
 });

@@ -13,6 +13,18 @@ export const ROCK_DEFAULTS: Record<
   sandstone: { Smax: 0.6, Mmax: 6.0, infiltrationRate: 0.4, tauRock: 8 },
 };
 
+// §3.4 - face angle from horizontal for each steepness class, used for sunlight
+// on the face. Estimates matching the rain-exposure classes below, not measured
+// per crag: a slab leans back 20° from vertical, "steep" overhangs by about 15°,
+// a roof by 45°, and a cave's rock mostly faces down and in (150°).
+export const STEEPNESS_TILT_DEG: Record<Steepness, number> = {
+  slab: 70,
+  vertical: 90,
+  steep: 105,
+  roof: 135,
+  cave: 150,
+};
+
 // §5.3 - a slab catches more than falls on the horizontal; a roof/cave almost nothing.
 // Used in §4.2 to compute Pgeom = precipitation * rainExposure.
 export const STEEPNESS_RAIN_EXPOSURE: Record<Steepness, number> = {

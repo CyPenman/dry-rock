@@ -25,6 +25,7 @@ type CragSeed = {
   softRock: boolean;
   notes: string;
   accessNote?: string;
+  seasonalRestriction?: { fromMonth: number; toMonth: number; text: string };
   ukcUrl?: string;
   dryingRate?: number; // default 1.0
   // Parking - only set where a specific car park could be confirmed; otherwise
@@ -130,7 +131,12 @@ const SEEDS: CragSeed[] = [
     coastal: false,
     softRock: false,
     notes: 'Gorge venue, moderate seepage. The sunny wall dries markedly faster than the shady one.',
-    accessNote: 'Seasonal bird nesting restrictions on some buttresses, roughly March–August.',
+    // Months as the note already gives them (roughly March-August) - not more precise dates.
+    seasonalRestriction: {
+      fromMonth: 3,
+      toMonth: 8,
+      text: 'Seasonal bird nesting restrictions on some buttresses, roughly March–August.',
+    },
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/cheddar_gorge_north-2280/',
     parkingNote: 'Several pay-and-display car parks line the gorge road; none is specific to this wall, so no single coordinate could be confirmed.',
   },
@@ -154,7 +160,12 @@ const SEEDS: CragSeed[] = [
     coastal: false,
     softRock: false,
     notes: 'North-facing gorge wall. Little direct sun; slower and seepier than the sunny side.',
-    accessNote: 'Seasonal bird nesting restrictions on some buttresses, roughly March–August.',
+    // Months as the note already gives them (roughly March-August) - not more precise dates.
+    seasonalRestriction: {
+      fromMonth: 3,
+      toMonth: 8,
+      text: 'Seasonal bird nesting restrictions on some buttresses, roughly March–August.',
+    },
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/cheddar_gorge_south-240/',
     parkingNote: 'Several pay-and-display car parks line the gorge road; none is specific to this wall, so no single coordinate could be confirmed.',
   },
@@ -272,7 +283,12 @@ const SEEDS: CragSeed[] = [
     coastal: false,
     softRock: false,
     notes: 'The most open of the Wye Valley venues; still slow relative to the coast.',
-    accessNote: 'Seasonal bird nesting restrictions on some buttresses, roughly March–August.',
+    // Months as the note already gives them (roughly March-August) - not more precise dates.
+    seasonalRestriction: {
+      fromMonth: 3,
+      toMonth: 8,
+      text: 'Seasonal bird nesting restrictions on some buttresses, roughly March–August.',
+    },
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/symonds_yat-403/',
     parkingNote: "The main Symonds Yat Rock visitor car park is some distance from the crag and it's unclear whether it's the one climbers actually use, so no coordinate could be confirmed.",
   },
@@ -884,6 +900,7 @@ function resolveCrag(seed: CragSeed): Crag {
     softRock: seed.softRock,
     notes: seed.notes,
     accessNote: seed.accessNote,
+    seasonalRestriction: seed.seasonalRestriction,
     ukcUrl: seed.ukcUrl,
     parkingLat: seed.parkingLat,
     parkingLon: seed.parkingLon,

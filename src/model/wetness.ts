@@ -1,5 +1,6 @@
 import { PAST_DAYS } from '../api/request';
 import { computeAeroFlux, computeE0 } from './evaporation';
+import { smoothstep } from './friction';
 import { PARAMS } from './params';
 import { updateRockTemperature } from './rockTemperature';
 import {
@@ -58,7 +59,8 @@ export interface CragModelConfig {
 export interface CragState {
   S: number;
   M: number;
-  Trock: number;
+  Trock: number; // rock SURFACE temperature (§4.2)
+  Tbulk: number; // the slow rock mass behind the surface (§4.2)
   pfaceEwma: number;
   precipEwma: number;
 }
@@ -78,9 +80,32 @@ export interface HourResult {
   M: number;
   Trock: number;
   climbable: boolean;
+  /**
+   * How dry this hour counts for the score, 0-1 (`hourDryness`). 1 whenever
+   * `climbable`; for rock just damp inside it fades smoothly to 0 instead of
+   * dropping straight there, so a small change in drying can't flip a whole day
+   * between 100 and 0. `climbable` stays the yes/no used for wording and windows.
+   */
+  dryness: number;
   frozen: boolean;
   underSnow: boolean;
   fluxes: HourFluxes;
+}
+
+/**
+ * How dry an hour counts for the score (§4.7, §4.9): 0 with a wet surface, snow
+ * or ice; otherwise full credit below the "dry inside" line, fading smoothly to
+ * none `matrixDampCreditWidth` above it. The line itself was a hard cut-off, so
+ * rock at 34% full inside scored a full day and 36% scored nothing - against
+ * this model's own no-cliff-edge rule. Soft sandstone keeps the hard cut-off:
+ * climbing it damp damages it (§5.5), so nearly dry earns nothing.
+ */
+export function hourDryness(surfaceDry: boolean, matrixFraction: number, softRock: boolean): number {
+  if (!surfaceDry) return 0;
+  const line = softRock ? PARAMS.softRockMatrixDryFraction : PARAMS.matrixDryFraction;
+  if (softRock) return matrixFraction < line ? 1 : 0;
+  if (matrixFraction < line) return 1;
+  return 1 - smoothstep(matrixFraction, line, line + PARAMS.matrixDampCreditWidth);
 }
 
 /**
@@ -100,6 +125,7 @@ export function initialState(
     S: 0,
     M: smNorm * Mmax,
     Trock: airTempC,
+    Tbulk: airTempC,
     pfaceEwma: 0,
     precipEwma: 0,
   };
@@ -111,13 +137,18 @@ export function stepHour(
   input: CragHourlyInput,
   config: CragModelConfig,
 ): { state: CragState; result: HourResult } {
-  // 1. Temperature
-  const trock = updateRockTemperature({
-    prevTrock: state.Trock,
+  // 1. Temperature - two layers; `trock` is the surface, used for everything below
+  const { Tsurface: trock, Tbulk } = updateRockTemperature({
+    prevTsurface: state.Trock,
+    prevTbulk: state.Tbulk,
     airTemp: input.tempC,
-    gtiFace: input.gtiFaceWm2,
+    // Only the sun that gets through the trees warms the rock - the same
+    // `canopyLight` share the radiative drying term already uses (§4.3).
+    // Wooded faces were heating as if in open sky.
+    gtiFace: input.gtiFaceWm2 * config.canopyLight,
     cloudCoverPct: input.cloudCoverPct,
     isDay: input.isDay,
+    windSpeedMs: input.windSpeedMs,
     tauRock: config.tauRock,
   });
 
@@ -232,16 +263,19 @@ export function stepHour(
   // leaves about 2mm of water in a 6mm sandstone matrix, enough for holds to
   // snap or wear away.
   const matrixDryFraction = config.softRock ? PARAMS.softRockMatrixDryFraction : PARAMS.matrixDryFraction;
-  const climbable = !underSnow && S < PARAMS.S_dry && M / config.Mmax < matrixDryFraction && !frozen;
+  const surfaceDry = !underSnow && S < PARAMS.S_dry && !frozen;
+  const climbable = surfaceDry && M / config.Mmax < matrixDryFraction;
+  const dryness = hourDryness(surfaceDry, M / config.Mmax, config.softRock);
 
   return {
-    state: { S, M, Trock: trock, pfaceEwma, precipEwma },
+    state: { S, M, Trock: trock, Tbulk, pfaceEwma, precipEwma },
     result: {
       time: input.time,
       S,
       M,
       Trock: trock,
       climbable,
+      dryness,
       frozen,
       underSnow,
       fluxes: { rain: pface + runoffAbove, seepage: seepFlux, condensation, melt },
@@ -296,15 +330,32 @@ export interface ClimbableBlock {
   hours: number;
 }
 
+/**
+ * A day's dry daylight hours, two ways. The whole-hour counts (`climbable`)
+ * drive the wording - "dry from", windows, soft-rock blocks. The graded sums
+ * (`dryness`, §4.7) drive the score, so rock just damp inside earns part of
+ * an hour instead of none: `effectiveDryDaylightHours` is the day's total
+ * dryness, `bestEffectiveRunHours` the largest total over an unbroken run of
+ * daylight hours with any dryness at all. Both equal the whole-hour counts
+ * whenever every hour is fully dry or fully wet.
+ */
 export function climbableHoursForDay(
   results: HourResult[],
   isDayFlags: boolean[],
-): { totalClimbableDaylightHours: number; bestContiguousBlock: ClimbableBlock | null } {
+): {
+  totalClimbableDaylightHours: number;
+  bestContiguousBlock: ClimbableBlock | null;
+  effectiveDryDaylightHours: number;
+  bestEffectiveRunHours: number;
+} {
   let total = 0;
   let bestLen = 0;
   let bestStart = -1;
   let curLen = 0;
   let curStart = -1;
+  let effective = 0;
+  let bestRun = 0;
+  let curRun = 0;
 
   for (let i = 0; i < results.length; i++) {
     const ok = isDayFlags[i] && results[i].climbable;
@@ -319,11 +370,18 @@ export function climbableHoursForDay(
     } else {
       curLen = 0;
     }
+
+    const d = isDayFlags[i] ? results[i].dryness : 0;
+    effective += d;
+    curRun = d > 0 ? curRun + d : 0;
+    bestRun = Math.max(bestRun, curRun);
   }
 
   return {
     totalClimbableDaylightHours: total,
     bestContiguousBlock: bestLen > 0 ? { startIdx: bestStart, endIdx: bestStart + bestLen - 1, hours: bestLen } : null,
+    effectiveDryDaylightHours: effective,
+    bestEffectiveRunHours: bestRun,
   };
 }
 

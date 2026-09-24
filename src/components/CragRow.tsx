@@ -1,4 +1,5 @@
-import { formatDayLabel, formatDistanceMiles, formatDryTiming, LIMITING_FACTOR_LABEL } from '../lib/format';
+import { dayReason, formatDayLabel, formatDistanceMiles, formatDriveTime, formatDryTiming } from '../lib/format';
+import { estimateDriveMinutes } from '../model/distance';
 import type { RankedCragDay } from '../model/ranking';
 import { confidenceSentence, verdictMessage } from '../model/score';
 import { scoreBand } from '../model/scoreBand';
@@ -76,6 +77,7 @@ export function CragRow({
 }) {
   const { crag, day, distanceKm } = ranked;
   const isGated = day.verdict !== 'scored';
+  const reason = dayReason(day);
 
   return (
     <div
@@ -116,16 +118,18 @@ export function CragRow({
             <span style={{ color: 'var(--text)' }}>{formatDayLabel(day.date)}</span>
             <span>&middot;</span>
             <span>{formatDryTiming(day)}</span>
-            {day.limitingFactor !== 'none' && (
+            {reason && (
               <>
                 <span>&middot;</span>
-                <span>{LIMITING_FACTOR_LABEL[day.limitingFactor]}</span>
+                <span>{reason}</span>
               </>
             )}
             {distanceKm != null && (
               <>
                 <span>&middot;</span>
-                <span>{formatDistanceMiles(distanceKm)}</span>
+                <span>
+                  {formatDistanceMiles(distanceKm)}, {formatDriveTime(estimateDriveMinutes(distanceKm))}
+                </span>
               </>
             )}
             <span>&middot;</span>

@@ -1,62 +1,65 @@
 import { describe, expect, it } from 'vitest';
-import { updateRockTemperature } from './rockTemperature';
+import { updateRockTemperature, type RockTempInputs } from './rockTemperature';
+
+type Hour = Omit<RockTempInputs, 'prevTsurface' | 'prevTbulk'>;
+
+/** Run `hours` from equilibrium at `startC`, returning the surface temperature after each hour. */
+function run(startC: number, hours: Hour[]): number[] {
+  let Tsurface = startC;
+  let Tbulk = startC;
+  return hours.map((h) => {
+    ({ Tsurface, Tbulk } = updateRockTemperature({ ...h, prevTsurface: Tsurface, prevTbulk: Tbulk }));
+    return Tsurface;
+  });
+}
+
+const sunnyHour = (windSpeedMs: number, tauRock = 24): Hour => ({
+  airTemp: 20,
+  gtiFace: 700,
+  cloudCoverPct: 0,
+  isDay: true,
+  windSpeedMs,
+  tauRock,
+});
 
 // Spec §9 step 4: "a sunlit south face should run several degrees above air by
-// mid-afternoon and below it before dawn." Tested here as two isolated exposures
-// (sustained sun, sustained clear-sky night) rather than one arbitrary synthetic
-// diurnal curve - the lag constant interacts with day/night length and the prior
-// exposure in ways that make a single made-up 24h profile an unreliable check of
-// the underlying formula. Each block below tests one directional pull to equilibrium.
-describe('updateRockTemperature', () => {
-  it('a sustained sunlit face rises several degrees above air (mid-afternoon exposure)', () => {
-    const tauRock = 9;
-    const airTemp = 12;
-    let trock = airTemp; // equilibrium at start of exposure
-
-    for (let h = 0; h < 6; h++) {
-      trock = updateRockTemperature({
-        prevTrock: trock,
-        airTemp,
-        gtiFace: 700, // full sun on the face
-        cloudCoverPct: 0,
-        isDay: true,
-        tauRock,
-      });
-    }
-
-    expect(trock - airTemp).toBeGreaterThan(3);
+// mid-afternoon and below it before dawn." Tested as isolated exposures from
+// equilibrium (sustained sun, sustained clear night, a warm front) rather than
+// one made-up diurnal curve, so each block checks one directional pull. The
+// acceptance values are MUST-DO-IMPROVEMENTS P3-16's.
+describe('updateRockTemperature (two-layer, §4.2)', () => {
+  it('a calm sunlit south face is at least 8°C above air by 15:00', () => {
+    // 09:00 to 15:00 inclusive is 7 hourly steps of full sun on a big face.
+    const surface = run(20, Array.from({ length: 7 }, () => sunnyHour(0)));
+    expect(surface[6] - 20).toBeGreaterThanOrEqual(8);
   });
 
-  it('a sustained clear night cools the rock below air (pre-dawn exposure)', () => {
-    const tauRock = 9;
-    const airTemp = 8;
-    let trock = airTemp; // equilibrium at start of exposure
+  it('an 8 m/s wind cuts the sunlit warming to less than half the calm case', () => {
+    const calm = run(20, Array.from({ length: 7 }, () => sunnyHour(0)))[6] - 20;
+    const windy = run(20, Array.from({ length: 7 }, () => sunnyHour(8)))[6] - 20;
+    expect(windy).toBeGreaterThan(0);
+    expect(windy).toBeLessThan(calm / 2);
+  });
 
-    for (let h = 0; h < 10; h++) {
-      trock = updateRockTemperature({
-        prevTrock: trock,
-        airTemp,
-        gtiFace: 0,
-        cloudCoverPct: 0, // clear sky - full radiative loss
-        isDay: false,
-        tauRock,
-      });
-    }
+  it('a clear calm night ends 1-4°C below air before dawn', () => {
+    const night: Hour = { airTemp: 8, gtiFace: 0, cloudCoverPct: 0, isDay: false, windSpeedMs: 0, tauRock: 9 };
+    const surface = run(8, Array.from({ length: 10 }, () => night));
+    const belowAir = 8 - surface[9];
+    expect(belowAir).toBeGreaterThanOrEqual(1);
+    expect(belowAir).toBeLessThanOrEqual(4);
+  });
 
-    expect(trock - airTemp).toBeLessThan(0);
-    expect(airTemp - trock).toBeLessThan(2.5); // can't overshoot kNight's target offset
+  it('after a warm front the slow bulk holds the surface below the dew point for 3+ hours', () => {
+    // Air jumps from 5 to 15°C under a 13°C dew point, overcast - the Kilnsey
+    // "cold rock under a warm humid airmass" case.
+    const warmFront: Hour = { airTemp: 15, gtiFace: 0, cloudCoverPct: 100, isDay: true, windSpeedMs: 3, tauRock: 24 };
+    const surface = run(5, Array.from({ length: 3 }, () => warmFront));
+    for (const t of surface) expect(t).toBeLessThan(13);
   });
 
   it('relaxes toward the target temperature rather than jumping to it', () => {
-    const trock = updateRockTemperature({
-      prevTrock: 5,
-      airTemp: 20,
-      gtiFace: 0,
-      cloudCoverPct: 100,
-      isDay: true,
-      tauRock: 20,
-    });
-    expect(trock).toBeGreaterThan(5);
-    expect(trock).toBeLessThan(20);
+    const [surface] = run(5, [{ airTemp: 20, gtiFace: 0, cloudCoverPct: 100, isDay: true, windSpeedMs: 2, tauRock: 20 }]);
+    expect(surface).toBeGreaterThan(5);
+    expect(surface).toBeLessThan(20);
   });
 });

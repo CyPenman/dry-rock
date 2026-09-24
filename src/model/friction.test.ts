@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bestFrictionBlock, frictionScoreHour } from './friction';
+import { bestFrictionBlock, frictionBreakdownHour, frictionReasonForWindow, frictionScoreHour } from './friction';
 
 const base = {
   trockC: 12,
@@ -238,5 +238,37 @@ describe('bestFrictionBlock', () => {
     const result = bestFrictionBlock(scores, dryAndDaylight, 3, 0);
     expect(result.score).toBeCloseTo(0.4);
     expect(result.startHourOfDay).toBe(6);
+  });
+});
+
+describe('frictionBreakdownHour / frictionReasonForWindow (§1 one-line why)', () => {
+  it('breakdown score is exactly frictionScoreHour across a spread of conditions', () => {
+    for (const trockC of [-2, 6, 12, 19, 25]) {
+      for (const dewPointC of [2, 9, 13, 18]) {
+        for (const extra of [{}, { aspectDeg: 180, gtiFaceWm2: 650 }, { coastal: true, windDirectionDeg: 0 }, { rock: 'slate' as const }]) {
+          const inputs = { ...base, trockC, dewPointC, ...extra };
+          expect(frictionBreakdownHour(inputs).score).toBe(frictionScoreHour(inputs));
+        }
+      }
+    }
+  });
+
+  it('names humidity on a muggy hour and nothing on an ideal one', () => {
+    const humid = frictionBreakdownHour({ ...base, trockC: 16, dewPointC: 13.5 });
+    expect(frictionReasonForWindow([humid, humid, humid], 16, base.idealTempC)).toBe('humid');
+    const ideal = frictionBreakdownHour(base);
+    expect(frictionReasonForWindow([ideal, ideal, ideal], 12, base.idealTempC)).toBeNull();
+  });
+
+  it('splits the temperature term into too warm and too cold by the side of the band', () => {
+    const hot = frictionBreakdownHour({ ...base, trockC: 24, dewPointC: 2 });
+    expect(frictionReasonForWindow([hot], 24, base.idealTempC)).toBe('too_warm');
+    const cold = frictionBreakdownHour({ ...base, trockC: 1, dewPointC: -8 });
+    expect(frictionReasonForWindow([cold], 1, base.idealTempC)).toBe('too_cold');
+  });
+
+  it('counts glassy slate as sun-baked', () => {
+    const glassy = frictionBreakdownHour({ ...base, rock: 'slate', idealTempC: [8, 24], trockC: 22, dewPointC: 2, gtiFaceWm2: 650 });
+    expect(frictionReasonForWindow([glassy], 22, [8, 24])).toBe('sun_baked');
   });
 });

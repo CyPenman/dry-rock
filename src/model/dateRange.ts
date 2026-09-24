@@ -88,3 +88,28 @@ export function dateToDayIndex(date: Date, todayIndex: number, now: Date = new D
   const diffDays = Math.round((target.getTime() - base.getTime()) / 86400000);
   return todayIndex + diffDays;
 }
+
+/**
+ * Does a seasonal restriction (months 1-12 inclusive, wrapping over the new
+ * year when `fromMonth` > `toMonth`) apply on any day from `start` to `end`?
+ * Checked month by month, so a range spanning several months overlaps if any
+ * of them is inside the restriction.
+ */
+export function seasonalRestrictionOverlaps(
+  restriction: { fromMonth: number; toMonth: number },
+  start: Date,
+  end: Date,
+): boolean {
+  const inForce = (month: number) =>
+    restriction.fromMonth <= restriction.toMonth
+      ? month >= restriction.fromMonth && month <= restriction.toMonth
+      : month >= restriction.fromMonth || month <= restriction.toMonth;
+  const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+  const last = new Date(end.getFullYear(), end.getMonth(), 1);
+  // At most 12 steps can matter - after that every month has been seen.
+  for (let i = 0; i < 12 && cursor <= last; i++) {
+    if (inForce(cursor.getMonth() + 1)) return true;
+    cursor.setMonth(cursor.getMonth() + 1);
+  }
+  return false;
+}

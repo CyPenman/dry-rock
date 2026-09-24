@@ -3,7 +3,13 @@ import { getSoilMoistureDeep } from '../api/soilMoisture';
 import { SOIL_MOISTURE_CALIBRATION } from '../data/soilMoistureCalibration';
 import { MODELS, PAST_DAYS, type ModelName } from '../api/request';
 import { buildHourlyInputsForModel } from './buildInputs';
-import { bestFrictionBlock, FRICTION_BLOCK_LENGTH_HOURS, frictionScoreHour } from './friction';
+import {
+  bestFrictionBlock,
+  FRICTION_BLOCK_LENGTH_HOURS,
+  frictionBreakdownHour,
+  frictionReasonForWindow,
+  type FrictionReason,
+} from './friction';
 import {
   computeScoreBreakdown,
   confidenceAdjustedScore,
@@ -13,7 +19,9 @@ import {
   type ModelAgreement,
   type Verdict,
 } from './score';
+import { STEEPNESS_TILT_DEG } from './rockDefaults';
 import { scoreBand } from './scoreBand';
+import { sunOnFaceHours } from './solar';
 import { DEFAULT_SM_CALIBRATION, type SoilMoistureCalibration } from './seepage';
 import { dayBoundaries, hourOfDayLondon, type DayBoundary } from './time';
 import type { Crag } from './types';
@@ -76,6 +84,40 @@ export interface CragDayResult {
    */
   frictionWindowRockTempC: number | null;
   frictionWindowDewPointC: number | null;
+  /**
+   * The largest friction penalty averaged over the friction window's hours, if
+   * it is at least 0.1 (`frictionReasonForWindow`) - why a dry day still scored
+   * poorly on friction. Null with no window, or when nothing much held it back.
+   */
+  frictionReason: FrictionReason | null;
+  /** Mean `dryness` over the friction window's hours, 0-1: 1 when all of it was fully dry, less when the window is rock just damp inside (§4.7). Null with no window. */
+  frictionWindowDryness: number | null;
+  /**
+   * Daylight hours weighted by how dry each counts (`HourResult.dryness`) -
+   * what the dryness score is made of. Equals `climbableDaylightHours` unless
+   * some hours were just damp inside, which add part of an hour each.
+   */
+  effectiveDryDaylightHours: number;
+  /** The longest unbroken daylight run counted the same way - part credit for hours just damp inside (§4.7). Equals `bestContiguousClimbableHours` when every hour is fully dry or wet. */
+  bestEffectiveRunHours: number;
+  /**
+   * Clock hours when direct sun can reach the face, end exclusive - geometry
+   * only, whatever the cloud (`sunOnFaceHours`, solar.ts). Null when the sun
+   * never gets round to this aspect that day.
+   */
+  sunOnFaceHours: { start: number; end: number } | null;
+  /**
+   * The day's daylight weather at a glance (§6 crag detail): air temperature
+   * and wind speed ranges, the prevailing wind direction (speed-weighted vector
+   * mean, meteorological FROM convention) and mean cloud cover. Null with no
+   * daylight hours.
+   */
+  daylightWeather: {
+    airTempC: { min: number; max: number };
+    windSpeedMs: { min: number; max: number };
+    windFromDeg: number;
+    cloudCoverPct: number;
+  } | null;
   limitingFactor: LimitingFactor;
   /**
    * How many models put this day in the same score band (good / fair / poor,
@@ -262,6 +304,34 @@ export function daylightRainChancePct(
   return Math.round((100 * daylight.filter((i) => precipitationMm[i] > 0.1).length) / daylight.length);
 }
 
+/**
+ * Daylight air temperature and wind ranges, prevailing wind direction and mean
+ * cloud for one day (`CragDayResult.daylightWeather`). The direction is a
+ * speed-weighted vector mean, so a light northerly at dawn doesn't cancel a
+ * strong southerly all afternoon, and 350° and 10° average to north, not south.
+ * Both arrays are indexed within the day.
+ */
+export function daylightWeatherSummary(dayInputs: CragHourlyInput[], isDayFlags: boolean[]): RawDay['daylightWeather'] {
+  const hours = dayInputs.filter((_, i) => isDayFlags[i]);
+  if (hours.length === 0) return null;
+  const temps = hours.map((h) => h.tempC);
+  const winds = hours.map((h) => h.windSpeedMs);
+  let u = 0;
+  let v = 0;
+  for (const h of hours) {
+    const rad = (h.windDirectionDeg * Math.PI) / 180;
+    u += h.windSpeedMs * Math.sin(rad);
+    v += h.windSpeedMs * Math.cos(rad);
+  }
+  const windFromDeg = ((Math.atan2(u, v) * 180) / Math.PI + 360) % 360;
+  return {
+    airTempC: { min: Math.min(...temps), max: Math.max(...temps) },
+    windSpeedMs: { min: Math.min(...winds), max: Math.max(...winds) },
+    windFromDeg,
+    cloudCoverPct: hours.reduce((sum, h) => sum + h.cloudCoverPct, 0) / hours.length,
+  };
+}
+
 /** A day before cross-model confidence is attached. */
 type RawDay = Omit<CragDayResult, 'confidence' | 'displayScore' | 'modelScores' | 'modelScoreRange'>;
 
@@ -291,7 +361,8 @@ function computeDaysForModel(
     // change a day has 23 or 25 hours and position no longer equals hour (§3.1).
     const hoursOfDay = dayInputs.map((i) => hourOfDayLondon(i.time));
 
-    const { totalClimbableDaylightHours, bestContiguousBlock } = climbableHoursForDay(dayResults, isDayFlags);
+    const { totalClimbableDaylightHours, bestContiguousBlock, effectiveDryDaylightHours, bestEffectiveRunHours } =
+      climbableHoursForDay(dayResults, isDayFlags);
     const totalDaylightHours = isDayFlags.filter(Boolean).length;
 
     const dayPrecipMm = dayInputs.reduce((sum, i) => sum + i.precipitationMm, 0);
@@ -319,24 +390,30 @@ function computeDaysForModel(
       };
     };
 
-    const frictionScores = dayResults.map((r, idx) =>
-      frictionScoreHour({
+    const frictionBreakdowns = dayResults.map((r, idx) =>
+      frictionBreakdownHour({
         trockC: r.Trock,
         idealTempC: crag.idealTempC,
         dewPointC: dayInputs[idx].dewPointC,
         windSpeedMs: dayInputs[idx].windSpeedMs,
         windDirectionDeg: dayInputs[idx].windDirectionDeg,
-        gtiFaceWm2: dayInputs[idx].gtiFaceWm2,
+        // Sun that actually reaches the rock through any tree cover, as the rock
+        // temperature uses (§4.2) - a wooded face is not "sun-baked" by open-sky sun.
+        gtiFaceWm2: dayInputs[idx].gtiFaceWm2 * crag.canopyLight,
         aspectDeg: crag.aspectDeg,
         coastal: crag.coastal,
         rock: crag.rock,
         disciplines: crag.disciplines,
       }),
     );
-    // Gate the block search on daylight AND climbable (dry), not daylight alone,
-    // so the reported friction score describes a window you could actually
-    // climb in rather than the best-looking 3h stretch of an otherwise wet day.
-    const dryDaylightFlags = isDayFlags.map((isDay, idx) => isDay && dayResults[idx].climbable);
+    // Gate the block search on daylight AND at least partly dry, not daylight
+    // alone, so the reported friction score describes a window you could
+    // actually climb in rather than the best-looking 3h stretch of an otherwise
+    // wet day. Each hour's friction is weighted by how dry it counts (§4.7): a
+    // fully dry hour is unchanged, rock just damp inside grips proportionately
+    // worse, and there is no jump as the rock crosses the dry-inside line.
+    const dryDaylightFlags = isDayFlags.map((isDay, idx) => isDay && dayResults[idx].dryness > 0);
+    const frictionScores = frictionBreakdowns.map((b, idx) => b.score * dayResults[idx].dryness);
     const frictionBlock = bestFrictionBlock(frictionScores, dryDaylightFlags, FRICTION_BLOCK_LENGTH_HOURS, hoursOfDay);
     const bestFriction = frictionBlock.score;
     // The two temperatures the friction score is actually a statement about,
@@ -346,6 +423,21 @@ function computeDaysForModel(
     // on each other, and a reader without both numbers reads that as a bug
     // rather than as the model working (§6).
     const frictionWindow = frictionBlock.startIdx != null ? blockMeans(frictionBlock.startIdx) : null;
+    const frictionWindowDryness =
+      frictionBlock.startIdx != null
+        ? dayResults
+            .slice(frictionBlock.startIdx, frictionBlock.startIdx + FRICTION_BLOCK_LENGTH_HOURS)
+            .reduce((sum, r) => sum + r.dryness, 0) / FRICTION_BLOCK_LENGTH_HOURS
+        : null;
+    // The one-line "why" for a dry day that still scored poorly on friction (§1).
+    const frictionReason =
+      frictionBlock.startIdx != null && frictionWindow
+        ? frictionReasonForWindow(
+            frictionBreakdowns.slice(frictionBlock.startIdx, frictionBlock.startIdx + FRICTION_BLOCK_LENGTH_HOURS),
+            frictionWindow.rockTempC,
+            crag.idealTempC,
+          )
+        : null;
 
     const underSnowAnyHour = dayResults.some((r) => r.underSnow);
     const frozenAllDaylightHours = totalDaylightHours > 0 && dayResults.every((r, idx) => !isDayFlags[idx] || r.frozen);
@@ -360,9 +452,10 @@ function computeDaysForModel(
     });
 
     const breakdown = computeScoreBreakdown({
-      climbableDaylightHours: totalClimbableDaylightHours,
+      // Graded hours (§4.7), so rock just damp inside earns part of an hour.
+      climbableDaylightHours: effectiveDryDaylightHours,
       totalDaylightHours,
-      bestContiguousClimbableHours: bestContiguousBlock?.hours ?? 0,
+      bestContiguousClimbableHours: bestEffectiveRunHours,
       bestFrictionBlockScore: bestFriction,
     });
     const score = verdict === 'scored' ? breakdown.total : 0;
@@ -394,6 +487,19 @@ function computeDaysForModel(
       frictionWindowStartHour: frictionBlock.startHourOfDay,
       frictionWindowRockTempC: frictionWindow?.rockTempC ?? null,
       frictionWindowDewPointC: frictionWindow?.dewPointC ?? null,
+      frictionReason,
+      frictionWindowDryness,
+      effectiveDryDaylightHours,
+      bestEffectiveRunHours,
+      sunOnFaceHours: sunOnFaceHours(
+        dayInputs.map((i) => i.time),
+        hoursOfDay,
+        crag.lat,
+        crag.lon,
+        crag.aspectDeg,
+        STEEPNESS_TILT_DEG[crag.steepness],
+      ),
+      daylightWeather: daylightWeatherSummary(dayInputs, isDayFlags),
       limitingFactor: dayLimitingFactor(results, dayStart, dayEnd, isDayFlags),
       showerDominance,
       avgDaylightTempC,

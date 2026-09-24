@@ -1,5 +1,13 @@
 import { Fragment, useState, type ReactNode } from 'react';
-import { formatDayLabel, formatDryTiming, LIMITING_FACTOR_LABEL, MODEL_DISPLAY_NAME } from '../lib/format';
+import {
+  formatDayLabel,
+  formatDaylightWeather,
+  formatDrynessCaption,
+  formatDryTiming,
+  formatSunOnFace,
+  LIMITING_FACTOR_LABEL,
+  MODEL_DISPLAY_NAME,
+} from '../lib/format';
 import type { CragDayResult } from '../model/dayAggregate';
 import { FRICTION_BLOCK_LENGTH_HOURS } from '../model/friction';
 import { confidenceCaveat, confidenceSentence, SESSION_HOURS, verdictMessage } from '../model/score';
@@ -65,25 +73,12 @@ function formatHourOfDay(hour: number): string {
   return `${String(hour).padStart(2, '0')}:00`;
 }
 
-function frictionWindowLabel(startHour: number): string {
+function frictionWindowLabel(startHour: number, dryness: number | null): string {
   const endHour = (startHour + FRICTION_BLOCK_LENGTH_HOURS) % 24;
-  return `best window: ${formatHourOfDay(startHour)}–${formatHourOfDay(endHour)}, already counted dry`;
-}
-
-/**
- * What the dryness bar is actually made of. `rockDrynessScore` is
- * 0.5*(dry hours / session) + 0.5*(longest unbroken run / session), each capped
- * at 1, where a session is SESSION_HOURS (6) or the day's daylight if shorter -
- * so two days showing the same number can be one clean window or the same
- * hours in scraps, and the bar on its own cannot tell them apart
- * (`computeScoreBreakdown`, score.ts). The hours stated here stay true either way.
- */
-function drynessLabel(day: CragDayResult): string {
-  const total = Math.round(day.totalDaylightHours);
-  if (total === 0) return 'no daylight hours to judge';
-  const dry = Math.round(day.climbableDaylightHours);
-  const run = Math.round(day.bestContiguousClimbableHours);
-  return `${dry} of ${total} daylight hours dry · longest unbroken run ${run}h · ${day.rainChancePct}% top hourly rain chance`;
+  // A window of rock just damp inside (§4.7) is scored at reduced grip - say so
+  // rather than claim it was counted dry.
+  const state = dryness == null || dryness >= 0.99 ? 'already counted dry' : 'rock nearly dry inside, grip reduced';
+  return `best window: ${formatHourOfDay(startHour)}–${formatHourOfDay(endHour)}, ${state}`;
 }
 
 /**
@@ -182,14 +177,14 @@ export function ScoreBreakdownTable({ days, bestDayIndex }: { days: CragDayResul
                         ) : (
                           <div className="space-y-2">
                             <div className="space-y-1">
-                              <ScoreBar label="Crag dryness" value={day.rockDrynessScore} caption={drynessLabel(day)} />
+                              <ScoreBar label="Crag dryness" value={day.rockDrynessScore} caption={formatDrynessCaption(day)} />
                               {day.frictionWindowStartHour != null ? (
                                 <ScoreBar
                                   label="Rock friction"
                                   value={day.bestFrictionBlockScore}
                                   caption={
                                     <>
-                                      <div>{frictionWindowLabel(day.frictionWindowStartHour)}</div>
+                                      <div>{frictionWindowLabel(day.frictionWindowStartHour, day.frictionWindowDryness)}</div>
                                       {day.frictionWindowRockTempC != null && day.frictionWindowDewPointC != null && (
                                         <div>{dewPointSpreadLabel(day.frictionWindowRockTempC, day.frictionWindowDewPointC)}</div>
                                       )}
@@ -226,6 +221,14 @@ export function ScoreBreakdownTable({ days, bestDayIndex }: { days: CragDayResul
                                 {windChill}
                               </p>
                             )}
+                            {day.daylightWeather && (
+                              <p className="text-sm" style={{ color: 'var(--text-dim)' }}>
+                                {formatDaylightWeather(day.daylightWeather)}
+                              </p>
+                            )}
+                            <p className="text-sm" style={{ color: 'var(--text-dim)' }}>
+                              {formatSunOnFace(day.sunOnFaceHours)}
+                            </p>
                           </div>
                         )}
                         <p className="mt-2 text-xs" style={{ color: 'var(--text-faint)' }}>
@@ -247,7 +250,8 @@ export function ScoreBreakdownTable({ days, bestDayIndex }: { days: CragDayResul
           the same hours scattered in gaps - which is why the line underneath gives both the total and the longest
           unbroken run. It is judged against a {SESSION_HOURS}-hour session (or the whole of a shorter winter day), so a
           day with a full session of dry rock scores full marks however long the daylight. Equal scores can mean one
-          clean window or the same hours in scraps. The rain figure is the highest hourly
+          clean window or the same hours in scraps. Rock that is dry on the surface but still slightly damp inside counts
+          for part of an hour, fading to nothing as it gets wetter, rather than all or nothing. The rain figure is the highest hourly
           chance of rain in daylight, not an average over the day.
         </p>
         <p>

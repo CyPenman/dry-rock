@@ -85,7 +85,7 @@ export function buildObservationSnapshot(
       dewPointC: input.dewPointC,
       windSpeedMs: input.windSpeedMs,
       windDirectionDeg: input.windDirectionDeg,
-      gtiFaceWm2: input.gtiFaceWm2,
+      gtiFaceWm2: input.gtiFaceWm2 * crag.canopyLight, // through tree cover, as in dayAggregate
       aspectDeg: crag.aspectDeg,
       coastal: crag.coastal,
       rock: crag.rock,

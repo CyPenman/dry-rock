@@ -3,8 +3,14 @@ import { buildEnsembleUrl } from '../api/ensembleRequest';
 import { fetchEnsembleForecast, type EnsembleCellForecast } from '../api/ensembleClient';
 import { FORECAST_DAYS, PAST_DAYS } from '../api/request';
 import type { CragWithForecast } from '../hooks/useForecast';
-import { formatAgeWords, formatDayLabel } from '../lib/format';
-import { clampRangeToData, resolveDateRange, type DateRangeSelection } from '../model/dateRange';
+import { daySummarySentence, formatAgeWords, formatDayLabel, formatSunOnFace } from '../lib/format';
+import {
+  clampRangeToData,
+  dayIndexToDate,
+  resolveDateRange,
+  seasonalRestrictionOverlaps,
+  type DateRangeSelection,
+} from '../model/dateRange';
 import { soilMoistureCalibrationFor, toModelConfig } from '../model/dayAggregate';
 import { runEnsembleForCrag, type EnsembleDayResult } from '../model/ensemble';
 import { FRICTION_BLOCK_LENGTH_HOURS } from '../model/friction';
@@ -166,6 +172,18 @@ export function CragDetailScreen({
   const bestDay = useMemo(() => pickBestDayInRange(forecast?.days ?? [], rangeStart, rangeEnd), [forecast, rangeStart, rangeEnd]);
   const bestDayIndexInRange = bestDay ? daysInRange.findIndex((d) => d.dayIndex === bestDay.dayIndex) : null;
 
+  // A seasonal restriction is only a warning if the dates being planned fall in
+  // it (§5.5). Judged on the dates asked for, not the range clamped to the saved
+  // forecast, which can collapse onto a different day.
+  const restrictionInForce = useMemo(() => {
+    if (!crag.seasonalRestriction) return false;
+    return seasonalRestrictionOverlaps(
+      crag.seasonalRestriction,
+      dayIndexToDate(requestedStart, todayIndex),
+      dayIndexToDate(requestedEnd, todayIndex),
+    );
+  }, [crag.seasonalRestriction, requestedStart, requestedEnd, todayIndex]);
+
   const [ensembleState, setEnsembleState] = useState<EnsembleState>({ status: 'idle' });
 
   async function runEnsemble() {
@@ -290,9 +308,14 @@ export function CragDetailScreen({
       {forecast && !outOfData && (
         <>
           {bestDay && (
+            <p className="mx-4 mt-3 text-base" style={{ color: 'var(--text)' }}>
+              {daySummarySentence(bestDay)}
+            </p>
+          )}
+          {bestDay && (
             <div className="mx-4 mt-3 rounded border p-3" style={{ borderColor: 'var(--border)' }}>
               <h2 className="pb-2 text-xs uppercase tracking-wide" style={{ color: 'var(--text-dim)' }}>
-                Score breakdown &mdash; best day in range
+                Score breakdown - best day in range
               </h2>
               <div className="flex items-baseline justify-between">
                 <span className="font-medium">{formatDayLabel(bestDay.date)}</span>
@@ -305,8 +328,11 @@ export function CragDetailScreen({
                   {verdictMessage(bestDay.verdict)}
                 </p>
               )}
+              <p className="mt-1 text-sm" style={{ color: 'var(--text-dim)' }}>
+                {formatSunOnFace(bestDay.sunOnFaceHours)}
+              </p>
               <p className="mt-2 text-sm" style={{ color: 'var(--text-dim)' }}>
-                Every day in the selected range, with the full breakdown, is below &mdash; tap a row to expand it.
+                Every day in the selected range, with the full breakdown, is below - tap a row to expand it.
               </p>
               <div className="mt-3">
                 <ScoreBreakdownTable days={daysInRange} bestDayIndex={bestDayIndexInRange} />
@@ -372,6 +398,14 @@ export function CragDetailScreen({
       <div className="mx-4 mt-5 space-y-2 text-sm">
         <p style={{ color: 'var(--text)' }}>{crag.notes}</p>
         {crag.accessNote && <p style={{ color: 'var(--warning)' }}>Access: {crag.accessNote}</p>}
+        {crag.seasonalRestriction &&
+          (restrictionInForce ? (
+            <p style={{ color: 'var(--warning)' }}>Access: {crag.seasonalRestriction.text}</p>
+          ) : (
+            <p style={{ color: 'var(--text-dim)' }}>
+              Access: {crag.seasonalRestriction.text} (not in force on your dates)
+            </p>
+          ))}
       </div>
 
       {crag.ukcUrl && (

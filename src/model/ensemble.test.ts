@@ -81,7 +81,7 @@ describe('runEnsembleForCrag (per day)', () => {
     const hours = 24 * 2;
     const c = crag('portland-cuttings');
     // Two dry members (window from 06:00), two with an early-morning 3mm shower
-    // that keeps Portland's limestone wet inside until 16:00, and one wet all day.
+    // that keeps Portland's limestone wet inside until mid-afternoon, and one wet all day.
     const cell = cellOf(hours, {
       a: makeMemberVars(hours, { dry: true }),
       b: makeMemberVars(hours, { dry: true }),
@@ -92,9 +92,11 @@ describe('runEnsembleForCrag (per day)', () => {
     const [day] = runEnsembleForCrag(c, toModelConfig(c), cell, [DAY_KEYS[1]]);
     expect(day.memberCount).toBe(5);
     expect(day.usableCount).toBe(4);
-    // First-window hours are [6, 6, 16, 16]: half are dry by 06:00, 80% (rank 4 of 4) by 16:00.
+    // First-window hours are [6, 6, 14, 15]: half are dry by 06:00, 80% (rank 4 of 4) by 15:00.
+    // (16 and 16 before the two-layer rock temperature, P3-16: the sunlit surface now runs
+    // warmer than the air, so the showered members dry an hour or two sooner.)
     expect(day.dryByHourP50).toBe(6);
-    expect(day.dryByHourP80).toBe(16);
+    expect(day.dryByHourP80).toBe(15);
   });
 
   it('counts a member as usable only in daylight, matching the score', () => {

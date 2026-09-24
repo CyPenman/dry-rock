@@ -12,7 +12,9 @@ const TIME_LABEL = new Intl.DateTimeFormat('en-GB', { weekday: 'short', hour: '2
  * directly on the curve, and the ideal band is the same [lo, hi] range that
  * drives the friction score, per rock type.
  *
- * Dew point is drawn alongside it because the GAP between the two curves is
+ * Air temperature is drawn as a thin neutral line so the rock-vs-air lag and
+ * the sun-driven surface warming (§4.2) are visible. Dew point is drawn
+ * alongside because the GAP between it and the rock curve is
  * what the §4.8 condensation term scores, and it is the usual reason a colder
  * day reads worse than a warmer one. Plotted rather than tabulated: the two
  * lines converging is legible at a glance in a way that two columns of numbers
@@ -47,10 +49,12 @@ export function RockTempChart({
 
   const H = 132;
   const dewPoints = inputs.map((x) => x.dewPointC);
-  // Both series share one axis - they are the same quantity, and the gap
-  // between them is the point, so it must be read off a common scale.
-  const lo = Math.min(0, ...results.map((r) => r.Trock), ...dewPoints) - 1;
-  const hi = Math.max(...results.map((r) => r.Trock), ...dewPoints) + 2;
+  const airTemps = inputs.map((x) => x.tempC);
+  // All three series share one axis - they are the same quantity, and the gaps
+  // between them are the point (rock against dew point for sweating, rock
+  // against air for the thermal lag of §4.2), so they must read off one scale.
+  const lo = Math.min(0, ...results.map((r) => r.Trock), ...dewPoints, ...airTemps) - 1;
+  const hi = Math.max(...results.map((r) => r.Trock), ...dewPoints, ...airTemps) + 2;
   const Y = (c: number) => H - 4 - ((c - lo) / (hi - lo)) * (H - 12);
   const ticks: number[] = [];
   for (let c = Math.ceil(lo / 5) * 5; c <= hi; c += 5) ticks.push(c);
@@ -90,6 +94,7 @@ export function RockTempChart({
           [
             ['time', TIME_LABEL.format(getDate(i)), 'var(--text)'],
             ['rock temp', `${cur.Trock.toFixed(1)}°C`, inBand ? 'var(--signal)' : 'var(--text)'],
+            ['air temp', `${airTemps[i].toFixed(1)}°C`, 'var(--text-dim)'],
             ['dew point', `${dewPoints[i].toFixed(1)}°C`, nearDewPoint ? 'var(--warning)' : 'var(--chart-condensation)'],
             ['friction', frictionLabel, nearDewPoint ? 'var(--warning)' : inBand ? 'var(--signal)' : 'var(--warning)'],
           ] as const
@@ -142,6 +147,14 @@ export function RockTempChart({
         <rect x={0} y={Y(idealHi)} width={VW} height={Y(idealLo) - Y(idealHi)} fill="var(--signal)" opacity={0.22} />
         {gridlines(ticks, Y, H)}
         <polyline
+          points={poly(airTemps.map((a, k) => [sx(k, n), Y(a)]))}
+          fill="none"
+          stroke="var(--text-dim)"
+          strokeWidth={1.5}
+          strokeLinejoin="round"
+          {...STROKE}
+        />
+        <polyline
           points={poly(dewPoints.map((d, k) => [sx(k, n), Y(d)]))}
           fill="none"
           stroke="var(--chart-condensation)"
@@ -165,6 +178,10 @@ export function RockTempChart({
         <span className="flex items-center gap-1.5">
           <span className="inline-block h-0.5 w-3.5" style={{ background: 'var(--text)' }} />
           rock temperature
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-px w-3.5" style={{ background: 'var(--text-dim)' }} />
+          air temperature
         </span>
         <span className="flex items-center gap-1.5">
           <span className="inline-block h-0.5 w-3.5" style={{ background: 'var(--chart-condensation)' }} />
@@ -191,8 +208,13 @@ export function RockTempChart({
           the two lines touching means condensation. This is why a cooler day can grip worse than a warmer one: what
           matters is the gap, not the height.
         </p>
+        <p>
+          The thin line is air temperature. The rock lags it and is pushed off it by sun and clear skies: a sunlit face
+          runs well above the air in the afternoon, and after a cold spell the rock stays below a warming air mass for
+          hours, which is when it sweats.
+        </p>
         <p>Dark hours are shaded, so the overnight cooling behind dawn condensation shows directly on the curve.</p>
-        <p>Drag the chart to read temperature, dew point and friction at a specific hour.</p>
+        <p>Drag the chart to read rock and air temperature, dew point and friction at a specific hour.</p>
       </Explain>
     </div>
   );

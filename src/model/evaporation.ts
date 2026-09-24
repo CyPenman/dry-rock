@@ -15,6 +15,9 @@ export interface EvaporationInputs {
   visibilityM: number;
 }
 
+/** Share of the reference drying rate that happens in dead calm - the wind function's existing floor (§4.3). */
+const STILL_AIR_EXCHANGE = 0.3;
+
 /**
  * Aerodynamic moisture flux between the rock surface and the air, mm/hr -
  * §4.3/§4.4. Positive dries the rock; negative is dew forming on it. Driven by
@@ -25,13 +28,23 @@ export interface EvaporationInputs {
  *
  * Without a dew point it falls back to the air's VPD, which can never go
  * negative - kept for callers that only have the older inputs.
+ *
+ * Air movement has two parts. The 0.3 is still-air exchange: the air next to
+ * the rock circulates on its own (it is warmed or cooled by the rock and rises
+ * or sinks), so moisture moves even in dead calm. The rest is wind-driven.
+ * `windShelter` only cuts the wind-driven part - a gully, a wood or a cave
+ * keeps the wind off, but not the air's own circulation. It used to multiply
+ * both, which gave a cave (shelter 0.5) half the still-air drying of an open
+ * crag, below what a bowl of water evaporates in a still room; with the sun
+ * gone (steepness tilt, §3.4) such a face could barely dry at all.
  */
 export function computeAeroFlux(inputs: Omit<EvaporationInputs, 'gtiFaceWm2' | 'canopyLight' | 'visibilityM'>): number {
   const { vpdKpa, dewPointC, windSpeedMs, windShelter, dryingRate, trockC } = inputs;
   const deficit = dewPointC != null ? surfaceDeficitKpa(trockC, dewPointC) : vpdKpa;
-  const windFn = 0.3 + 0.7 * Math.min(windSpeedMs / PARAMS.windRef, 1.5);
-  return PARAMS.kAero * deficit * windFn * windShelter * dryingRate;
+  const airMovement = STILL_AIR_EXCHANGE + (1 - STILL_AIR_EXCHANGE) * Math.min(windSpeedMs / PARAMS.windRef, 1.5) * windShelter;
+  return PARAMS.kAero * deficit * airMovement * dryingRate;
 }
+
 
 /**
  * Evaporation potential - spec §4.3. A Penman-style decomposition into a

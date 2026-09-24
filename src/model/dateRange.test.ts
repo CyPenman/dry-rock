@@ -7,6 +7,7 @@ import {
   dayIndexToDate,
   parseLocalIsoDate,
   resolveDateRange,
+  seasonalRestrictionOverlaps,
   toLocalIsoDate,
 } from './dateRange';
 
@@ -94,5 +95,24 @@ describe('dayIndexToDate / dateToDayIndex', () => {
     const date = dayIndexToDate(14, 16, now); // 2 days before today
     expect(date.getDate()).toBe(8);
     expect(dateToDayIndex(date, 16, now)).toBe(14);
+  });
+});
+
+describe('seasonalRestrictionOverlaps (§5.5)', () => {
+  const nesting = { fromMonth: 3, toMonth: 8 };
+
+  it('is in force for dates inside the months, and not outside them', () => {
+    expect(seasonalRestrictionOverlaps(nesting, new Date(2026, 4, 2), new Date(2026, 4, 3))).toBe(true);
+    expect(seasonalRestrictionOverlaps(nesting, new Date(2026, 8, 26), new Date(2026, 8, 27))).toBe(false);
+  });
+
+  it('counts a range that only partly overlaps (31 Aug - 1 Sep)', () => {
+    expect(seasonalRestrictionOverlaps(nesting, new Date(2026, 7, 31), new Date(2026, 8, 1))).toBe(true);
+  });
+
+  it('handles a restriction that wraps over the new year', () => {
+    const winter = { fromMonth: 11, toMonth: 2 };
+    expect(seasonalRestrictionOverlaps(winter, new Date(2027, 0, 9), new Date(2027, 0, 10))).toBe(true);
+    expect(seasonalRestrictionOverlaps(winter, new Date(2026, 5, 6), new Date(2026, 5, 7))).toBe(false);
   });
 });
