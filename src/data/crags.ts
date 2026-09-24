@@ -461,12 +461,16 @@ const SEEDS: CragSeed[] = [
     id: 'kilnsey',
     name: 'Kilnsey',
     area: 'Yorkshire',
-    lat: 54.084,
-    lon: -2.021,
+    // Checked 24 Sep 2026: moved from 54.084, -2.021, which was 3km south on Gregory Scar
+    // and Dewbottom Scar, to UKC's location for the crag.
+    lat: 54.1099,
+    lon: -2.041,
     elevationM: 220,
     disciplines: ['trad', 'sport', 'boulder'],
     rock: 'limestone',
-    aspectDeg: 210,
+    // UKC "Faces E"; OpenStreetMap's "Kilnsey Crag" line runs 71-130°, about 95° overall.
+    // The old 210° matched the scars at the old, wrong point.
+    aspectDeg: 90,
     steepness: 'roof',
     windShelter: 0.7,
     canopyLight: 1.0,
@@ -514,7 +518,9 @@ const SEEDS: CragSeed[] = [
     elevationM: 15,
     disciplines: ['sport', 'trad'],
     rock: 'limestone',
-    aspectDeg: 170,
+    // Checked 24 Sep 2026: UKC "Faces E"; OpenStreetMap cliff lines around UKC's location
+    // average 65° (length-weighted, 45-110° almost throughout). Was 170°.
+    aspectDeg: 65,
     steepness: 'vertical',
     windShelter: 0.95,
     canopyLight: 1.0,
@@ -629,7 +635,9 @@ const SEEDS: CragSeed[] = [
     elevationM: 320,
     disciplines: ['trad', 'boulder'],
     rock: 'gritstone',
-    aspectDeg: 130,
+    // Checked 24 Sep 2026: UKC "Faces W", OpenStreetMap's "Curbar Edge" cliff line 232°.
+    // Was 130°, which had it facing the wrong way off the edge.
+    aspectDeg: 230,
     steepness: 'steep',
     windShelter: 1.0,
     canopyLight: 0.95,
@@ -639,7 +647,7 @@ const SEEDS: CragSeed[] = [
     catchmentAbove: 0.1,
     coastal: false,
     softRock: false,
-    notes: 'Exposed grit edge, east/south-east facing, catches morning sun.',
+    notes: 'Exposed grit edge above Curbar and Calver, facing west-south-west; gets the sun from late morning.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/curbar_edge-21/',
     parkingLat: 53.27049,
     parkingLon: -1.61659,
@@ -696,12 +704,15 @@ const SEEDS: CragSeed[] = [
     id: 'harrisons',
     name: "Harrison's Rocks",
     area: 'Southern Sandstone',
-    lat: 51.096,
-    lon: 0.155,
+    // Checked 24 Sep 2026: moved from 51.096, 0.155, 2km west of the rocks (and of the
+    // car park below), to UKC's location.
+    lat: 51.0993,
+    lon: 0.1869,
     elevationM: 100,
     disciplines: ['boulder', 'trad'],
     rock: 'sandstone',
-    aspectDeg: 300,
+    // UKC "Faces SW"; OpenStreetMap's "Harrison's Rocks" line faces 254°. Was 300°.
+    aspectDeg: 255,
     steepness: 'vertical',
     windShelter: 0.4,
     canopyLight: 0.35,
