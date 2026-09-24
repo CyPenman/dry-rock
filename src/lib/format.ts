@@ -144,7 +144,7 @@ export function compass16(deg: number): string {
   return COMPASS_16[Math.round((((deg % 360) + 360) % 360) / 22.5) % 16];
 }
 
-function formatRange(min: number, max: number): string {
+export function formatRange(min: number, max: number): string {
   const lo = Math.round(min);
   const hi = Math.round(max);
   return lo === hi ? `${lo}` : `${lo}-${hi}`;
@@ -231,4 +231,28 @@ export function formatDrynessCaption(
     ? `longest unbroken run about ${Math.round(day.bestEffectiveRunHours)}h, counting nearly dry hours`
     : `longest unbroken run ${Math.round(day.bestContiguousClimbableHours)}h`;
   return `${dry} of ${total} daylight hours dry${nearly} · ${run} · ${day.rainChancePct}% top hourly rain chance`;
+}
+
+/**
+ * The glanceable version of `formatDrynessCaption`, shown under the dryness bar
+ * until the reader asks for the numbers: "0 of 12h dry · ~3h nearly dry". The
+ * longest run is only mentioned when it is shorter than the dry total - i.e.
+ * when the hours are scattered, which is the case the bar alone hides.
+ */
+export function formatDrynessShort(
+  day: Pick<
+    CragDayResult,
+    'totalDaylightHours' | 'climbableDaylightHours' | 'effectiveDryDaylightHours' | 'bestEffectiveRunHours'
+  >,
+): string {
+  const total = Math.round(day.totalDaylightHours);
+  if (total === 0) return 'no daylight';
+  const dry = Math.round(day.climbableDaylightHours);
+  if (dry >= total) return 'dry all daylight';
+  const parts = [`${dry} of ${total}h dry`];
+  const partial = day.effectiveDryDaylightHours - day.climbableDaylightHours;
+  if (partial >= 0.5) parts.push(`~${Math.round(partial)}h nearly dry`);
+  const run = Math.round(day.bestEffectiveRunHours);
+  if (run < Math.round(day.effectiveDryDaylightHours)) parts.push(`longest run ${run}h`);
+  return parts.join(' · ');
 }

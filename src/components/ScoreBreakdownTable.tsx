@@ -1,10 +1,12 @@
 import { Fragment, useState, type ReactNode } from 'react';
 import {
+  compass16,
   formatDayLabel,
-  formatDaylightWeather,
   formatDrynessCaption,
+  formatDrynessShort,
   formatDryTiming,
-  formatSunOnFace,
+  formatRange,
+  FRICTION_REASON_LABEL,
   LIMITING_FACTOR_LABEL,
   MODEL_DISPLAY_NAME,
 } from '../lib/format';
@@ -30,7 +32,7 @@ export function ScoreBar({
   return (
     <div>
       <div className="flex items-center gap-2 text-sm">
-        <span className="w-28 shrink-0" style={{ color: 'var(--text-dim)' }}>
+        <span className="w-24 shrink-0" style={{ color: 'var(--text-dim)' }}>
           {label}
         </span>
         <div className="h-2 flex-1 rounded" style={{ background: 'var(--ground-raised)' }}>
@@ -39,7 +41,7 @@ export function ScoreBar({
         <span className="w-8 text-right font-mono">{Math.round(value * 100)}</span>
       </div>
       {caption && (
-        <div className="pl-[7.5rem] text-xs" style={{ color: 'var(--text-dim)' }}>
+        <div className="pl-[6.5rem] text-xs" style={{ color: 'var(--text-dim)' }}>
           {caption}
         </div>
       )}
@@ -49,36 +51,75 @@ export function ScoreBar({
 
 /**
  * Same row rhythm as `ScoreBar` (label / track / value) for a stat that isn't
- * a 0-1 score - e.g. wind chill is a temperature, not "how good", so filling
- * a percentage bar for it would invent a number that doesn't mean anything.
- * The track is left empty rather than omitted, so it still lines up under the
- * bars above it.
+ * a 0-1 score - here, a friction row with no dry window to judge. The track is
+ * left empty rather than omitted, so it still lines up under the bars above it.
  */
-function StatRow({ label, value, tone = 'normal' }: { label: string; value: string; tone?: 'normal' | 'warn' | 'dim' }) {
-  const color = tone === 'warn' ? 'var(--warning)' : tone === 'dim' ? 'var(--text-dim)' : 'var(--text)';
+function StatRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center gap-2 text-sm">
-      <span className="w-28 shrink-0" style={{ color: 'var(--text-dim)' }}>
+      <span className="w-24 shrink-0" style={{ color: 'var(--text-dim)' }}>
         {label}
       </span>
       <div className="h-2 flex-1" />
-      <span className="text-right font-mono" style={{ color }}>
+      <span className="text-right font-mono" style={{ color: 'var(--text-dim)' }}>
         {value}
       </span>
     </div>
   );
 }
 
+/**
+ * One labelled reading in the conditions grid under the bars. The weather
+ * used to be three run-on sentences; as label/value pairs it can be scanned
+ * without reading, and wraps cleanly at phone width.
+ */
+function Condition({ label, value, warn = false }: { label: string; value: string; warn?: boolean }) {
+  return (
+    <div className="min-w-0">
+      <div className="text-[11px] uppercase tracking-wide" style={{ color: 'var(--text-faint)' }}>
+        {label}
+      </div>
+      <div className="truncate text-sm" style={{ color: warn ? 'var(--warning)' : 'var(--text)' }}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
 function formatHourOfDay(hour: number): string {
-  return `${String(hour).padStart(2, '0')}:00`;
+  return `${String(hour % 24).padStart(2, '0')}:00`;
+}
+
+function frictionWindowRange(startHour: number): string {
+  return `${formatHourOfDay(startHour)}–${formatHourOfDay(startHour + FRICTION_BLOCK_LENGTH_HOURS)}`;
+}
+
+/** A window of rock just damp inside (§4.7) is scored at reduced grip. */
+function frictionWindowIsDamp(dryness: number | null): boolean {
+  return dryness != null && dryness < 0.99;
 }
 
 function frictionWindowLabel(startHour: number, dryness: number | null): string {
-  const endHour = (startHour + FRICTION_BLOCK_LENGTH_HOURS) % 24;
-  // A window of rock just damp inside (§4.7) is scored at reduced grip - say so
-  // rather than claim it was counted dry.
-  const state = dryness == null || dryness >= 0.99 ? 'already counted dry' : 'rock nearly dry inside, grip reduced';
-  return `best window: ${formatHourOfDay(startHour)}–${formatHourOfDay(endHour)}, ${state}`;
+  // Say the damp case outright rather than claim the window was counted dry.
+  const state = frictionWindowIsDamp(dryness) ? 'rock nearly dry inside, grip reduced' : 'already counted dry';
+  return `best window: ${frictionWindowRange(startHour)}, ${state}`;
+}
+
+/** "best 16:00–19:00 · rock damp inside" - the glanceable friction caption. */
+function frictionShortLabel(day: CragDayResult, startHour: number): string {
+  const parts = [`best ${frictionWindowRange(startHour)}`];
+  if (frictionWindowIsDamp(day.frictionWindowDryness)) parts.push('rock damp inside');
+  if (day.frictionReason) parts.push(FRICTION_REASON_LABEL[day.frictionReason]);
+  return parts.join(' · ');
+}
+
+/** "1 of 4 models agree · scores 40-92" - the glanceable confidence caption. */
+function confidenceShortLabel(day: CragDayResult): string {
+  const parts = [`${day.confidence.agreeCount} of ${day.confidence.total} models agree`];
+  if (day.modelScores.length > 1)
+    parts.push(`scores ${Math.round(day.modelScoreRange.min * 100)}-${Math.round(day.modelScoreRange.max * 100)}`);
+  if (confidenceCaveat(day.showerDominance)) parts.push('showery');
+  return parts.join(' · ');
 }
 
 /**
@@ -117,13 +158,23 @@ function dayTimingLabel(day: CragDayResult): string {
  */
 export function ScoreBreakdownTable({ days, bestDayIndex }: { days: CragDayResult[]; bestDayIndex: number | null }) {
   const [openIndex, setOpenIndex] = useState<number | null>(bestDayIndex);
+  // Shared across days: someone who wants the numbers for one day wants them for the next.
+  const [showNumbers, setShowNumbers] = useState(false);
 
   if (days.length === 0) return null;
 
   return (
     <div>
       <div className="overflow-x-auto rounded border" style={{ borderColor: 'var(--border)' }}>
-        <table className="w-full min-w-[420px] text-sm" style={{ borderCollapse: 'collapse' }}>
+        {/* Fixed layout: with auto layout the expanded row's captions fed into the
+            column widths, so the day row shifted sideways whenever they changed. */}
+        <table className="w-full table-fixed text-sm" style={{ borderCollapse: 'collapse' }}>
+          <colgroup>
+            <col style={{ width: '30%' }} />
+            <col style={{ width: '14%' }} />
+            <col style={{ width: '28%' }} />
+            <col style={{ width: '28%' }} />
+          </colgroup>
           <thead>
             <tr style={{ color: 'var(--text-dim)' }}>
               <th className="px-2 py-1.5 text-left text-xs font-normal uppercase tracking-wide">Day</th>
@@ -160,10 +211,10 @@ export function ScoreBreakdownTable({ days, bestDayIndex }: { days: CragDayResul
                     <td className="whitespace-nowrap px-2 py-2 text-right font-mono">
                       {isGated ? 'n/a' : Math.round(day.displayScore * 100)}
                     </td>
-                    <td className="whitespace-nowrap px-2 py-2" style={{ color: isGated ? 'var(--warning)' : 'var(--text-dim)' }}>
+                    <td className="px-2 py-2" style={{ color: isGated ? 'var(--warning)' : 'var(--text-dim)' }}>
                       {dayTimingLabel(day)}
                     </td>
-                    <td className="whitespace-nowrap px-2 py-2" style={{ color: 'var(--text-dim)' }}>
+                    <td className="px-2 py-2" style={{ color: 'var(--text-dim)' }}>
                       {isGated ? '' : LIMITING_FACTOR_LABEL[day.limitingFactor] || '-'}
                     </td>
                   </tr>
@@ -175,65 +226,107 @@ export function ScoreBreakdownTable({ days, bestDayIndex }: { days: CragDayResul
                             {verdictMessage(day.verdict)}
                           </p>
                         ) : (
-                          <div className="space-y-2">
-                            <div className="space-y-1">
-                              <ScoreBar label="Crag dryness" value={day.rockDrynessScore} caption={formatDrynessCaption(day)} />
+                          <div className="space-y-3">
+                            <div className="space-y-2">
+                              <ScoreBar
+                                label="Crag dryness"
+                                value={day.rockDrynessScore}
+                                caption={showNumbers ? formatDrynessCaption(day) : formatDrynessShort(day)}
+                              />
                               {day.frictionWindowStartHour != null ? (
                                 <ScoreBar
                                   label="Rock friction"
                                   value={day.bestFrictionBlockScore}
                                   caption={
-                                    <>
-                                      <div>{frictionWindowLabel(day.frictionWindowStartHour, day.frictionWindowDryness)}</div>
-                                      {day.frictionWindowRockTempC != null && day.frictionWindowDewPointC != null && (
-                                        <div>{dewPointSpreadLabel(day.frictionWindowRockTempC, day.frictionWindowDewPointC)}</div>
-                                      )}
-                                    </>
+                                    showNumbers ? (
+                                      <>
+                                        <div>{frictionWindowLabel(day.frictionWindowStartHour, day.frictionWindowDryness)}</div>
+                                        {day.frictionWindowRockTempC != null && day.frictionWindowDewPointC != null && (
+                                          <div>{dewPointSpreadLabel(day.frictionWindowRockTempC, day.frictionWindowDewPointC)}</div>
+                                        )}
+                                      </>
+                                    ) : (
+                                      frictionShortLabel(day, day.frictionWindowStartHour)
+                                    )
                                   }
                                 />
                               ) : (
-                                <StatRow label="Rock friction" value="no dry window" tone="dim" />
+                                <StatRow label="Rock friction" value="no dry window" />
                               )}
                               <ScoreBar
                                 label="Confidence"
                                 value={day.confidence.fraction}
                                 color="var(--chart-water)"
                                 caption={
-                                  day.modelScores.length > 1
-                                    ? `models range ${Math.round(day.modelScoreRange.min * 100)}-${Math.round(day.modelScoreRange.max * 100)}`
-                                    : undefined
+                                  showNumbers
+                                    ? `${confidenceSentence(day.confidence, scoreBand(day.score * 100))}${caveat ? ` - ${caveat}` : ''}${
+                                        day.modelScores.length > 1
+                                          ? ` · models range ${Math.round(day.modelScoreRange.min * 100)}-${Math.round(day.modelScoreRange.max * 100)}`
+                                          : ''
+                                      }`
+                                    : confidenceShortLabel(day)
                                 }
                               />
-                              {day.worstDaylightWindChillC != null && (
-                                <StatRow
-                                  label="Feels like"
-                                  value={`${Math.round(day.worstDaylightWindChillC)}°C`}
-                                  tone={windChill != null ? 'warn' : 'normal'}
-                                />
-                              )}
                             </div>
-                            <p className="text-sm" style={{ color: 'var(--text-dim)' }}>
-                              {confidenceSentence(day.confidence, scoreBand(day.score * 100))}
-                              {caveat ? ` - ${caveat}` : ''}
-                            </p>
                             {windChill && (
                               <p className="text-sm" style={{ color: 'var(--warning)' }}>
                                 {windChill}
                               </p>
                             )}
-                            {day.daylightWeather && (
-                              <p className="text-sm" style={{ color: 'var(--text-dim)' }}>
-                                {formatDaylightWeather(day.daylightWeather)}
-                              </p>
-                            )}
-                            <p className="text-sm" style={{ color: 'var(--text-dim)' }}>
-                              {formatSunOnFace(day.sunOnFaceHours)}
-                            </p>
+                            <div
+                              className="grid grid-cols-3 gap-x-3 gap-y-2 border-t pt-3 sm:grid-cols-6"
+                              style={{ borderColor: 'var(--border)' }}
+                            >
+                              {day.daylightWeather && (
+                                <Condition
+                                  label="Air"
+                                  value={`${formatRange(day.daylightWeather.airTempC.min, day.daylightWeather.airTempC.max)}°C`}
+                                />
+                              )}
+                              {day.worstDaylightWindChillC != null && (
+                                <Condition
+                                  label="Feels like"
+                                  value={`${Math.round(day.worstDaylightWindChillC)}°C`}
+                                  warn={windChill != null}
+                                />
+                              )}
+                              {day.daylightWeather && (
+                                <Condition
+                                  label="Wind"
+                                  value={`${formatRange(day.daylightWeather.windSpeedMs.min, day.daylightWeather.windSpeedMs.max)} m/s ${compass16(day.daylightWeather.windFromDeg)}`}
+                                />
+                              )}
+                              {day.daylightWeather && (
+                                <Condition label="Cloud" value={`${Math.round(day.daylightWeather.cloudCoverPct)}%`} />
+                              )}
+                              <Condition label="Rain chance" value={`${day.rainChancePct}%`} />
+                              <Condition
+                                label="Sun on face"
+                                value={
+                                  day.sunOnFaceHours
+                                    ? `${formatHourOfDay(day.sunOnFaceHours.start)}–${formatHourOfDay(day.sunOnFaceHours.end)}`
+                                    : 'none'
+                                }
+                              />
+                            </div>
                           </div>
                         )}
-                        <p className="mt-2 text-xs" style={{ color: 'var(--text-faint)' }}>
-                          forecast: {MODEL_DISPLAY_NAME[day.sourceModel]}
-                        </p>
+                        <div className="mt-3 flex items-center justify-between text-xs" style={{ color: 'var(--text-faint)' }}>
+                          {isGated ? (
+                            <span />
+                          ) : (
+                            <button
+                              type="button"
+                              aria-expanded={showNumbers}
+                              onClick={() => setShowNumbers((v) => !v)}
+                              className="underline-offset-2 hover:underline"
+                              style={{ color: 'var(--text-dim)' }}
+                            >
+                              {showNumbers ? 'Hide the numbers ▴' : 'Show the numbers ▾'}
+                            </button>
+                          )}
+                          <span>forecast: {MODEL_DISPLAY_NAME[day.sourceModel]}</span>
+                        </div>
                       </td>
                     </tr>
                   )}
@@ -247,8 +340,8 @@ export function ScoreBreakdownTable({ days, bestDayIndex }: { days: CragDayResul
       <Explain>
         <p>
           <strong>Crag dryness</strong>: how many dry daylight hours there are, weighted toward one unbroken block over
-          the same hours scattered in gaps - which is why the line underneath gives both the total and the longest
-          unbroken run. It is judged against a {SESSION_HOURS}-hour session (or the whole of a shorter winter day), so a
+          the same hours scattered in gaps - which is why the line underneath mentions the longest run when the dry hours
+          are scattered. It is judged against a {SESSION_HOURS}-hour session (or the whole of a shorter winter day), so a
           day with a full session of dry rock scores full marks however long the daylight. Equal scores can mean one
           clean window or the same hours in scraps. Rock that is dry on the surface but still slightly damp inside counts
           for part of an hour, fading to nothing as it gets wetter, rather than all or nothing. The rain figure is the highest hourly
@@ -275,7 +368,10 @@ export function ScoreBreakdownTable({ days, bestDayIndex }: { days: CragDayResul
           the rock, so it never changes the score. Turns orange once hands would likely struggle even on dry, grippy
           rock.
         </p>
-        <p>Tap a row to see its full breakdown. The best day in the range is starred and expanded by default.</p>
+        <p>
+          Tap a row to see its breakdown, and <strong>Show the numbers</strong> for the exact hours, temperatures and
+          model spread behind each bar. The best day in the range is starred and expanded by default.
+        </p>
       </Explain>
     </div>
   );

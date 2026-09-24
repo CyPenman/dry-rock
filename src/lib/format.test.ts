@@ -5,6 +5,7 @@ import {
   daySummarySentence,
   formatDaylightWeather,
   formatDrynessCaption,
+  formatDrynessShort,
   formatDryTiming,
   formatHeadlineModelCaption,
   formatDriveTime,
@@ -191,5 +192,30 @@ describe('formatDrynessCaption (§6, §4.7)', () => {
 
   it('says so when there is no daylight', () => {
     expect(formatDrynessCaption({ ...day, totalDaylightHours: 0 })).toBe('no daylight hours to judge');
+  });
+});
+
+describe('formatDrynessShort', () => {
+  const day = { totalDaylightHours: 12, climbableDaylightHours: 11, effectiveDryDaylightHours: 11, bestEffectiveRunHours: 11 };
+
+  it('gives dry hours only when they form one run', () => {
+    expect(formatDrynessShort(day)).toBe('11 of 12h dry');
+  });
+
+  it('adds nearly dry hours on a nearly dry day', () => {
+    expect(
+      formatDrynessShort({ ...day, climbableDaylightHours: 0, effectiveDryDaylightHours: 3.2, bestEffectiveRunHours: 2.9 }),
+    ).toBe('0 of 12h dry · ~3h nearly dry');
+  });
+
+  it('mentions the longest run when the dry hours are scattered', () => {
+    expect(formatDrynessShort({ ...day, climbableDaylightHours: 6, effectiveDryDaylightHours: 6, bestEffectiveRunHours: 2 })).toBe(
+      '6 of 12h dry · longest run 2h',
+    );
+  });
+
+  it('says dry all daylight / no daylight at the ends', () => {
+    expect(formatDrynessShort({ ...day, climbableDaylightHours: 12 })).toBe('dry all daylight');
+    expect(formatDrynessShort({ ...day, totalDaylightHours: 0 })).toBe('no daylight');
   });
 });
