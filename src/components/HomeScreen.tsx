@@ -1,28 +1,13 @@
 import { useMemo, useState } from 'react';
 import type { CragWithForecast } from '../hooks/useForecast';
-import { formatAgeWords, formatDayLabel } from '../lib/format';
-import {
-  clampRangeToData,
-  dayIndexToDate,
-  resolveDateRange,
-  toLocalIsoDate,
-  type DateRangeSelection,
-} from '../model/dateRange';
-import { rankCragDays, sortByDistance, sortByName, sortByWorthTheDrive, type RankedCragDay } from '../model/ranking';
+import { formatAgeWords } from '../lib/format';
+import { clampRangeToData, resolveDateRange, type DateRangeSelection } from '../model/dateRange';
+import { rankCragDays, sortRanked, type RankedCragDay, type SortMode } from '../model/ranking';
 import type { Settings } from '../state/settings';
-import { CalendarRangePicker } from './CalendarRangePicker';
 import { CragRow } from './CragRow';
+import { DateRangeControls } from './DateRangeControls';
 import { HomeAddressSection } from './HomeAddressSection';
-
-type SortMode = 'score' | 'drive' | 'az' | 'za' | 'distance';
-
-const SORT_LABEL: Record<SortMode, string> = {
-  score: 'Score',
-  drive: 'Worth the drive',
-  az: 'Name A → Z',
-  za: 'Name Z → A',
-  distance: 'Distance: near to far',
-};
+import { SortControl } from './SortControl';
 
 export function HomeScreen({
   results,
@@ -58,21 +43,11 @@ export function HomeScreen({
   dayCount: number;
 }) {
   const [sortMode, setSortMode] = useState<SortMode>('score');
-  const [pickerOpen, setPickerOpen] = useState(false);
-
-  const maxDayIndex = dayCount - 1;
   const [startIdx, endIdx] = useMemo(() => resolveDateRange(dateRange, todayIndex), [dateRange, todayIndex]);
   // §2: never extrapolate past the saved forecast - a stale cache may not reach
   // the dates asked for, in which case say so rather than silently rank nothing.
   const { range: coveredRange, clamped } = clampRangeToData([startIdx, endIdx], dayCount);
   const outOfData = !loading && dayCount > 0 && coveredRange == null;
-
-  const rangeLabel =
-    dateRange.kind === 'weekend'
-      ? 'This weekend'
-      : startIdx === endIdx
-        ? formatDayLabel(dayIndexToDate(startIdx, todayIndex))
-        : `${formatDayLabel(dayIndexToDate(startIdx, todayIndex))} to ${formatDayLabel(dayIndexToDate(endIdx, todayIndex))}`;
 
   const home = settings.homeLat != null && settings.homeLon != null ? { lat: settings.homeLat, lon: settings.homeLon } : null;
 
@@ -87,20 +62,7 @@ export function HomeScreen({
   const scored = ranked.filter((r) => r.day.verdict === 'scored');
   const gated = ranked.filter((r) => r.day.verdict !== 'scored');
 
-  const sorted: RankedCragDay[] = useMemo(() => {
-    switch (sortMode) {
-      case 'drive':
-        return sortByWorthTheDrive(scored);
-      case 'az':
-        return sortByName(scored, 'asc');
-      case 'za':
-        return sortByName(scored, 'desc');
-      case 'distance':
-        return sortByDistance(scored);
-      default:
-        return scored;
-    }
-  }, [sortMode, scored]);
+  const sorted: RankedCragDay[] = useMemo(() => sortRanked(scored, sortMode), [sortMode, scored]);
 
   const pinnedRows = settings.pinnedCragIds
     .map((id) => ranked.find((r) => r.crag.id === id))
@@ -122,49 +84,9 @@ export function HomeScreen({
 
         <HomeAddressSection settings={settings} updateSettings={updateSettings} />
 
-        <div className="mt-3 flex gap-1.5">
-          <button
-            type="button"
-            onClick={() => onChangeDateRange({ kind: 'weekend' })}
-            className="rounded-full px-3 py-1.5 text-sm"
-            style={{
-              background: dateRange.kind === 'weekend' ? 'var(--signal)' : 'var(--ground-raised)',
-              color: dateRange.kind === 'weekend' ? 'var(--ground)' : 'var(--text)',
-            }}
-          >
-            This weekend
-          </button>
-          <button
-            type="button"
-            onClick={() => setPickerOpen(true)}
-            className="rounded-full px-3 py-1.5 text-sm"
-            style={{
-              background: dateRange.kind === 'custom' ? 'var(--signal)' : 'var(--ground-raised)',
-              color: dateRange.kind === 'custom' ? 'var(--ground)' : 'var(--text)',
-            }}
-          >
-            {dateRange.kind === 'custom' ? rangeLabel : 'Choose dates'}
-          </button>
-        </div>
+        <DateRangeControls dateRange={dateRange} onChangeDateRange={onChangeDateRange} todayIndex={todayIndex} dayCount={dayCount} />
 
-        <div className="mt-2 flex items-center gap-2 text-sm" style={{ color: 'var(--text-dim)' }}>
-          <label htmlFor="sortMode" className="shrink-0">
-            Sort by
-          </label>
-          <select
-            id="sortMode"
-            value={sortMode}
-            onChange={(e) => setSortMode(e.target.value as SortMode)}
-            className="min-w-0 flex-1 rounded border px-2 py-1.5 text-sm"
-            style={{ borderColor: 'var(--border)', background: 'var(--ground-raised)', color: 'var(--text)' }}
-          >
-            <option value="score">{SORT_LABEL.score}</option>
-            <option value="az">{SORT_LABEL.az}</option>
-            <option value="za">{SORT_LABEL.za}</option>
-            {home && <option value="drive">{SORT_LABEL.drive}</option>}
-            {home && <option value="distance">{SORT_LABEL.distance}</option>}
-          </select>
-        </div>
+        <SortControl id="sortMode" value={sortMode} onChange={setSortMode} hasHome={home != null} />
       </header>
 
       {error && (
@@ -240,24 +162,6 @@ export function HomeScreen({
         </a>{' '}
         (CC BY 4.0)
       </p>
-
-      {pickerOpen && (
-        <CalendarRangePicker
-          todayIndex={todayIndex}
-          maxDayIndex={maxDayIndex}
-          initialStartIdx={Math.min(Math.max(startIdx, todayIndex), maxDayIndex)}
-          initialEndIdx={Math.min(Math.max(endIdx, todayIndex), maxDayIndex)}
-          onCancel={() => setPickerOpen(false)}
-          onApply={(s, e) => {
-            onChangeDateRange({
-              kind: 'custom',
-              startDate: toLocalIsoDate(dayIndexToDate(s, todayIndex)),
-              endDate: toLocalIsoDate(dayIndexToDate(e, todayIndex)),
-            });
-            setPickerOpen(false);
-          }}
-        />
-      )}
     </div>
   );
 }

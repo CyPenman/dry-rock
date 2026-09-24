@@ -11,12 +11,14 @@ const DAY_LETTER = new Intl.DateTimeFormat('en-GB', { weekday: 'short' });
  * 2m). The number is legible at a glance, the best day in range is filled
  * solid, and a gated (ruled-out) day reads as a cross rather than an empty
  * bar, so the whole selected range is visible without counting cells.
+ * `compact` (the Areas tab's crag rows, §6 Areas) drops the score bar and
+ * tightens the cells - the number carries it at that size.
  */
-function DayStrip({ ranked }: { ranked: RankedCragDay }) {
+export function DayStrip({ ranked, compact = false }: { ranked: RankedCragDay; compact?: boolean }) {
   if (ranked.daysInRange.length < 2) return null;
 
   return (
-    <div className="mt-1.5 grid gap-[3px]" style={{ gridTemplateColumns: `repeat(${ranked.daysInRange.length},minmax(0,1fr))` }}>
+    <div className={`${compact ? 'mt-1' : 'mt-1.5'} grid gap-[3px]`} style={{ gridTemplateColumns: `repeat(${ranked.daysInRange.length},minmax(0,1fr))` }}>
       {ranked.daysInRange.map((d) => {
         const isBest = d.dayIndex === ranked.day.dayIndex;
         const isGated = d.verdict !== 'scored';
@@ -26,7 +28,7 @@ function DayStrip({ ranked }: { ranked: RankedCragDay }) {
             className="text-center"
             style={{
               background: isBest ? 'var(--signal)' : 'var(--ground-raised)',
-              padding: '5px 2px 4px',
+              padding: compact ? '3px 2px' : '5px 2px 4px',
               border: `1px solid ${isBest ? 'var(--signal)' : 'var(--border)'}`,
             }}
           >
@@ -41,22 +43,24 @@ function DayStrip({ ranked }: { ranked: RankedCragDay }) {
             </div>
             <div
               style={{
-                font: `600 ${isGated ? '13px' : '15px'}/1.1 ui-monospace,Menlo,monospace`,
+                font: `600 ${compact ? '12px' : isGated ? '13px' : '15px'}/1.1 ui-monospace,Menlo,monospace`,
                 color: isGated ? 'var(--warning)' : isBest ? 'var(--ground)' : 'var(--text)',
-                marginTop: 3,
+                marginTop: compact ? 2 : 3,
               }}
             >
               {isGated ? '×' : Math.round(d.displayScore * 100)}
             </div>
-            <div style={{ height: 3, background: isBest ? 'rgba(0,0,0,0.25)' : 'var(--ground-sunken)', marginTop: 4 }}>
-              <div
-                style={{
-                  height: 3,
-                  width: `${(isGated ? 0 : d.displayScore) * 100}%`,
-                  background: isBest ? 'var(--ground)' : 'var(--signal)',
-                }}
-              />
-            </div>
+            {!compact && (
+              <div style={{ height: 3, background: isBest ? 'rgba(0,0,0,0.25)' : 'var(--ground-sunken)', marginTop: 4 }}>
+                <div
+                  style={{
+                    height: 3,
+                    width: `${(isGated ? 0 : d.displayScore) * 100}%`,
+                    background: isBest ? 'var(--ground)' : 'var(--signal)',
+                  }}
+                />
+              </div>
+            )}
           </div>
         );
       })}

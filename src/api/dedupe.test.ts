@@ -6,6 +6,7 @@ function makeCrag(overrides: Partial<Crag> & Pick<Crag, 'id' | 'lat' | 'lon'>): 
   return {
     name: overrides.id,
     area: 'test',
+    region: 'Peak District',
     elevationM: 50,
     disciplines: ['sport'],
     rock: 'limestone',

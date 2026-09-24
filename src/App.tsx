@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { AboutScreen } from './components/AboutScreen';
+import { AreasScreen } from './components/AreasScreen';
 import { CragDetailScreen } from './components/CragDetailScreen';
 import { CragsMap } from './components/CragsMap';
 import { HomeScreen } from './components/HomeScreen';
@@ -10,7 +11,10 @@ import { DEFAULT_DATE_RANGE, type DateRangeSelection } from './model/dateRange';
 import { useSettings } from './state/settings';
 
 type View = { name: 'home' } | { name: 'detail'; cragId: string } | { name: 'search' } | { name: 'about' };
-type Tab = 'crags' | 'map';
+/** Left to right, as in the bottom bar; the swipe track lays the panels out in this order (spec §6). */
+const TABS = ['areas', 'crags', 'map'] as const;
+type Tab = (typeof TABS)[number];
+const TAB_LABEL: Record<Tab, string> = { areas: 'Areas', crags: 'Crags', map: 'Map' };
 
 /** How far (px) and how horizontal a touch move must be to count as a tab-switch swipe - spec §6. */
 const SWIPE_THRESHOLD_PX = 60;
@@ -18,12 +22,13 @@ const SWIPE_HORIZONTAL_BIAS = 1.5;
 
 function App() {
   const [view, setView] = useState<View>({ name: 'home' });
-  const [activeTab, setActiveTab] = useState<Tab>('crags');
+  const [activeTab, setActiveTab] = useState<Tab>('areas');
   const [dateRange, setDateRange] = useState<DateRangeSelection>(DEFAULT_DATE_RANGE);
   const { settings, update, togglePinned } = useSettings();
   const { loading, error, fetchedAt, stale, results, todayIndex, dayCount, refresh } = useForecast(CRAGS);
   const touchRef = useRef<{ x: number; y: number } | null>(null);
 
+  const activeIndex = TABS.indexOf(activeTab);
   const detailEntry = view.name === 'detail' ? results.find((r) => r.crag.id === view.cragId) : undefined;
 
   function handleTouchStart(e: React.TouchEvent) {
@@ -47,8 +52,8 @@ function App() {
     const dx = t.clientX - start.x;
     const dy = t.clientY - start.y;
     if (Math.abs(dx) > SWIPE_THRESHOLD_PX && Math.abs(dx) > Math.abs(dy) * SWIPE_HORIZONTAL_BIAS) {
-      if (dx < 0 && activeTab === 'crags') setActiveTab('map');
-      if (dx > 0 && activeTab === 'map') setActiveTab('crags');
+      const next = activeIndex + (dx < 0 ? 1 : -1);
+      if (next >= 0 && next < TABS.length) setActiveTab(TABS[next]);
     }
   }
 
@@ -85,9 +90,29 @@ function App() {
         >
           <div
             className="flex h-full"
-            style={{ width: '200%', transform: activeTab === 'map' ? 'translateX(-50%)' : 'translateX(0)', transition: 'transform 280ms ease' }}
+            style={{
+              width: `${TABS.length * 100}%`,
+              transform: `translateX(-${(activeIndex * 100) / TABS.length}%)`,
+              transition: 'transform 280ms ease',
+            }}
           >
-            <div className="h-full w-1/2 min-w-0 overflow-y-auto">
+            <div className="h-full w-1/3 min-w-0 overflow-y-auto">
+              <AreasScreen
+                results={results}
+                loading={loading}
+                error={error}
+                fetchedAt={fetchedAt}
+                stale={stale}
+                onRefresh={refresh}
+                settings={settings}
+                onSelectCrag={(id) => setView({ name: 'detail', cragId: id })}
+                dateRange={dateRange}
+                onChangeDateRange={setDateRange}
+                todayIndex={todayIndex}
+                dayCount={dayCount}
+              />
+            </div>
+            <div className="h-full w-1/3 min-w-0 overflow-y-auto">
               <HomeScreen
                 results={results}
                 loading={loading}
@@ -105,7 +130,7 @@ function App() {
                 dayCount={dayCount}
               />
             </div>
-            <div className="h-full w-1/2 min-w-0 overflow-hidden">
+            <div className="h-full w-1/3 min-w-0 overflow-hidden">
               <CragsMap
                 results={results}
                 dateRange={dateRange}
@@ -123,26 +148,22 @@ function App() {
         </div>
 
         <nav className="flex shrink-0 border-t" style={{ background: 'var(--ground-raised)', borderColor: 'var(--border)', touchAction: 'manipulation' }}>
-          <button
-            type="button"
-            onClick={() => setActiveTab('crags')}
-            className="min-h-11 flex-1 py-3 text-sm"
-            style={{ color: activeTab === 'crags' ? 'var(--signal)' : 'var(--text-dim)', fontWeight: activeTab === 'crags' ? 500 : 400 }}
-          >
-            Crags
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('map')}
-            className="min-h-11 flex-1 py-3 text-sm"
-            style={{ color: activeTab === 'map' ? 'var(--signal)' : 'var(--text-dim)', fontWeight: activeTab === 'map' ? 500 : 400 }}
-          >
-            Map
-          </button>
+          {TABS.map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setActiveTab(tab)}
+              aria-current={activeTab === tab ? 'page' : undefined}
+              className="min-h-11 flex-1 py-3 text-sm"
+              style={{ color: activeTab === tab ? 'var(--signal)' : 'var(--text-dim)', fontWeight: activeTab === tab ? 500 : 400 }}
+            >
+              {TAB_LABEL[tab]}
+            </button>
+          ))}
         </nav>
       </div>
 
-      {/* Overlaid rather than swapped in, so the Crags/Map tree behind - its scroll
+      {/* Overlaid rather than swapped in, so the Areas/Crags/Map tree behind - its scroll
           position, tab, and map viewport - is never unmounted and is exactly as the
           user left it when they come back. */}
       {view.name === 'search' && (

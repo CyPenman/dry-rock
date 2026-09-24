@@ -8,6 +8,7 @@ function makeCrag(id: string, lat: number, lon: number): Crag {
     id,
     name: id,
     area: 'test',
+    region: 'Peak District',
     lat,
     lon,
     elevationM: 50,

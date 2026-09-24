@@ -10,10 +10,26 @@ export type RockType =
   | 'volcanic';
 export type Steepness = 'slab' | 'vertical' | 'steep' | 'roof' | 'cave';
 
+/**
+ * The broader grouping the Areas tab collapses crags into (spec §6 Areas). `area`
+ * stays as the finer, climber-facing label ("Llandudno") shown inside a region
+ * ("North Wales"); ten of the sixteen areas held a single crag, too fine to group by.
+ */
+export type Region =
+  | 'Peak District'
+  | 'Yorkshire'
+  | 'North Wales'
+  | 'Wye Valley'
+  | 'Bristol & Somerset'
+  | 'Devon'
+  | 'Dorset'
+  | 'Southern Sandstone';
+
 export interface Crag {
   id: string;
   name: string;
   area: string;
+  region: Region;
   lat: number;
   lon: number;
   elevationM: number;

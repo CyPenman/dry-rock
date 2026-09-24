@@ -64,16 +64,42 @@ export function rankCragDays(
   });
 }
 
-/** "Worth the drive" sort - score divided by a mild function of distance (§4.9). */
+/** "Worth the drive" - score divided by a mild function of distance (§4.9); plain score when home is unset. */
+export function worthTheDrive(r: RankedCragDay): number {
+  return r.distanceKm != null ? r.day.score / (1 + r.distanceKm / 50) : r.day.score;
+}
+
+/** "Worth the drive" sort (§4.9). */
 export function sortByWorthTheDrive(ranked: RankedCragDay[]): RankedCragDay[] {
-  const worth = (r: RankedCragDay) => (r.distanceKm != null ? r.day.score / (1 + r.distanceKm / 50) : r.day.score);
-  return [...ranked].sort((a, b) => worth(b) - worth(a));
+  return [...ranked].sort((a, b) => worthTheDrive(b) - worthTheDrive(a));
 }
 
 /** Alphabetical by crag name. */
 export function sortByName(ranked: RankedCragDay[], direction: 'asc' | 'desc'): RankedCragDay[] {
   const sorted = [...ranked].sort((a, b) => a.crag.name.localeCompare(b.crag.name));
   return direction === 'asc' ? sorted : sorted.reverse();
+}
+
+/**
+ * The "Sort by" choices (§6 Home, item 5), shared by the Crags and Areas tabs.
+ * `drive` and `distance` are only offered once a home location is set.
+ */
+export type SortMode = 'score' | 'drive' | 'az' | 'za' | 'distance';
+
+/** `ranked` re-ordered by `mode`; `score` keeps `rankCragDays`' own order. */
+export function sortRanked(ranked: RankedCragDay[], mode: SortMode): RankedCragDay[] {
+  switch (mode) {
+    case 'drive':
+      return sortByWorthTheDrive(ranked);
+    case 'az':
+      return sortByName(ranked, 'asc');
+    case 'za':
+      return sortByName(ranked, 'desc');
+    case 'distance':
+      return sortByDistance(ranked);
+    default:
+      return ranked;
+  }
 }
 
 /** Nearest to home first; crags with no known distance (home unset) sort last. */
