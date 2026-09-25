@@ -93,7 +93,9 @@ export function CalendarRangePicker({
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center" onClick={onCancel}>
       <div
         className="w-full max-w-screen-sm rounded-t-2xl border p-4 sm:rounded-2xl"
-        style={{ background: 'var(--ground)', borderColor: 'var(--border)' }}
+        // On a phone this sheet sits on the bottom edge - keep its buttons clear
+        // of the iPhone home indicator (the inset is 0 everywhere else).
+        style={{ background: 'var(--ground)', borderColor: 'var(--border)', paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">

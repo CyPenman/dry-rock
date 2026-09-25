@@ -6,6 +6,10 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#22262A" />
+    <!-- iOS ignores theme-color for an installed app's status bar. black-translucent
+         draws the page under it instead (light text on our dark ground) - App.tsx pads
+         by env(safe-area-inset-top) so nothing sits behind the clock. -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="description" content="Where in England and Wales is the rock most likely to be dry and climbable, and on which day." />
     <title>Dry Rock</title>
   </head>

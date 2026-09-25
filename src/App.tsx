@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { sendPendingObservations } from './api/reports';
 import { AboutScreen } from './components/AboutScreen';
 import { AreasScreen } from './components/AreasScreen';
@@ -73,7 +73,10 @@ function App() {
         // 100dvh (not 100vh/h-screen): on Chrome for Android the URL bar stays
         // docked at the top and 100vh sizes against the viewport with the bar
         // hidden, pushing the bottom tab bar off-screen below the fold.
-        style={{ background: 'var(--ground)', height: '100dvh', overscrollBehavior: 'none' }}
+        // viewport-fit=cover (index.html) draws the page under the iPhone status
+        // bar and home indicator; the safe-area insets keep the top buttons and
+        // the tab bar clear of them, and are 0 wherever there's nothing to avoid.
+        style={{ background: 'var(--ground)', height: '100dvh', overscrollBehavior: 'none', paddingTop: 'env(safe-area-inset-top)' }}
       >
         <div className="flex shrink-0 justify-end gap-4 px-4 pt-2">
           <button type="button" onClick={() => setView({ name: 'about' })} className="text-sm" style={{ color: 'var(--signal)' }}>
@@ -157,7 +160,7 @@ function App() {
           </div>
         </div>
 
-        <nav className="flex shrink-0 border-t" style={{ background: 'var(--ground-raised)', borderColor: 'var(--border)', touchAction: 'manipulation' }}>
+        <nav className="flex shrink-0 border-t" style={{ background: 'var(--ground-raised)', borderColor: 'var(--border)', touchAction: 'manipulation', paddingBottom: 'env(safe-area-inset-bottom)' }}>
           {TABS.map((tab) => (
             <button
               key={tab}
@@ -177,17 +180,17 @@ function App() {
           position, tab, and map viewport - is never unmounted and is exactly as the
           user left it when they come back. */}
       {view.name === 'search' && (
-        <div className="fixed inset-0 z-50 overflow-y-auto" style={{ background: 'var(--ground)' }}>
+        <Overlay>
           <SearchScreen onBack={() => setView({ name: 'home' })} onSelectCrag={(id) => setView({ name: 'detail', cragId: id })} />
-        </div>
+        </Overlay>
       )}
       {view.name === 'about' && (
-        <div className="fixed inset-0 z-50 overflow-y-auto" style={{ background: 'var(--ground)' }}>
+        <Overlay>
           <AboutScreen onBack={() => setView({ name: 'home' })} />
-        </div>
+        </Overlay>
       )}
       {view.name === 'detail' && detailEntry && (
-        <div className="fixed inset-0 z-50 overflow-y-auto" style={{ background: 'var(--ground)' }}>
+        <Overlay>
           <CragDetailScreen
             entry={detailEntry}
             pinned={settings.pinnedCragIds.includes(view.cragId)}
@@ -202,9 +205,23 @@ function App() {
             onRefresh={refresh}
             homeSettings={settings}
           />
-        </div>
+        </Overlay>
       )}
     </>
+  );
+}
+
+/** Full-screen view over the tabs. The top inset sits outside the scroll
+ *  container so each screen's sticky header pins below the iPhone status bar
+ *  rather than under it; the bottom inset lets the last content scroll clear
+ *  of the home indicator. */
+function Overlay({ children }: { children: ReactNode }) {
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ background: 'var(--ground)', paddingTop: 'env(safe-area-inset-top)' }}>
+      <div className="min-h-0 flex-1 overflow-y-auto" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+        {children}
+      </div>
+    </div>
   );
 }
 
