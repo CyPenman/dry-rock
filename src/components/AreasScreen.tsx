@@ -7,7 +7,7 @@ import { rankCragDays, type RankedCragDay, type SortMode } from '../model/rankin
 import { SCORE_BAND_COLOR_VAR, SCORE_BAND_LABEL, type ScoreBand } from '../model/scoreBand';
 import type { Region } from '../model/types';
 import type { Settings } from '../state/settings';
-import { DayStrip } from './CragRow';
+import { DayStrip, dayStripColumns } from './CragRow';
 import { DateRangeControls } from './DateRangeControls';
 import { Explain } from './Explain';
 import { HomeAddressSection } from './HomeAddressSection';
@@ -39,7 +39,7 @@ function SpreadBar({ bands, total }: { bands: AreaDay['bands']; total: number })
  */
 function AreaDayStrip({ area }: { area: AreaSummary }) {
   return (
-    <div className="mt-2 grid gap-[3px]" style={{ gridTemplateColumns: `repeat(${area.days.length},minmax(0,1fr))` }}>
+    <div className="mt-2 grid gap-[3px]" style={{ gridTemplateColumns: `repeat(${dayStripColumns(area.days.length)},minmax(0,1fr))` }}>
       {area.days.map((d) => {
         const isBest = d.dayIndex === area.bestDay?.dayIndex;
         const allOut = d.bestScore == null;
