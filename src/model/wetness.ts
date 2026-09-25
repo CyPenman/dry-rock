@@ -90,6 +90,26 @@ export interface HourResult {
   frozen: boolean;
   underSnow: boolean;
   fluxes: HourFluxes;
+  /**
+   * The rest of the state at the end of the hour, beside `S`, `M` and
+   * `Trock`, so a run can be continued from any hour (`stateAfter`) - the
+   * ensemble starts each member from the headline's state.
+   */
+  Tbulk: number;
+  pfaceEwma: number;
+  precipEwma: number;
+}
+
+/** The simulation state at the end of an hour, to start another run from (`runSimulation`'s `initial`). */
+export function stateAfter(result: HourResult): CragState {
+  return {
+    S: result.S,
+    M: result.M,
+    Trock: result.Trock,
+    Tbulk: result.Tbulk,
+    pfaceEwma: result.pfaceEwma,
+    precipEwma: result.precipEwma,
+  };
 }
 
 /**
@@ -106,6 +126,17 @@ export function hourDryness(surfaceDry: boolean, matrixFraction: number, softRoc
   if (softRock) return matrixFraction < line ? 1 : 0;
   if (matrixFraction < line) return 1;
   return 1 - smoothstep(matrixFraction, line, line + PARAMS.matrixDampCreditWidth);
+}
+
+/**
+ * Enough water to glaze the face if the rock freezes (§4.6 step 7): a surface
+ * film, or the rock wet inside past the dry line. Water deep in the pores of
+ * rock that reads dry can't coat the holds. The old test was `S + M` over
+ * 0.05mm, which almost no crag gets under even after a dry week, so any rock
+ * below 0°C read as verglas and a crisp dry grit day was ruled out.
+ */
+export function canGlaze(S: number, M: number, Mmax: number): boolean {
+  return S >= PARAMS.S_dry || M / Mmax >= PARAMS.matrixDryFraction;
 }
 
 /**
@@ -241,6 +272,7 @@ export function stepHour(
       dryingRate: config.dryingRate,
       trockC: trock,
       visibilityM: input.visibilityM,
+      iced: trock < 0 && canGlaze(S, M, config.Mmax),
     });
     let E = E0;
     if (S > 0) {
@@ -254,9 +286,10 @@ export function stepHour(
     }
   }
 
-  // 7. Freeze - reported only when the face is exposed; a snowed-under day is
-  // already gated by `underSnow` and shouldn't also read as verglas.
-  const frozen = !underSnow && trock < 0 && S + M > PARAMS.frozenWetThreshold;
+  // 7. Freeze - rock below 0°C with water that can glaze it (`canGlaze`).
+  // Reported only when the face is exposed; a snowed-under day is already gated
+  // by `underSnow` and shouldn't also read as verglas.
+  const frozen = !underSnow && trock < 0 && canGlaze(S, M, config.Mmax);
 
   // 8. Climbability - never while under snow, regardless of the reservoir state.
   // Soft sandstone needs to be much drier inside (§5.5): the global 0.35 still
@@ -279,21 +312,37 @@ export function stepHour(
       frozen,
       underSnow,
       fluxes: { rain: pface + runoffAbove, seepage: seepFlux, condensation, melt },
+      Tbulk,
+      pfaceEwma,
+      precipEwma,
     },
   };
 }
 
-export function runSimulation(inputs: CragHourlyInput[], config: CragModelConfig): HourResult[] {
+/**
+ * Run the hourly model over `inputs`. Without `initial` the run spins up from
+ * `initialState`, which is what the headline's 16 days of history are for.
+ * With it, the run carries on from that state - the ensemble passes the
+ * headline's state at a member's first hour, since members have only about
+ * three days of history and started cold would read drier than the headline
+ * after a wet spell (§3.3).
+ */
+export function runSimulation(inputs: CragHourlyInput[], config: CragModelConfig, initial?: CragState): HourResult[] {
   if (inputs.length === 0) return [];
 
-  let state = initialState(inputs[0].tempC, inputs[0].soilMoistureDeep, config.Mmax, config.smCalibration);
-  // Spin-up bias (§4.5 fallback): a tauSeep-day kernel starting from 0 cannot
-  // fill in the PAST_DAYS of history we have, so it would under-read seepage
-  // for the whole run. Start it at the mean rate over that history instead.
-  const spinUpHours = Math.min(inputs.length, PAST_DAYS * 24);
-  let spinUpPrecip = 0;
-  for (let i = 0; i < spinUpHours; i++) spinUpPrecip += inputs[i].precipitationMm;
-  state = { ...state, precipEwma: spinUpPrecip / spinUpHours };
+  let state: CragState;
+  if (initial) {
+    state = initial;
+  } else {
+    state = initialState(inputs[0].tempC, inputs[0].soilMoistureDeep, config.Mmax, config.smCalibration);
+    // Spin-up bias (§4.5 fallback): a tauSeep-day kernel starting from 0 cannot
+    // fill in the PAST_DAYS of history we have, so it would under-read seepage
+    // for the whole run. Start it at the mean rate over that history instead.
+    const spinUpHours = Math.min(inputs.length, PAST_DAYS * 24);
+    let spinUpPrecip = 0;
+    for (let i = 0; i < spinUpHours; i++) spinUpPrecip += inputs[i].precipitationMm;
+    state = { ...state, precipEwma: spinUpPrecip / spinUpHours };
+  }
   const results: HourResult[] = [];
 
   for (const input of inputs) {
@@ -385,6 +434,30 @@ export function climbableHoursForDay(
   };
 }
 
+/** Running totals of each water source, `x[i]` the sum over hours before `i` - so any window's total is two lookups. */
+export interface FluxPrefixSums {
+  rain: Float64Array;
+  seepage: Float64Array;
+  condensation: Float64Array;
+}
+
+/**
+ * `FluxPrefixSums` for a whole run. `limitingFactorAt` looks back up to 72
+ * hours for every wet daylight hour; with these it doesn't re-add them each
+ * time.
+ */
+export function fluxPrefixSums(results: HourResult[]): FluxPrefixSums {
+  const n = results.length;
+  const sums = { rain: new Float64Array(n + 1), seepage: new Float64Array(n + 1), condensation: new Float64Array(n + 1) };
+  for (let i = 0; i < n; i++) {
+    const f = results[i].fluxes;
+    sums.rain[i + 1] = sums.rain[i] + f.rain;
+    sums.seepage[i + 1] = sums.seepage[i] + f.seepage;
+    sums.condensation[i + 1] = sums.condensation[i] + f.condensation;
+  }
+  return sums;
+}
+
 /**
  * Which term is keeping the crag wet at hour `idx` - spec §4.7. Snow and frozen
  * are hard states reported directly. While the surface is wet, report whichever
@@ -394,7 +467,7 @@ export function climbableHoursForDay(
  * one of those dominates; otherwise the rock is simply still drying out from
  * earlier rain, which is its own answer rather than "none".
  */
-export function limitingFactorAt(results: HourResult[], idx: number): LimitingFactor {
+export function limitingFactorAt(results: HourResult[], idx: number, sums?: FluxPrefixSums): LimitingFactor {
   const r = results[idx];
   if (r.underSnow) return 'snow';
   if (r.frozen) return 'frozen';
@@ -405,10 +478,16 @@ export function limitingFactorAt(results: HourResult[], idx: number): LimitingFa
   let rain = 0;
   let seepage = 0;
   let condensation = 0;
-  for (let i = windowStart; i <= idx; i++) {
-    rain += results[i].fluxes.rain;
-    seepage += results[i].fluxes.seepage;
-    condensation += results[i].fluxes.condensation;
+  if (sums) {
+    rain = sums.rain[idx + 1] - sums.rain[windowStart];
+    seepage = sums.seepage[idx + 1] - sums.seepage[windowStart];
+    condensation = sums.condensation[idx + 1] - sums.condensation[windowStart];
+  } else {
+    for (let i = windowStart; i <= idx; i++) {
+      rain += results[i].fluxes.rain;
+      seepage += results[i].fluxes.seepage;
+      condensation += results[i].fluxes.condensation;
+    }
   }
 
   const entries: [LimitingFactor, number][] = [
@@ -427,19 +506,21 @@ export function limitingFactorAt(results: HourResult[], idx: number): LimitingFa
  * the daylight hours that were NOT climbable, ties going to whichever occurs
  * first. 'none' when every daylight hour was climbable. Replaces reading it at
  * 23:00, which reported nothing for a crag wet all morning and dry by evening.
- * `isDayFlags` is indexed from `dayStart`.
+ * `isDayFlags` is indexed from `dayStart`. `sums` (`fluxPrefixSums(results)`)
+ * saves re-adding the look-back window for every hour.
  */
 export function dayLimitingFactor(
   results: HourResult[],
   dayStart: number,
   dayEnd: number,
   isDayFlags: boolean[],
+  sums?: FluxPrefixSums,
 ): LimitingFactor {
   const counts = new Map<LimitingFactor, number>();
   const firstSeen: LimitingFactor[] = [];
   for (let i = dayStart; i <= dayEnd; i++) {
     if (!isDayFlags[i - dayStart] || results[i].climbable) continue;
-    const factor = limitingFactorAt(results, i);
+    const factor = limitingFactorAt(results, i, sums);
     if (!counts.has(factor)) firstSeen.push(factor);
     counts.set(factor, (counts.get(factor) ?? 0) + 1);
   }

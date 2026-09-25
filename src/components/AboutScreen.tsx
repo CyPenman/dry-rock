@@ -149,7 +149,8 @@ export function AboutScreen({ onBack }: { onBack: () => void }) {
             <li>
               <span className="font-medium">Set your home (optional).</span> Tap <em>Set address</em> and enter a
               postcode or town, or use your location. You'll see distances and rough drive times, and can sort by{' '}
-              <em>Worth the drive</em> - the best score for the distance. It's saved on this device only.
+              <em>Worth the drive</em> - good days first, then fair, then poor, and within each the best score for the
+              distance. It's saved on this device only.
             </li>
             <li>
               <span className="font-medium">Scan the Areas tab.</span> Each region shows its best crag's score for
@@ -178,7 +179,8 @@ export function AboutScreen({ onBack }: { onBack: () => void }) {
               [
                 'Crags',
                 <>
-                  Every crag, ranked by its best day in your dates. Tap the <span aria-label="star">&#9734;</span> to pin
+                  Every crag, ranked by its best day in your dates, highest score first - crags on the same score go
+                  nearest first once your home is set. Tap the <span aria-label="star">&#9734;</span> to pin
                   up to five favourites to the top, whatever their score. Crags that are ruled out sit in a closed{' '}
                   <em>Ruled out</em> list at the bottom, with the reason.
                 </>,
@@ -233,7 +235,7 @@ export function AboutScreen({ onBack }: { onBack: () => void }) {
               ],
               [
                 '3 of 4 models agree',
-                'How many of the four weather models put the day in the same band. 4 of 4 is a confident call; 2 of 4 could go either way.',
+                "How many of the four weather models put the day in the same band. 4 of 4 is a confident call; 2 of 4 could go either way. Not every model reaches every day: after about a week only ECMWF and GFS do, and on the last day only GFS, so those days are never a confident call however well the models agree.",
               ],
               [
                 <>
@@ -259,7 +261,7 @@ export function AboutScreen({ onBack }: { onBack: () => void }) {
                   ],
                   [
                     'Confidence',
-                    'When the weather models disagree about a day, its score is trimmed a little - by up to 15% - so an uncertain day reads lower than a sure one.',
+                    'When the weather models disagree about a day, or only one or two of them reach it, its score is trimmed a little - by up to 15% - so an uncertain day reads lower than a sure one. Crags are ranked on the trimmed score, so the numbers always go down the list.',
                   ],
                 ]}
               />

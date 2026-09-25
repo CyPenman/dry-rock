@@ -6,10 +6,6 @@ import type { OpenMeteoResponse } from './types';
 
 export interface CellForecast {
   time: number[]; // hourly, unixtime
-  dailyTime: number[];
-  dailySunrise: number[];
-  dailySunset: number[];
-  dailyPrecipSum: number[];
   models: Record<ModelName, Record<string, number[]>>;
 }
 
@@ -31,10 +27,6 @@ function splitVariablesByModel(hourly: Record<string, number[]>): Record<ModelNa
 function normalizeCell(response: OpenMeteoResponse): CellForecast {
   return {
     time: response.hourly.time,
-    dailyTime: response.daily?.time ?? [],
-    dailySunrise: response.daily?.sunrise ?? [],
-    dailySunset: response.daily?.sunset ?? [],
-    dailyPrecipSum: response.daily?.precipitation_sum ?? [],
     models: splitVariablesByModel(response.hourly),
   };
 }

@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react';
 import { niceScale } from '../lib/chartScale';
 import type { CragDayResult } from '../model/dayAggregate';
 import type { HourResult } from '../model/wetness';
-import { Plot, VW, fmt, fmtFine, gridlines, poly, sx, xAxisRotation } from './chart/kit';
+import { VW, fmt, fmtFine, gridlines, poly, sx, xAxisRotation } from './chart/draw';
+import { Plot } from './chart/kit';
 import { Explain } from './Explain';
 
 const DAY_LABEL = new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric' });

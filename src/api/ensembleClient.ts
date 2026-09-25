@@ -23,9 +23,10 @@ function splitVariablesByMember(hourly: Record<string, number[]>): Record<string
 }
 
 /**
- * Fetch the opt-in ensemble forecast for one crag (§3.3). Never cached to
- * IndexedDB - it's a separate, on-demand call, not part of the primary
- * multi-model payload §2 sizes the persisted cache around.
+ * Fetch the opt-in ensemble forecast for one crag (§3.3) - a separate,
+ * on-demand call, not part of the primary multi-model payload. The crag
+ * detail screen keeps the answer in IndexedDB per crag for the same two hours
+ * as the primary forecast (`readCachedEnsemble`, db.ts).
  */
 export async function fetchEnsembleForecast(url: string): Promise<EnsembleCellForecast> {
   const res = await fetchFrom('Open-Meteo', url);

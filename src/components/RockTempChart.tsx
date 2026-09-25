@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { CragHourlyInput, HourResult } from '../model/wetness';
-import { Plot, STROKE, VW, dayLabels, dot, gridlines, nightBands, poly, sx } from './chart/kit';
+import { STROKE, VW, dayLabels, dot, gridlines, nightBands, poly, sx } from './chart/draw';
+import { Plot } from './chart/kit';
 import { Explain } from './Explain';
 
 const TIME_LABEL = new Intl.DateTimeFormat('en-GB', { weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false });

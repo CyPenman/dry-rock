@@ -8,13 +8,12 @@ import {
   formatRange,
   FRICTION_REASON_LABEL,
   LIMITING_FACTOR_LABEL,
-  MODEL_DISPLAY_NAME,
   sentenceCase,
 } from '../lib/format';
+import { MODEL_DISPLAY_NAME, MODELS } from '../api/request';
 import type { CragDayResult } from '../model/dayAggregate';
 import { FRICTION_BLOCK_LENGTH_HOURS } from '../model/friction';
 import { confidenceCaveat, confidenceSentence, SESSION_HOURS, verdictMessage } from '../model/score';
-import { scoreBand } from '../model/scoreBand';
 import { windChillCaveat } from '../model/windChill';
 import { Explain } from './Explain';
 
@@ -114,9 +113,10 @@ function frictionShortLabel(day: CragDayResult, startHour: number): string {
   return parts.join(' · ');
 }
 
-/** "1 of 4 models agree · scores 40-92" - the glanceable confidence caption. */
+/** "1 of 4 models agree · scores 40-92", or "only GFS" - the glanceable confidence caption. */
 function confidenceShortLabel(day: CragDayResult): string {
-  const parts = [`${day.confidence.agreeCount} of ${day.confidence.total} models agree`];
+  const only = day.confidence.total <= 1 && day.modelScores[0] ? MODEL_DISPLAY_NAME[day.modelScores[0].model] : null;
+  const parts = [only ? `only ${only} reaches this day` : `${day.confidence.agreeCount} of ${day.confidence.total} models agree`];
   if (day.modelScores.length > 1)
     parts.push(`scores ${Math.round(day.modelScoreRange.min * 100)}-${Math.round(day.modelScoreRange.max * 100)}`);
   if (confidenceCaveat(day.showerDominance)) parts.push('showery');
@@ -256,11 +256,13 @@ export function ScoreBreakdownTable({ days, bestDayIndex }: { days: CragDayResul
                               )}
                               <ScoreBar
                                 label="Confidence"
-                                value={day.confidence.fraction}
+                                // Agreeing models out of all four, not out of those with data: a day
+                                // only GFS reaches is one model's word, not full agreement (§4.10).
+                                value={day.confidence.agreeCount / MODELS.length}
                                 color="var(--chart-water)"
                                 caption={
                                   showNumbers
-                                    ? `${confidenceSentence(day.confidence, scoreBand(day.score * 100))}${caveat ? ` - ${caveat}` : ''}${
+                                    ? `${confidenceSentence(day)}${caveat ? ` - ${caveat}` : ''}${
                                         day.modelScores.length > 1
                                           ? ` · models range ${Math.round(day.modelScoreRange.min * 100)}-${Math.round(day.modelScoreRange.max * 100)}`
                                           : ''

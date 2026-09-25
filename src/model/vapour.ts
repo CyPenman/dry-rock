@@ -6,7 +6,9 @@
 /**
  * Saturation vapour pressure over water, kPa (Magnus/Tetens). Fitted over water
  * rather than ice, which is the right side for almost all the conditions it is
- * used in; below freezing the rock is already gated as frozen (§4.6).
+ * used in. Below freezing, wet rock is gated as frozen (§4.6) and its drying
+ * cut to sublimation; on dry rock a few degrees below zero, the over-water
+ * value is a few percent high - small next to the other uncertainties here.
  */
 export function saturationVapourPressureKpa(tempC: number): number {
   return 0.6108 * Math.exp((17.27 * tempC) / (tempC + 237.3));

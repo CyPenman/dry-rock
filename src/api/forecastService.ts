@@ -8,11 +8,11 @@ export interface ForecastBundle {
   cragToCellKey: Map<string, string>;
 }
 
-// Floor between forced refreshes - Open-Meteo bills each unique grid cell in
-// the combined request once per model (§3.1: 4 models), so a mashed refresh
-// button or a flaky-signal retry loop can burn through a lot of the daily
-// quota in seconds for no new data (Open-Meteo's own models don't update
-// that often anyway).
+// Floor between forced refreshes. Open-Meteo bills a request by locations x
+// models x variables (per 10) x days (per 14), so one full load is several
+// hundred calls (§3.6) against a limit per network address, not per user. A
+// mashed refresh button or a flaky-signal retry loop could burn through the
+// daily quota in minutes for no new data (the models don't update that often).
 const MIN_FORCE_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 
 /**

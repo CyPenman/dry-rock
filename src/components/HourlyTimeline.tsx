@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { niceScale } from '../lib/chartScale';
 import { PARAMS } from '../model/params';
 import type { CragHourlyInput, HourResult } from '../model/wetness';
-import { ClimbableRibbon, Plot, STROKE, VW, dayBands, dayLabels, dot, fmt, fmtFine, gridlines, poly, sx, xAxisRotation } from './chart/kit';
+import { STROKE, VW, dayBands, dayLabels, dot, fmt, fmtFine, gridlines, poly, sx, xAxisRotation } from './chart/draw';
+import { ClimbableRibbon, Plot } from './chart/kit';
 import { Explain } from './Explain';
 
 const TIME_LABEL = new Intl.DateTimeFormat('en-GB', { weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false });

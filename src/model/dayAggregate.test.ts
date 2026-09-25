@@ -13,6 +13,7 @@ import {
 } from './dayAggregate';
 import { scoreBand } from './scoreBand';
 import { DEFAULT_SM_CALIBRATION } from './seepage';
+import { isDaylight } from './solar';
 import { hourOfDayLondon } from './time';
 import type { CragHourlyInput } from './wetness';
 
@@ -61,10 +62,6 @@ function makeCellForecast(hours: number, opts: { withGfs?: boolean; weather?: Ce
 
   return {
     time,
-    dailyTime: [],
-    dailySunrise: [],
-    dailySunset: [],
-    dailyPrecipSum: [],
     models,
   };
 }
@@ -130,10 +127,6 @@ describe('computeCragForecast', () => {
   it('returns null when no model resolved any usable data', () => {
     const empty: CellForecast = {
       time: [],
-      dailyTime: [],
-      dailySunrise: [],
-      dailySunset: [],
-      dailyPrecipSum: [],
       models: { ukmo_seamless: {}, ecmwf_ifs025: {}, icon_seamless: {}, gfs_seamless: {} },
     };
     expect(computeCragForecast(crag('portland-cuttings'), empty)).toBeNull();
@@ -176,12 +169,23 @@ describe('computeCragForecast', () => {
     }
   });
 
-  it('matches displayScore to score under full model agreement, and populates worstDaylightWindChillC', () => {
+  it('matches displayScore to score when all four models agree, and populates worstDaylightWindChillC', () => {
     const cell = makeCellForecast(24 * 3);
+    const ukmo = cell.models.ukmo_seamless;
+    cell.models = { ukmo_seamless: ukmo, ecmwf_ifs025: ukmo, icon_seamless: ukmo, gfs_seamless: ukmo };
     const result = computeCragForecast(crag('portland-cuttings'), cell);
     for (const day of result!.days) {
+      expect(day.confidence).toEqual({ agreeCount: 4, total: 4, fraction: 1 });
       expect(day.displayScore).toBeCloseTo(day.score);
       expect(day.worstDaylightWindChillC).not.toBeNull();
+    }
+  });
+
+  it('trims a day only one model reaches as low confidence, however well it agrees with itself (§4.10)', () => {
+    const result = computeCragForecast(crag('portland-cuttings'), makeCellForecast(24 * 3))!;
+    for (const day of result.days) {
+      expect(day.confidence.total).toBe(1);
+      expect(day.displayScore).toBeCloseTo(day.score * 0.85);
     }
   });
 
@@ -226,7 +230,8 @@ describe('computeCragForecast', () => {
     // the same definition, reporting 0 agreeing models, not 1 on the strength
     // of an 03:00 clearing no climber would ever use.
     const cell = makeCellForecast(24);
-    const daylight = (i: number) => cell.time[i] != null && i % 24 >= 6 && i % 24 <= 18;
+    const slate = crag('slate');
+    const daylight = (i: number) => isDaylight(cell.time[i], slate.lat, slate.lon);
     cell.models.ukmo_seamless.precipitation = cell.time.map((_, i) => (daylight(i) ? 2 : 0));
     cell.models.ukmo_seamless.wind_speed_10m = cell.time.map((_, i) => (daylight(i) ? 3 : 8));
     cell.models.ukmo_seamless.vapour_pressure_deficit = cell.time.map((_, i) => (daylight(i) ? 0.3 : 1.2));
@@ -335,18 +340,28 @@ describe('computeCragForecast', () => {
     const clock = cell.time.map((t) => hourOfDayLondon(t));
     const day = (h: number) => (h >= 6 && h <= 17 ? 1 : 0);
     const vars = cell.models.ukmo_seamless;
-    vars.is_day = clock.map(day);
     vars.shortwave_radiation = clock.map((h) => (day(h) ? 400 : 0));
     vars.direct_normal_irradiance = clock.map((h) => (day(h) ? 400 : 0));
 
-    const result = computeCragForecast(crag('portland-cuttings'), cell, 0)!;
+    const c = crag('portland-cuttings');
+    const result = computeCragForecast(c, cell, 0)!;
     expect(result.days.map((d) => d.dayEndIdx - d.dayStartIdx + 1)).toEqual([25, 24, 24]);
     expect(result.days[1].dayStartIdx).toBe(25);
     expect(result.hourly).toHaveLength(73);
-    // Daylight starts at 06:00 by the clock on the 25-hour day - array position 7.
-    expect(result.days[0].bestWindowStartHour).toBe(6);
-    expect(result.days[0].lastDaylightHour).toBe(17);
-    expect(result.days[1].bestWindowStartHour).toBe(6);
+    // Daylight comes from the sun (isDaylight). On the 25-hour day, 01:00 comes
+    // twice, so the first daylight hour sits one array position after its clock
+    // hour - and the label must be the clock hour.
+    const lit = (d: number) => {
+      const { dayStartIdx, dayEndIdx } = result.days[d];
+      const idx = [];
+      for (let i = dayStartIdx; i <= dayEndIdx; i++) if (isDaylight(cell.time[i], c.lat, c.lon)) idx.push(i);
+      return idx;
+    };
+    const first0 = lit(0)[0];
+    expect(first0 - result.days[0].dayStartIdx).toBe(clock[first0] + 1);
+    expect(result.days[0].bestWindowStartHour).toBe(clock[first0]);
+    expect(result.days[0].lastDaylightHour).toBe(clock[lit(0).at(-1)!]);
+    expect(result.days[1].bestWindowStartHour).toBe(clock[lit(1)[0]]);
   });
 
   it('counts agreement by score band, and reports every model score and their range (§4.10)', () => {
@@ -391,6 +406,25 @@ describe('computeCragForecast', () => {
     const idealDay = computeCragForecast(crag('cheddar-shade'), ideal)!.days[0];
     expect(idealDay.frictionWindowStartHour).not.toBeNull();
     expect(idealDay.frictionReason).toBeNull();
+  });
+
+  it("ends the soft-rock freeze-thaw window at the day's last daylight hour, so an evening frost rules out the next day (§5.5)", () => {
+    // December (dark by about 16:00): mild and dry, then a hard frost from 18:00
+    // on day 2 to 09:00 on day 3 - after that day's last daylight hour.
+    const harrisons = crag('harrisons');
+    const cell = makeCellForecast(24 * 4, { weather: { dewPointC: -16, cloudCoverPct: 0 } });
+    cell.time = cell.time.map((_, i) => Date.UTC(2026, 11, 1) / 1000 + i * 3600); // London midnight, GMT
+    const lit = cell.time.map((t) => isDaylight(t, harrisons.lat, harrisons.lon));
+    const vars = cell.models.ukmo_seamless;
+    vars.shortwave_radiation = vars.direct_normal_irradiance = cell.time.map((_, i) => (lit[i] ? 200 : 0));
+    vars.diffuse_radiation = cell.time.map((_, i) => (lit[i] ? 50 : 0));
+    const frost = (i: number) => i >= 2 * 24 + 18 && i < 3 * 24 + 9;
+    vars.temperature_2m = cell.time.map((_, i) => (frost(i) ? -12 : 12));
+    const result = computeCragForecast(harrisons, cell, 0)!;
+    expect(lit.slice(2 * 24 + 18, 3 * 24).some(Boolean)).toBe(false); // the frost starts after dark
+    expect(result.hourly[2 * 24 + 23].Trock).toBeLessThan(0); // the rock froze that evening
+    expect(result.days[2].verdict).not.toBe('rock_damage');
+    expect(result.days[3].verdict).toBe('rock_damage');
   });
 });
 

@@ -48,6 +48,20 @@ export default defineConfig({
   worker: {
     plugins: () => [keepMaplibreWorker()],
   },
+  build: {
+    rolldownOptions: {
+      output: {
+        // React and Leaflet in a chunk of their own: it keeps the app's chunk
+        // under the 500kB warning, and changes far less often, so a deploy
+        // doesn't make every phone download it again. Named, not /node_modules/,
+        // or MapLibre - loaded only when the Map tab opens, and left out of the
+        // precache below - would be pulled into it.
+        codeSplitting: {
+          groups: [{ name: 'vendor', test: /node_modules[\\/](react|react-dom|scheduler|leaflet|react-leaflet|@react-leaflet)[\\/]/ }],
+        },
+      },
+    },
+  },
   plugins: [
     react(),
     tailwindcss(),

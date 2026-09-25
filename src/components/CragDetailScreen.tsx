@@ -2,8 +2,8 @@ import { useMemo, useState } from 'react';
 import { buildEnsembleUrl } from '../api/ensembleRequest';
 import { fetchEnsembleForecast, type EnsembleCellForecast } from '../api/ensembleClient';
 import { describeError } from '../api/serviceError';
-import { FORECAST_DAYS, PAST_DAYS } from '../api/request';
-import { BMC_RAD_URL } from '../data/crags';
+import { sharedPointPartners } from '../api/dedupe';
+import { BMC_RAD_URL, CRAGS } from '../data/crags';
 import type { CragWithForecast } from '../hooks/useForecast';
 import { daySummarySentence, formatDayLabel, formatSunOnFace } from '../lib/format';
 import {
@@ -14,7 +14,8 @@ import {
   type DateRangeSelection,
 } from '../model/dateRange';
 import { soilMoistureCalibrationFor, toModelConfig } from '../model/dayAggregate';
-import { runEnsembleForCrag, type EnsembleDayResult } from '../model/ensemble';
+import { ensembleHeadline, runEnsembleForCrag, type EnsembleDayResult } from '../model/ensemble';
+import { greatCircleDistanceKm } from '../model/distance';
 import { FRICTION_BLOCK_LENGTH_HOURS } from '../model/friction';
 import { pickBestDayInRange } from '../model/ranking';
 import { computeSmNorm } from '../model/seepage';
@@ -30,6 +31,9 @@ import { ObservationLog } from './ObservationLog';
 import { RockTempChart } from './RockTempChart';
 import { ScoreBreakdownTable } from './ScoreBreakdownTable';
 import { WaterBudgetChart } from './WaterBudgetChart';
+
+// Crags close enough to share a forecast point (§3.2), said on each one's page.
+const SHARED_POINT_PARTNERS = sharedPointPartners(CRAGS);
 
 type EnsembleState =
   | { status: 'idle' }
@@ -86,9 +90,11 @@ function EnsembleSection({
           <Explain>
             <p>
               Each member runs the same wetness model against a slightly different, equally plausible weather
-              sequence (ICON-EU, ~40 members) - a real probability, not a hedge. A member counts when it gives at least
-              3 dry daylight hours in a row, long enough for a session; "dry by" is when that window starts. Members
-              only reach about 5 days ahead, so later days may have none.
+              sequence (ICON-EU, ~40 members) - a real probability, not a hedge. Every member starts from the main
+              forecast's view of how wet the rock is now. A member counts when it gives 3 hours' worth of dry daylight in
+              an unbroken run, long enough for a session, with rock that's nearly dry inside counting part of an hour, as
+              in the score; "dry by" is when that window starts. Members only reach about 5 days ahead, so later days
+              may have none.
             </p>
           </Explain>
         </div>
@@ -192,31 +198,30 @@ export function CragDetailScreen({
   async function runEnsemble() {
     setEnsembleState({ status: 'loading' });
     try {
-      const cached = await readCachedEnsemble<EnsembleCellForecast>(crag.id);
+      // The cache is a convenience, as for the primary forecast (§3.6): with
+      // IndexedDB unavailable (private browsing, storage blocked) the ensemble
+      // still runs, it just isn't kept.
+      const cached = await readCachedEnsemble<EnsembleCellForecast>(crag.id).catch(() => null);
       let cell: EnsembleCellForecast;
       if (cached && !isStale(cached.fetchedAt)) {
         cell = cached.data;
       } else {
-        const url = buildEnsembleUrl({ lat: crag.lat, lon: crag.lon, elevationM: crag.elevationM }, PAST_DAYS, FORECAST_DAYS);
-        cell = await fetchEnsembleForecast(url);
-        await writeCachedEnsemble(crag.id, cell);
+        cell = await fetchEnsembleForecast(buildEnsembleUrl({ lat: crag.lat, lon: crag.lon, elevationM: crag.elevationM }));
+        await writeCachedEnsemble(crag.id, cell).catch(() => {});
       }
       const config = toModelConfig(crag, forecast?.soilMoistureSource);
       // Matched by calendar date, not index: the ensemble is fetched fresh
       // today, while the headline may be yesterday's cache, so the two series
       // need not start on the same day.
-      const headline = forecast?.inputs ?? [];
+      const headlineInputs = forecast?.inputs ?? [];
       const dateKeys = daysInRange
-        .map((d) => headline[d.dayStartIdx])
+        .map((d) => headlineInputs[d.dayStartIdx])
         .filter((i): i is NonNullable<typeof i> => i != null)
         .map((i) => localDateKeyLondon(i.time));
-      // Same seepage driver as the headline (§4.5), matched by timestamp.
-      const sharedSoilMoistureByTime = new Map<number, number | null>(
-        (forecast?.inputs ?? []).map((i) => [i.time, i.soilMoistureDeep]),
-      );
-      // icon_eu members publish no humidity; they borrow the headline's dew point (ensemble.ts).
-      const sharedDewPointByTime = new Map<number, number>(headline.map((i) => [i.time, i.dewPointC]));
-      const result = runEnsembleForCrag(crag, config, cell, dateKeys, sharedSoilMoistureByTime, sharedDewPointByTime);
+      // Members start from the headline's state and borrow what icon_eu doesn't
+      // publish, matched by timestamp (ensemble.ts).
+      const headline = forecast ? ensembleHeadline(forecast.inputs, forecast.hourly) : undefined;
+      const result = runEnsembleForCrag(crag, config, cell, dateKeys, headline);
       setEnsembleState({ status: 'done', result });
     } catch (err) {
       setEnsembleState({ status: 'error', message: describeError(err) });
@@ -236,6 +241,15 @@ export function CragDetailScreen({
     const norm = computeSmNorm(todayInput.soilMoistureDeep, calibration);
     return `about ${Math.round(norm * 100)}% of the way from this spot's usual dry-season low to its wet-season high`;
   }, [forecast, todayIndex, crag.id]);
+
+  const sharedPointNote = useMemo(() => {
+    const others = (SHARED_POINT_PARTNERS.get(crag.id) ?? []).map((id) => CRAGS.find((c) => c.id === id)).filter((c) => c != null);
+    if (others.length === 0) return null;
+    const list = others
+      .map((c) => `${c.name} (${Math.round(greatCircleDistanceKm(crag.lat, crag.lon, c.lat, c.lon) * 1000)}m away)`)
+      .join(' and ');
+    return `Shares its forecast point with ${list}: the same weather, so any difference between them is the rock.`;
+  }, [crag]);
 
   // Show the timeline over the same date range selected on the home screen,
   // rather than the full ~32 day spin-up + forecast series, so it stays
@@ -364,6 +378,11 @@ export function CragDetailScreen({
           {smPercentileText && (
             <p className="mx-4 mt-3 text-sm" style={{ color: 'var(--text-dim)' }}>
               Deep soil moisture: {smPercentileText}.
+            </p>
+          )}
+          {sharedPointNote && (
+            <p className="mx-4 mt-3 text-sm" style={{ color: 'var(--text-dim)' }}>
+              {sharedPointNote}
             </p>
           )}
 

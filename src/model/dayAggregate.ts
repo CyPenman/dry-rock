@@ -2,12 +2,13 @@ import type { CellForecast } from '../api/client';
 import { getSoilMoistureDeep } from '../api/soilMoisture';
 import { SOIL_MOISTURE_CALIBRATION } from '../data/soilMoistureCalibration';
 import { MODELS, PAST_DAYS, type ModelName } from '../api/request';
-import { buildHourlyInputsForModel } from './buildInputs';
+import { buildHourlyInputsForModel, sunTrack } from './buildInputs';
 import {
   bestFrictionBlock,
   FRICTION_BLOCK_LENGTH_HOURS,
   frictionBreakdownHour,
   frictionReasonForWindow,
+  type FrictionBreakdown,
   type FrictionReason,
 } from './friction';
 import {
@@ -30,6 +31,7 @@ import {
   climbableHoursForDay,
   findDryFrom,
   dayLimitingFactor,
+  fluxPrefixSums,
   runSimulation,
   type CragHourlyInput,
   type CragModelConfig,
@@ -45,10 +47,10 @@ export interface CragDayResult {
   verdict: Verdict;
   score: number;
   /**
-   * `score` softened by how much the models agree on this crag-day (§4.10),
-   * for display only - ranking still sorts on score band, confidence tier,
-   * then raw `score` (see ranking.ts), so this never changes ordering, only
-   * the number shown. Equal to `score` when confidence is high.
+   * `score` after the confidence trim (§4.10, `confidenceAdjustedScore`):
+   * the number shown, and the one the list ranks on and takes its band from
+   * (`compareRanked`, `displayBand`), so the numbers always run downhill.
+   * Equal to `score` when confidence is high.
    */
   displayScore: number;
   rockDrynessScore: number;
@@ -335,6 +337,9 @@ export function daylightWeatherSummary(dayInputs: CragHourlyInput[], isDayFlags:
 /** A day before cross-model confidence is attached. */
 type RawDay = Omit<CragDayResult, 'confidence' | 'displayScore' | 'modelScores' | 'modelScoreRange'>;
 
+/** Stands in for a night hour's friction, which nothing reads. */
+const NIGHT_FRICTION: FrictionBreakdown = { temp: 0, muggy: 0, nearDewPoint: 0, windy: 0, sunBaked: 0, salt: 0, slateGlassy: 0, score: 0 };
+
 /** Per-day rollup (§4.9) for one model's hourly series. Confidence is filled in afterwards, once every model's results are in. */
 function computeDaysForModel(
   crag: Crag,
@@ -345,8 +350,11 @@ function computeDaysForModel(
   crossModelPrecipProbPct: (number | null)[],
   /** The cell's local calendar days (time.ts); only days this model covers in full are rolled up. */
   boundaries: DayBoundary[],
+  /** `sunOnFaceHours` for each day in `boundaries` - geometry only, the same for every model, so worked out once. */
+  sunOnFaceByDay: CragDayResult['sunOnFaceHours'][],
 ): RawDay[] {
   const trock = results.map((r) => r.Trock);
+  const fluxSums = fluxPrefixSums(results);
   const days: RawDay[] = [];
 
   for (let day = 0; day < boundaries.length; day++) {
@@ -390,8 +398,10 @@ function computeDaysForModel(
       };
     };
 
+    // Daylight hours only: the friction block search and its reason never read a
+    // night hour (`bestFrictionBlock` skips any block that isn't all daylight).
     const frictionBreakdowns = dayResults.map((r, idx) =>
-      frictionBreakdownHour({
+      !isDayFlags[idx] ? NIGHT_FRICTION : frictionBreakdownHour({
         trockC: r.Trock,
         idealTempC: crag.idealTempC,
         dewPointC: dayInputs[idx].dewPointC,
@@ -441,7 +451,11 @@ function computeDaysForModel(
 
     const underSnowAnyHour = dayResults.some((r) => r.underSnow);
     const frozenAllDaylightHours = totalDaylightHours > 0 && dayResults.every((r, idx) => !isDayFlags[idx] || r.frozen);
-    const freezeThaw = hadFreezeThawCycle(trock, dayEnd, 48);
+    // The 48 hours up to the day's last daylight hour, not midnight (§5.5): a
+    // frost after dark says nothing about climbing that afternoon, and counts
+    // against the next day instead.
+    const lastDaylightOffset = isDayFlags.lastIndexOf(true);
+    const freezeThaw = hadFreezeThawCycle(trock, lastDaylightOffset >= 0 ? dayStart + lastDaylightOffset : dayEnd, 48);
 
     const verdict = dayVerdict({
       underSnowAnyHour,
@@ -491,16 +505,9 @@ function computeDaysForModel(
       frictionWindowDryness,
       effectiveDryDaylightHours,
       bestEffectiveRunHours,
-      sunOnFaceHours: sunOnFaceHours(
-        dayInputs.map((i) => i.time),
-        hoursOfDay,
-        crag.lat,
-        crag.lon,
-        crag.aspectDeg,
-        STEEPNESS_TILT_DEG[crag.steepness],
-      ),
+      sunOnFaceHours: sunOnFaceByDay[day],
       daylightWeather: daylightWeatherSummary(dayInputs, isDayFlags),
-      limitingFactor: dayLimitingFactor(results, dayStart, dayEnd, isDayFlags),
+      limitingFactor: dayLimitingFactor(results, dayStart, dayEnd, isDayFlags, fluxSums),
       showerDominance,
       avgDaylightTempC,
       rainChancePct,
@@ -535,9 +542,11 @@ export function computeCragForecast(
   // Calibrated against the same model's climatology as the series above (§3.5);
   // `runSimulation`'s initial M reads the same `config.smCalibration`.
   const config = toModelConfig(crag, sharedSoilMoisture?.source ?? null);
+  // The sun's geometry is the crag's, not the model's: once for all four (§3.4).
+  const sun = sunTrack(crag, cell.time);
 
   for (const model of MODELS) {
-    const inputs = buildHourlyInputsForModel(crag, cell, model, sharedSoilMoisture?.series ?? null);
+    const inputs = buildHourlyInputsForModel(crag, cell, model, sharedSoilMoisture?.series ?? null, sun);
     if (!inputs || inputs.length === 0) continue;
     perModelInputs.set(model, inputs);
     perModelResults.set(model, runSimulation(inputs, config));
@@ -557,11 +566,24 @@ export function computeCragForecast(
   });
 
   const boundaries = dayBoundaries(cell.time);
+  const tiltDeg = STEEPNESS_TILT_DEG[crag.steepness];
+  const sunOnFaceByDay = boundaries.map(({ startIdx, endIdx }) => {
+    const times = cell.time.slice(startIdx, endIdx + 1);
+    return sunOnFaceHours(times, times.map(hourOfDayLondon), crag.lat, crag.lon, crag.aspectDeg, tiltDeg);
+  });
   const perModelDaysRaw = new Map<ModelName, RawDay[]>();
   for (const model of availableModels) {
     perModelDaysRaw.set(
       model,
-      computeDaysForModel(crag, model, perModelResults.get(model)!, perModelInputs.get(model)!, crossModelPrecipProbPct, boundaries),
+      computeDaysForModel(
+        crag,
+        model,
+        perModelResults.get(model)!,
+        perModelInputs.get(model)!,
+        crossModelPrecipProbPct,
+        boundaries,
+        sunOnFaceByDay,
+      ),
     );
   }
 

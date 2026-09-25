@@ -1,5 +1,5 @@
-import { sortRanked, worthTheDrive, type RankedCragDay, type SortMode } from './ranking';
-import { scoreBand, type ScoreBand } from './scoreBand';
+import { compareWorthTheDrive, sortRanked, type RankedCragDay, type SortMode } from './ranking';
+import { displayBand, type ScoreBand } from './scoreBand';
 import type { Region } from './types';
 
 /** One day of one region, across all its crags (spec §6 Areas). */
@@ -62,7 +62,8 @@ export function summariseAreas(ranked: RankedCragDay[]): AreaSummary[] {
 /**
  * Re-order regions, and the crags inside each, by the Crags tab's "Sort by"
  * choice (spec §6 Areas). `score` keeps `summariseAreas`' own order. A region's
- * distance is its nearest crag's, and its "worth the drive" its best crag's -
+ * distance is its nearest crag's, and its "worth the drive" its best crag's by
+ * the same order the crags inside use (band first, then score over distance) -
  * each the crag you'd actually drive to. Ruled-out crags stay at the bottom of
  * their region whatever the sort, as on the Crags tab.
  */
@@ -83,7 +84,12 @@ export function sortAreas(areas: AreaSummary[], mode: SortMode): AreaSummary[] {
     case 'distance':
       return resorted.sort((a, b) => (nearestKm(a) ?? Infinity) - (nearestKm(b) ?? Infinity));
     case 'drive':
-      return resorted.sort((a, b) => bestWorth(b) - bestWorth(a));
+      return resorted.sort((a, b) => {
+        const wa = bestWorth(a);
+        const wb = bestWorth(b);
+        if (wa == null || wb == null) return wa == null ? (wb == null ? 0 : 1) : -1;
+        return compareWorthTheDrive(wa, wb);
+      });
   }
 }
 
@@ -93,8 +99,10 @@ export function nearestKm(area: AreaSummary): number | null {
   return ds.length ? Math.min(...ds) : null;
 }
 
-function bestWorth(area: AreaSummary): number {
-  return Math.max(0, ...area.crags.filter((r) => r.day.verdict === 'scored').map(worthTheDrive));
+/** The region's crag most worth the drive (`compareWorthTheDrive`); null when every crag is ruled out. */
+function bestWorth(area: AreaSummary): RankedCragDay | null {
+  const scored = area.crags.filter((r) => r.day.verdict === 'scored');
+  return scored.length ? [...scored].sort(compareWorthTheDrive)[0] : null;
 }
 
 function summariseDays(crags: RankedCragDay[]): AreaDay[] {
@@ -116,7 +124,7 @@ function summariseDays(crags: RankedCragDay[]): AreaDay[] {
         bands.poor++;
         continue;
       }
-      bands[scoreBand(d.displayScore * 100)]++;
+      bands[displayBand(d)]++;
       if (bestScore == null || d.displayScore > bestScore) {
         bestScore = d.displayScore;
         bestCrag = r;

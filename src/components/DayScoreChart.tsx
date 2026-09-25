@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import type { ModelName } from '../api/request';
+import { MODEL_DISPLAY_NAME, type ModelName } from '../api/request';
 import type { CragDayResult } from '../model/dayAggregate';
 import type { Verdict } from '../model/score';
-import { formatHeadlineModelCaption, MODEL_DISPLAY_NAME } from '../lib/format';
-import { Plot, STROKE, VW, dot, gridlines, pillStyle, poly, sx, xAxisRotation } from './chart/kit';
+import { formatHeadlineModelCaption } from '../lib/format';
+import { STROKE, VW, dot, gridlines, pillStyle, poly, sx, xAxisRotation } from './chart/draw';
+import { Plot } from './chart/kit';
 import { Explain } from './Explain';
 
 // Fixed categorical order, validated against the app's dark surface with the

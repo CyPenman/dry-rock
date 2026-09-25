@@ -36,6 +36,18 @@ describe('fetchFrom', () => {
     expect((err as Error).message).toMatch(message);
   });
 
+  it.each([
+    ['Daily API request limit exceeded. Please try again tomorrow.', 'day', /from this network today - try again tomorrow/],
+    ['Hourly API request limit exceeded. Please try again in the next hour.', 'hour', /this hour - try again in an hour/],
+    ['Minutely API request limit exceeded. Please try again in one minute.', 'minute', /try again in a few minutes/],
+  ])("reads the limit a 429 names: '%s'", async (reason, limit, message) => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ error: true, reason }), { status: 429 })));
+    const err = (await fetchFrom('Open-Meteo', 'https://x').catch((e: unknown) => e)) as ServiceError;
+    expect(err.problem).toBe('busy');
+    expect(err.limit).toBe(limit);
+    expect(err.message).toMatch(message);
+  });
+
   it('lets through a status the caller handles itself', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status: 404 })));
     const res = await fetchFrom('postcodes.io', 'https://x', undefined, [404]);

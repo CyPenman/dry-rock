@@ -1,17 +1,8 @@
-import type { ModelName } from '../api/request';
+import { MODEL_DISPLAY_NAME, type ModelName } from '../api/request';
 import type { CragDayResult } from '../model/dayAggregate';
 import type { FrictionReason } from '../model/friction';
 import { confidenceSentence, verdictMessage } from '../model/score';
-import { scoreBand } from '../model/scoreBand';
 import type { LimitingFactor } from '../model/wetness';
-
-/** Short display names for the four deterministic models (§3.3). */
-export const MODEL_DISPLAY_NAME: Record<ModelName, string> = {
-  ukmo_seamless: 'UKMO',
-  ecmwf_ifs025: 'ECMWF',
-  icon_seamless: 'ICON',
-  gfs_seamless: 'GFS',
-};
 
 const WEEKDAY_SHORT = new Intl.DateTimeFormat('en-GB', { weekday: 'short' });
 
@@ -176,7 +167,9 @@ export function daySummarySentence(
     | 'date'
     | 'verdict'
     | 'score'
+    | 'displayScore'
     | 'confidence'
+    | 'modelScores'
     | 'limitingFactor'
     | 'frictionReason'
     | 'climbableDaylightHours'
@@ -190,7 +183,7 @@ export function daySummarySentence(
   const label = WEEKDAY_SHORT.format(day.date);
   if (day.verdict !== 'scored') return `${label}: ${verdictMessage(day.verdict)}.`;
   const reason = dayReason(day) ?? 'good friction';
-  return `${label}: ${formatDryTiming(day)}, ${reason}. ${confidenceSentence(day.confidence, scoreBand(day.score * 100))}.`;
+  return `${label}: ${formatDryTiming(day)}, ${reason}. ${confidenceSentence(day)}.`;
 }
 
 /** "~2h10 drive", "~2h drive" or "~45min drive" from an estimated number of minutes (§6 Home row). */

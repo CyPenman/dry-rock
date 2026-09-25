@@ -2,9 +2,40 @@ import { getSoilMoistureDeep } from '../api/soilMoisture';
 import type { CellForecast } from '../api/client';
 import type { ModelName } from '../api/request';
 import { STEEPNESS_TILT_DEG } from './rockDefaults';
-import { computeGtiFace, solarPositionForHourlyRadiation } from './solar';
+import { computeGtiFace, isDaylight, solarPositionForHourlyRadiation, type SolarPosition } from './solar';
 import type { Crag } from './types';
+import { saturationVapourPressureKpa } from './vapour';
 import type { CragHourlyInput } from './wetness';
+
+/**
+ * The sun's geometry at one crag, hour by hour. It is the same for every
+ * model and every ensemble member, so it is worked out once per crag and
+ * shared (§3.4) - it was being recomputed for each of the four models, the
+ * largest single cost of building the inputs.
+ */
+export interface SunTrack {
+  /** Sun position for each hour's radiation mean (`solarPositionForHourlyRadiation`). */
+  radiation: SolarPosition[];
+  /** Daylight at each timestamp, as Open-Meteo's `is_day` (`isDaylight`), which is no longer requested (§3.1). */
+  isDay: boolean[];
+}
+
+export function sunTrack(crag: Pick<Crag, 'lat' | 'lon'>, times: number[]): SunTrack {
+  return {
+    radiation: times.map((t) => solarPositionForHourlyRadiation(t, crag.lat, crag.lon)),
+    isDay: times.map((t) => isDaylight(t, crag.lat, crag.lon)),
+  };
+}
+
+/**
+ * Air vapour pressure deficit, kPa, from temperature and dew point. Only a
+ * fallback for the drying term (it runs on the rock-surface deficit whenever
+ * there is a dew point, evaporation.ts) and a figure in the conditions-log
+ * snapshot, so it is worked out here rather than requested (§3.1).
+ */
+export function vpdFromDewPointKpa(tempC: number, dewPointC: number): number {
+  return Math.max(0, saturationVapourPressureKpa(tempC) - saturationVapourPressureKpa(dewPointC));
+}
 
 /**
  * Build the per-hour model input series for one crag from one cell's raw
@@ -13,13 +44,15 @@ import type { CragHourlyInput } from './wetness';
  *
  * `sharedSoilMoisture`, when given, replaces the model's own deep soil moisture
  * hour for hour (indexed like `cell.time`) - see `buildSharedSoilMoisture` in
- * dayAggregate.ts for why every model is fed the same series (§4.5).
+ * dayAggregate.ts for why every model is fed the same series (§4.5). `sun` is
+ * this crag's `sunTrack` over `cell.time`, worked out here when not given.
  */
 export function buildHourlyInputsForModel(
   crag: Crag,
   cell: CellForecast,
   model: ModelName,
   sharedSoilMoisture?: (number | null)[] | null,
+  sun: SunTrack = sunTrack(crag, cell.time),
 ): CragHourlyInput[] | null {
   const vars = cell.models[model];
   if (!vars || !vars.temperature_2m || !vars.dew_point_2m) return null;
@@ -44,12 +77,12 @@ export function buildHourlyInputsForModel(
   if (resolvedLength === 0) return null;
 
   const soilMoistureDeepSeries = getSoilMoistureDeep(vars);
+  const tiltDeg = STEEPNESS_TILT_DEG[crag.steepness];
   const n = resolvedLength;
   const inputs: CragHourlyInput[] = new Array(n);
 
   for (let i = 0; i < n; i++) {
-    const time = cell.time[i];
-    const { elevationDeg, azimuthDeg } = solarPositionForHourlyRadiation(time, crag.lat, crag.lon);
+    const { elevationDeg, azimuthDeg } = sun.radiation[i];
     const gtiFaceWm2 = computeGtiFace({
       dni: vars.direct_normal_irradiance?.[i] ?? 0,
       dhi: vars.diffuse_radiation?.[i] ?? 0,
@@ -57,22 +90,24 @@ export function buildHourlyInputsForModel(
       elevationDeg,
       azimuthDeg,
       aspectDeg: crag.aspectDeg,
-      tiltDeg: STEEPNESS_TILT_DEG[crag.steepness],
+      tiltDeg,
     });
+    const tempC = vars.temperature_2m[i];
+    const dewPointC = vars.dew_point_2m[i];
 
     inputs[i] = {
-      time,
+      time: cell.time[i],
       precipitationMm: vars.precipitation?.[i] ?? 0,
       showersMm: vars.showers?.[i] ?? 0,
       snowDepthM: vars.snow_depth?.[i] ?? 0,
-      tempC: vars.temperature_2m[i],
-      dewPointC: vars.dew_point_2m[i],
-      vpdKpa: vars.vapour_pressure_deficit?.[i] ?? 0,
+      tempC,
+      dewPointC,
+      vpdKpa: vpdFromDewPointKpa(tempC, dewPointC),
       windSpeedMs: vars.wind_speed_10m?.[i] ?? 0,
       windDirectionDeg: vars.wind_direction_10m?.[i] ?? 0,
       cloudCoverPct: vars.cloud_cover?.[i] ?? 0,
       visibilityM: vars.visibility?.[i] ?? 20000,
-      isDay: (vars.is_day?.[i] ?? 1) === 1,
+      isDay: sun.isDay[i],
       gtiFaceWm2,
       soilMoistureDeep: sharedSoilMoisture
         ? (sharedSoilMoisture[i] ?? null)

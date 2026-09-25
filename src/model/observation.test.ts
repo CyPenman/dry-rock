@@ -29,10 +29,6 @@ function makeCell(): CellForecast {
   };
   return {
     time,
-    dailyTime: [],
-    dailySunrise: [],
-    dailySunset: [],
-    dailyPrecipSum: [],
     models: { ukmo_seamless: vars, ecmwf_ifs025: {}, icon_seamless: {}, gfs_seamless: {} },
   };
 }

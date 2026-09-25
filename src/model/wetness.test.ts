@@ -186,6 +186,45 @@ describe('§8.4 validation cases', () => {
     expect(results.every((r) => r.underSnow && !r.climbable)).toBe(true);
   });
 
+  describe('Stanage: a dry fortnight, then an overcast day at -2 to 0°C with a low dew point', () => {
+    // A crisp winter grit day. The rock goes below 0°C, but after a dry
+    // fortnight it holds no water that could glaze the holds, so it is cold
+    // rock, not verglas. The same cold day straight after rain is verglas.
+    const config = toConfig(crag('stanage'));
+    const coldDay = (hod: number) => {
+      const t = -2 + 2 * Math.sin((Math.PI * Math.max(0, hod - 6)) / 12) * (hod >= 6 && hod <= 18 ? 1 : 0);
+      return { precipitationMm: 0, tempC: t, dewPointC: -7, vpdKpa: vpdKpa(t, -7), windSpeedMs: 3, cloudCoverPct: 100, gtiFaceWm2: defaultGti(hod, 40) };
+    };
+    // Three cold days: the rock's slow bulk (tauRock 9h) keeps the first one above 0°C.
+    const dryDays = 14 * 24;
+    const coldHours = 3 * 24;
+    const mildDry = (hod: number) => ({ precipitationMm: 0, tempC: 9, dewPointC: 2, vpdKpa: vpdKpa(9, 2), windSpeedMs: 4, gtiFaceWm2: defaultGti(hod, 300) });
+    const lastDay = dryDays + coldHours - 24;
+    const coldDaylight = (results: HourResult[], inputs: CragHourlyInput[]) =>
+      results.slice(lastDay).filter((_, i) => inputs[lastDay + i].isDay);
+
+    it('climbable and not frozen when the fortnight was dry', () => {
+      const inputs = buildSeries(dryDays + coldHours, (i, hod) => (i < dryDays ? mildDry(hod) : coldDay(hod)));
+      const results = runSimulation(inputs, config);
+      const daylight = coldDaylight(results, inputs);
+      expect(daylight.some((r) => r.Trock < 0)).toBe(true);
+      expect(daylight.every((r) => !r.frozen && r.climbable)).toBe(true);
+    });
+
+    it('frozen when the same cold day follows rain', () => {
+      const inputs = buildSeries(dryDays + coldHours, (i, hod) => {
+        if (i < dryDays - 12) return mildDry(hod);
+        if (i < dryDays) return { precipitationMm: 2, tempC: 3, dewPointC: 2.5, windSpeedMs: 4, cloudCoverPct: 100, gtiFaceWm2: 0 };
+        return coldDay(hod);
+      });
+      const results = runSimulation(inputs, config);
+      const daylight = coldDaylight(results, inputs);
+      const subZero = daylight.filter((r) => r.Trock < 0);
+      expect(subZero.length).toBeGreaterThan(0);
+      expect(subZero.every((r) => r.frozen && !r.climbable)).toBe(true);
+    });
+  });
+
   it('Kilnsey: the roof sheds active rain when the antecedent fortnight was dry', () => {
     // A short burst, isolating the roof-shedding mechanism (rainExposure 0.15)
     // from the lip-drainage mechanism (catchmentAbove 0.65, §4.2's EWMA of Pface)
@@ -494,6 +533,13 @@ describe('one vapour-pressure equation for drying and dew (§4.3/§4.4)', () => 
     expect(computeE0({ ...common, trockC: 20 })).toBeGreaterThan(computeE0({ ...common, trockC: 10 }));
     expect(computeE0({ ...common, trockC: 7 })).toBe(0); // below the dew point: no drying, dew instead
   });
+
+  it('cuts drying to sublimation only for ice, not for dry rock below 0°C', () => {
+    const cold = { gtiFaceWm2: 0, vpdKpa: 0, dewPointC: -8, windSpeedMs: 6, canopyLight: 1, windShelter: 1, dryingRate: 1, trockC: -1, visibilityM: 20000 };
+    const dry = computeE0(cold);
+    expect(dry).toBeGreaterThan(0.01);
+    expect(computeE0({ ...cold, iced: true })).toBeCloseTo(dry * 0.05, 10);
+  });
 });
 
 describe('tree shade on rock heating (§4.2, canopyLight)', () => {
@@ -537,7 +583,7 @@ describe('graded dryness - no cliff edge at the dry-inside line (§4.7)', () => 
   it('sums partial hours for the score while the whole-hour counts stay for the wording', () => {
     const hour = (dryness: number): HourResult => ({
       time: 0, S: 0, M: 0, Trock: 10, climbable: dryness === 1, dryness, frozen: false, underSnow: false,
-      fluxes: { rain: 0, seepage: 0, condensation: 0, melt: 0 },
+      fluxes: { rain: 0, seepage: 0, condensation: 0, melt: 0 }, Tbulk: 10, pfaceEwma: 0, precipEwma: 0,
     });
     const day = [hour(0), hour(0.5), hour(0.5), hour(1), hour(1), hour(0), hour(0.25)];
     const r = climbableHoursForDay(day, day.map(() => true));

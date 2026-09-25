@@ -3,7 +3,7 @@ import { dayReason, formatDayLabel, formatDistanceMiles, formatDriveTime, format
 import { estimateDriveMinutes } from '../model/distance';
 import type { RankedCragDay } from '../model/ranking';
 import { confidenceSentence, verdictMessage } from '../model/score';
-import { SCORE_BAND_COLOR_VAR, scoreBand } from '../model/scoreBand';
+import { displayBand, SCORE_BAND_COLOR_VAR } from '../model/scoreBand';
 
 const DAY_LETTER = new Intl.DateTimeFormat('en-GB', { weekday: 'short' });
 
@@ -55,7 +55,7 @@ export function DayStrip({ ranked, compact = false }: { ranked: RankedCragDay; c
               <div style={{ background: 'var(--ground-sunken)', padding: 3 }}>
                 <div style={{ height: 6, background: 'var(--ground-raised)' }}>
                   {!isGated && (
-                    <div style={{ height: 6, width: `${scorePct}%`, background: SCORE_BAND_COLOR_VAR[scoreBand(scorePct)] }} />
+                    <div style={{ height: 6, width: `${scorePct}%`, background: SCORE_BAND_COLOR_VAR[displayBand(d)] }} />
                   )}
                 </div>
               </div>
@@ -138,7 +138,7 @@ export function CragRow({
                 {formatDistanceMiles(distanceKm)}, {formatDriveTime(estimateDriveMinutes(distanceKm))} &middot;{' '}
               </>
             )}
-            {confidenceSentence(day.confidence, scoreBand(day.score * 100))}
+            {confidenceSentence(day)}
           </div>
         </>
       )}

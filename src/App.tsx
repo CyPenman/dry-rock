@@ -22,11 +22,15 @@ const TAB_LABEL: Record<Tab, string> = { areas: 'Areas', crags: 'Crags', map: 'M
 const SWIPE_THRESHOLD_PX = 60;
 const SWIPE_HORIZONTAL_BIAS = 1.5;
 
+/** How long a notice (e.g. "You can pin up to 5 crags") stays up. */
+const NOTICE_MS = 4000;
+
 function App() {
   const [view, setView] = useState<View>({ name: 'home' });
   const [activeTab, setActiveTab] = useState<Tab>('areas');
   const [dateRange, setDateRange] = useState<DateRangeSelection>(DEFAULT_DATE_RANGE);
-  const { settings, update, togglePinned } = useSettings();
+  const { settings, update, togglePinned, maxPinned } = useSettings();
+  const [notice, setNotice] = useState<string | null>(null);
   const { loading, failure, fetchedAt, results, todayIndex, dayCount, refresh } = useForecast(CRAGS);
   const touchRef = useRef<{ x: number; y: number } | null>(null);
 
@@ -45,6 +49,22 @@ function App() {
     if (detailCragId) countEvent(`crag/${detailCragId}`, CRAGS.find((c) => c.id === detailCragId)?.name);
     else countEvent(view.name);
   }, [view.name, detailCragId]);
+
+  // A notice clears itself after a few seconds.
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(null), NOTICE_MS);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
+
+  // Pinning past the limit used to do nothing at all (spec §6 Home).
+  function handleTogglePin(cragId: string) {
+    if (!settings.pinnedCragIds.includes(cragId) && settings.pinnedCragIds.length >= maxPinned) {
+      setNotice(`You can pin up to ${maxPinned} crags - unpin one first.`);
+      return;
+    }
+    togglePinned(cragId);
+  }
 
   function switchTab(tab: Tab) {
     if (tab !== activeTab) countEvent(`tab/${tab}`, TAB_LABEL[tab]);
@@ -147,7 +167,7 @@ function App() {
                 onRefresh={refresh}
                 settings={settings}
                 updateSettings={update}
-                togglePinned={togglePinned}
+                togglePinned={handleTogglePin}
                 onSelectCrag={(id) => setView({ name: 'detail', cragId: id })}
                 dateRange={dateRange}
                 onChangeDateRange={setDateRange}
@@ -206,7 +226,7 @@ function App() {
           <CragDetailScreen
             entry={detailEntry}
             pinned={settings.pinnedCragIds.includes(view.cragId)}
-            onTogglePin={() => togglePinned(view.cragId)}
+            onTogglePin={() => handleTogglePin(view.cragId)}
             onBack={() => setView({ name: 'home' })}
             dateRange={dateRange}
             todayIndex={todayIndex}
@@ -219,6 +239,23 @@ function App() {
           />
         </Overlay>
       )}
+
+      {/* Above the tab bar and any overlay, clear of the iPhone home indicator. */}
+      <div
+        role="status"
+        aria-live="polite"
+        className="pointer-events-none fixed inset-x-0 z-[60] flex justify-center px-4"
+        style={{ bottom: 'calc(env(safe-area-inset-bottom) + 64px)' }}
+      >
+        {notice && (
+          <p
+            className="max-w-screen-sm rounded border px-3 py-2 text-sm"
+            style={{ background: 'var(--ground-raised)', borderColor: 'var(--border)', color: 'var(--text)' }}
+          >
+            {notice}
+          </p>
+        )}
+      </div>
     </>
   );
 }

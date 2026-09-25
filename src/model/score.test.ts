@@ -86,7 +86,7 @@ describe('rockDrynessScore contiguity blending', () => {
       bestFrictionBlockScore: 1,
     });
     // Against a 6-hour session (P2-14): 5 of 6 hours, and no contiguous credit.
-    expect(breakdown.rockDrynessScore).toBeCloseTo(0.5 * (5 / SESSION_HOURS) + 0.5 * 0);
+    expect(breakdown.rockDrynessScore).toBeCloseTo(0.5 * (5 / SESSION_HOURS)); // the contiguous half adds nothing
   });
 });
 
@@ -189,31 +189,71 @@ describe('dayVerdict (§4.9 hard gates)', () => {
 });
 
 describe('confidence (§4.10)', () => {
-  it('reports the fraction of models that agree', () => {
+  const all = [
+    { model: 'ukmo_seamless' as const, score: 0.9 },
+    { model: 'ecmwf_ifs025' as const, score: 0.9 },
+    { model: 'icon_seamless' as const, score: 0.3 },
+    { model: 'gfs_seamless' as const, score: 0.9 },
+  ];
+
+  it('reports the fraction of models that agree, and what they agree on', () => {
     const agreement = modelAgreement([true, true, false, true]);
     expect(agreement).toEqual({ agreeCount: 3, total: 4, fraction: 0.75 });
-    expect(confidenceSentence(agreement, 'good')).toBe("3 of 4 models agree it's a good day");
-    expect(confidenceSentence(agreement, 'poor')).toBe("3 of 4 models agree it's a poor day");
+    expect(confidenceSentence({ confidence: agreement, score: 0.9, displayScore: 0.9, modelScores: all })).toBe(
+      "3 of 4 models agree it's a good day",
+    );
+    expect(confidenceSentence({ confidence: agreement, score: 0.3, displayScore: 0.3, modelScores: all })).toBe(
+      "3 of 4 models agree it's a poor day",
+    );
+  });
+
+  it('names the models when fewer than four reach the day', () => {
+    const two = all.filter((s) => s.model === 'ecmwf_ifs025' || s.model === 'gfs_seamless');
+    expect(confidenceSentence({ confidence: modelAgreement([true, true]), score: 0.9, displayScore: 0.855, modelScores: two })).toBe(
+      "2 of 2 models agree it's a good day (only ECMWF and GFS reach this day)",
+    );
+  });
+
+  it('says a lone model has nothing to check it against, never "1 of 1 models agree"', () => {
+    const gfs = all.filter((s) => s.model === 'gfs_seamless');
+    expect(confidenceSentence({ confidence: modelAgreement([true]), score: 0.9, displayScore: 0.765, modelScores: gfs })).toBe(
+      'Only GFS reaches this day - nothing to check it against',
+    );
+  });
+
+  it('says when the confidence trim moves the number shown into a lower band', () => {
+    expect(confidenceSentence({ confidence: modelAgreement([true, false, false, false]), score: 0.72, displayScore: 0.612, modelScores: all })).toBe(
+      "1 of 4 models agree it's a good day, so it's marked down to a fair day",
+    );
   });
 });
 
 describe('confidenceTier', () => {
+  const agree = (agreeCount: number, total: number) => ({ agreeCount, total, fraction: agreeCount / total });
+
   it('is tier 2 (high) at or above 0.75 agreement with non-showery rain', () => {
-    expect(confidenceTier(0.75, 0)).toBe(2);
-    expect(confidenceTier(1, 0)).toBe(2);
+    expect(confidenceTier(agree(3, 4), 0)).toBe(2);
+    expect(confidenceTier(agree(4, 4), 0)).toBe(2);
   });
 
   it('is tier 1 (medium) between 0.5 and 0.75', () => {
-    expect(confidenceTier(0.5, 0)).toBe(1);
-    expect(confidenceTier(0.74, 0)).toBe(1);
+    expect(confidenceTier(agree(2, 4), 0)).toBe(1);
+    expect(confidenceTier(agree(2, 3), 0)).toBe(1);
   });
 
   it('is tier 0 (low) below 0.5', () => {
-    expect(confidenceTier(0.49, 0)).toBe(0);
+    expect(confidenceTier(agree(1, 4), 0)).toBe(0);
   });
 
   it('caps a showery day at tier 1 even with perfect model agreement', () => {
-    expect(confidenceTier(1, 0.9)).toBe(1);
+    expect(confidenceTier(agree(4, 4), 0.9)).toBe(1);
+  });
+
+  it('caps by how many models reach the day: one at most low, two at most medium', () => {
+    expect(confidenceTier(agree(1, 1), 0)).toBe(0);
+    expect(confidenceTier(agree(2, 2), 0)).toBe(1);
+    expect(confidenceTier(agree(1, 2), 0)).toBe(1);
+    expect(confidenceTier(agree(3, 3), 0)).toBe(2);
   });
 });
 
@@ -228,6 +268,11 @@ describe('confidenceAdjustedScore', () => {
     const adjusted = confidenceAdjustedScore(0.8, agreement, 0);
     expect(adjusted).toBeLessThan(0.8);
     expect(adjusted).toBeGreaterThan(0.8 * 0.8); // gentle - never more than a ~15% cut
+  });
+
+  it('trims a day only one model reaches as a low-confidence day (§4.10)', () => {
+    expect(confidenceAdjustedScore(0.9, modelAgreement([true]), 0)).toBeCloseTo(0.9 * 0.85);
+    expect(confidenceAdjustedScore(0.9, modelAgreement([true, true]), 0)).toBeCloseTo(0.9 * 0.95);
   });
 
   it('never turns a zero score into a non-zero one', () => {

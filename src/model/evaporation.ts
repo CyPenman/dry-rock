@@ -13,6 +13,13 @@ export interface EvaporationInputs {
   dryingRate: number;
   trockC: number;
   visibilityM: number;
+  /**
+   * The face's water is ice: rock below 0°C holding enough water to glaze it
+   * (`canGlaze`, wetness.ts). Ice only sublimates, slowly. Dry rock below 0°C is
+   * not iced and dries at the full rate - a cold dry northerly is exactly the
+   * weather that dries a crag fastest (§4.3). Absent means not iced.
+   */
+  iced?: boolean;
 }
 
 /** Share of the reference drying rate that happens in dead calm - the wind function's existing floor (§4.3). */
@@ -54,14 +61,16 @@ export function computeAeroFlux(inputs: Omit<EvaporationInputs, 'gtiFaceWm2' | '
  * `stepHour` adds as condensation instead.
  */
 export function computeE0(inputs: EvaporationInputs): number {
-  const { gtiFaceWm2, canopyLight, dryingRate, trockC, visibilityM } = inputs;
+  const { gtiFaceWm2, canopyLight, dryingRate, visibilityM, iced } = inputs;
 
   const Erad = PARAMS.kRad * (gtiFaceWm2 / 1000);
   const Eaero = Math.max(0, computeAeroFlux(inputs));
 
   let E0 = Erad * canopyLight * dryingRate + Eaero;
 
-  if (trockC < 0) E0 *= 0.05; // frozen rock - ice sublimates, slowly
+  // Only for ice. It used to apply to any rock below 0°C, so a dry face in a
+  // frost could barely dry at all.
+  if (iced) E0 *= 0.05;
   if (visibilityM < 1000) E0 *= 0.2; // fog / valley inversion stops drying dead
 
   return Math.max(0, E0);

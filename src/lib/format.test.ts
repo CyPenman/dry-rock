@@ -105,7 +105,9 @@ describe('daySummarySentence (§1)', () => {
     date: new Date(2026, 8, 26), // a Saturday
     verdict: 'scored' as const,
     score: 0.9,
+    displayScore: 0.9,
     confidence: { agreeCount: 4, total: 4, fraction: 1 },
+    modelScores: (['ukmo_seamless', 'ecmwf_ifs025', 'icon_seamless', 'gfs_seamless'] as const).map((model) => ({ model, score: 0.9 })),
     limitingFactor: 'none' as const,
     frictionReason: null,
     climbableDaylightHours: 12,

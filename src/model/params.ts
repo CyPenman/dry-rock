@@ -29,9 +29,11 @@ export const PARAMS = {
   maxSeep: 0.08, // mm/hr at full saturation, seepIndex 1.0
   seepExp: 2.0,
 
-  // Snow
+  // Snow and ice
   meltRate: 0.15, // mm/hr per degC above freezing
-  frozenWetThreshold: 0.05,
+  // No threshold of its own for verglas: rock below 0°C is frozen when it
+  // holds water that can glaze it - S at or over S_dry, or M/Mmax at or over
+  // matrixDryFraction (`canGlaze`, wetness.ts, §4.6).
 } as const;
 
 export type Params = typeof PARAMS;

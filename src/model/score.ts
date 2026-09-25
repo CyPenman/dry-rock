@@ -1,4 +1,5 @@
-import type { ScoreBand } from './scoreBand';
+import { MODEL_DISPLAY_NAME, MODELS, type ModelName } from '../api/request';
+import { displayBand, scoreBand, type ScoreBand } from './scoreBand';
 
 export type Verdict = 'scored' | 'under_snow' | 'frozen' | 'rock_damage' | 'soft_rock_wet';
 
@@ -128,9 +129,42 @@ export function modelAgreement(perModelAgrees: boolean[]): ModelAgreement {
 
 const BAND_PHRASE: Record<ScoreBand, string> = { good: 'a good day', fair: 'a fair day', poor: 'a poor day' };
 
-/** "3 of 4 models agree it's a good day" - says what they agree on (§4.10). */
-export function confidenceSentence(agreement: ModelAgreement, band: ScoreBand): string {
-  return `${agreement.agreeCount} of ${agreement.total} models agree it's ${BAND_PHRASE[band]}`;
+/** What `confidenceSentence` needs from a crag-day (`CragDayResult`). */
+export interface ConfidenceSubject {
+  confidence: ModelAgreement;
+  /** Raw score, 0-1: the models' agreement is counted on its band. */
+  score: number;
+  /** The number shown, 0-1. */
+  displayScore: number;
+  /** Every model with data for the day - the same set `confidence` counts. */
+  modelScores: { model: ModelName; score: number }[];
+}
+
+function joinNames(names: string[]): string {
+  return names.length <= 1 ? (names[0] ?? '') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+
+/**
+ * What the models agree on, in a sentence (§4.10): "3 of 4 models agree it's
+ * a good day". Says plainly when fewer models reach the day ("only ECMWF and
+ * GFS reach this day"), and with one model says there's nothing to check it
+ * against rather than "1 of 1 models agree". The agreement is on the raw
+ * score's band, so when the confidence trim moves the number shown into a
+ * lower band, it says so instead of calling a 61 "a good day".
+ */
+export function confidenceSentence(day: ConfidenceSubject): string {
+  const { agreeCount, total } = day.confidence;
+  const band = scoreBand(day.score * 100);
+  const names = day.modelScores.map((s) => MODEL_DISPLAY_NAME[s.model]);
+  let sentence =
+    total <= 1
+      ? `Only ${names[0] ?? 'one model'} reaches this day - nothing to check it against`
+      : `${agreeCount} of ${total} models agree it's ${BAND_PHRASE[band]}${
+          total < MODELS.length && names.length === total ? ` (only ${joinNames(names)} reach this day)` : ''
+        }`;
+  const shown = displayBand(day);
+  if (shown !== band) sentence += `, so it's marked down to ${BAND_PHRASE[shown]}`;
+  return sentence;
 }
 
 /**
@@ -138,10 +172,9 @@ export function confidenceSentence(agreement: ModelAgreement, band: ScoreBand): 
  * precipitation, convective rain is poorly located by any model at any
  * resolution, so widen the uncertainty." `showerDominance` is the day's
  * showers-mm / total-precipitation-mm (0 when no rain fell - nothing to widen).
- * Above this threshold, model agreement is treated as capped at "medium"
- * confidence for ranking purposes (see `ranking.ts`), regardless of the raw
- * fraction - a caveat, not a silently altered number, per the app's "never
- * present a bare number" principle.
+ * Above this threshold, model agreement is capped at "medium" confidence
+ * (`confidenceTier`), regardless of the raw fraction, and the day carries a
+ * caveat saying so.
  */
 export const SHOWER_DOMINANCE_THRESHOLD = 0.6;
 
@@ -152,29 +185,36 @@ export function confidenceCaveat(showerDominance: number): string | null {
 }
 
 /**
- * §4.10 confidence tiers, capped when the day's precipitation was mostly
- * convective (showerDominance > SHOWER_DOMINANCE_THRESHOLD) - "widen the
- * uncertainty" for showery days, since convective rain is poorly located by
- * every model regardless of how well they happen to agree on this run.
- * Shared by ranking (sort order) and `confidenceAdjustedScore` (display
- * number) so the two never disagree about how confident a day is.
+ * §4.10 confidence tier - 0 low, 1 medium, 2 high - from the share of models
+ * agreeing, then capped two ways:
+ *
+ * - By how many models reach the day: one model is at most low, two at most
+ *   medium. A model with no data drops out of the count rather than voting no,
+ *   which is right, but on its own it made the furthest days the surest -
+ *   past about a week only ECMWF and GFS run (2 of 2, never low), and the last
+ *   day is GFS alone ("1 of 1 models agree", top tier, no trim).
+ * - When the day's rain was mostly showers (showerDominance >
+ *   SHOWER_DOMINANCE_THRESHOLD): convective rain is poorly placed by every
+ *   model, however well they happen to agree on this run - "widen the
+ *   uncertainty".
  */
-export function confidenceTier(fraction: number, showerDominance: number): number {
-  const rawTier = fraction >= 0.75 ? 2 : fraction >= 0.5 ? 1 : 0;
-  return showerDominance > SHOWER_DOMINANCE_THRESHOLD ? Math.min(rawTier, 1) : rawTier;
+export function confidenceTier(agreement: ModelAgreement, showerDominance: number): number {
+  const rawTier = agreement.fraction >= 0.75 ? 2 : agreement.fraction >= 0.5 ? 1 : 0;
+  const modelCountCap = agreement.total <= 1 ? 0 : agreement.total === 2 ? 1 : 2;
+  const showerCap = showerDominance > SHOWER_DOMINANCE_THRESHOLD ? 1 : 2;
+  return Math.min(rawTier, modelCountCap, showerCap);
 }
 
 /**
- * A mild multiplicative haircut on low-confidence days' displayed score - the
- * number itself should already hint "don't trust this too far" rather than
- * relying on the reader to notice a separate caveat sentence. Deliberately
- * gentle (top tier is unchanged, bottom tier loses at most 15%) so this stays
- * a nudge, not a second scoring system: ranking order is untouched, since
- * `rankCragDays` sorts on score band, confidence tier and raw `score`, never this value.
+ * The confidence trim: a mild multiplicative haircut that turns the raw score
+ * into `displayScore`, the number shown and ranked on (§4.10). High
+ * confidence is unchanged, medium loses 5%, low 15% - so a medium-confidence
+ * day has to score over 5% higher to rank above a high-confidence one, and a
+ * low-confidence day over 15%. Deliberately gentle: a much better day can still
+ * outrank a slightly surer one.
  */
 const CONFIDENCE_TIER_MULTIPLIER = [0.85, 0.95, 1.0] as const;
 
 export function confidenceAdjustedScore(rawScore: number, agreement: ModelAgreement, showerDominance: number): number {
-  const tier = confidenceTier(agreement.fraction, showerDominance);
-  return rawScore * CONFIDENCE_TIER_MULTIPLIER[tier];
+  return rawScore * CONFIDENCE_TIER_MULTIPLIER[confidenceTier(agreement, showerDominance)];
 }

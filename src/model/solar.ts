@@ -97,6 +97,19 @@ export function solarPositionForHourlyRadiation(unixSeconds: number, latDeg: num
   return solarPosition(unixSeconds - 1800, latDeg, lonDeg);
 }
 
+/**
+ * The sun's elevation at sunrise and sunset by the standard definition: the
+ * top of the disc on the horizon, allowing for refraction. Open-Meteo's
+ * `is_day` is the sun above this at the hour's timestamp - against 104,448
+ * real hours (34 cells, 4 models, 32 days) this matched it on all but 30.
+ */
+export const SUNRISE_ELEVATION_DEG = -0.833;
+
+/** Daylight at an instant, as Open-Meteo's `is_day` - worked out here rather than requested (§3.1). */
+export function isDaylight(unixSeconds: number, latDeg: number, lonDeg: number): boolean {
+  return solarPosition(unixSeconds, latDeg, lonDeg).elevationDeg > SUNRISE_ELEVATION_DEG;
+}
+
 export interface GtiFaceInputs {
   dni: number; // direct_normal_irradiance, W/m^2
   dhi: number; // diffuse_radiation (diffuse horizontal), W/m^2

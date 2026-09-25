@@ -46,12 +46,6 @@ function mockResponse(lat: number, lon: number): OpenMeteoResponse {
       temperature_2m_ukmo_seamless: [10, 11, 12],
       soil_moisture_28_to_100cm_ukmo_seamless: [0.3, 0.3, 0.3],
     },
-    daily: {
-      time: [1000],
-      sunrise: [900],
-      sunset: [4000],
-      precipitation_sum: [1],
-    },
   };
 }
 
@@ -78,7 +72,6 @@ describe('fetchCellForecasts', () => {
     expect(cellA.models.ecmwf_ifs025.precipitation).toEqual([0, 0.5, 0]);
     expect(cellA.models.ukmo_seamless.temperature_2m).toEqual([10, 11, 12]);
     expect(cellA.models.ukmo_seamless.soil_moisture_28_to_100cm).toEqual([0.3, 0.3, 0.3]);
-    expect(cellA.dailySunrise).toEqual([900]);
   });
 
   it('normalizes a bare single-coordinate object response', async () => {

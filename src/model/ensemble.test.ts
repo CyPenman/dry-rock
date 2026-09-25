@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import type { EnsembleCellForecast } from '../api/ensembleClient';
 import { CRAGS } from '../data/crags';
 import { toModelConfig } from './dayAggregate';
-import { nearestRankPercentile, runEnsembleForCrag } from './ensemble';
+import { firstUsableWindowStart, nearestRankPercentile, runEnsembleForCrag, type EnsembleHeadline } from './ensemble';
+import { isDaylight } from './solar';
+import type { CragHourlyInput, HourResult } from './wetness';
 
 // London midnight, 1 June 2024 (BST) - days are read from the timestamps (time.ts).
 const START = Date.UTC(2024, 4, 31, 23) / 1000;
@@ -14,7 +16,9 @@ function crag(id: string) {
   return found;
 }
 
-const daylight = (i: number) => i % 24 >= 6 && i % 24 <= 18;
+const timeAt = (i: number) => START + i * 3600;
+// Radiation by the clock; daylight itself comes from the sun (isDaylight), as in the app.
+const radiated = (i: number) => i % 24 >= 6 && i % 24 <= 18;
 
 /** Dry member, wet all the time, or dry with a 3mm shower ending at `wetUntilHour` each morning. */
 function makeMemberVars(hours: number, opts: { dry: boolean; wetUntilHour?: number }): Record<string, number[]> {
@@ -23,24 +27,32 @@ function makeMemberVars(hours: number, opts: { dry: boolean; wetUntilHour?: numb
   const wetHour = (i: number) => !opts.dry || showerHour(i);
   return {
     precipitation: Array.from({ length: hours }, (_, i) => (!opts.dry ? 5 : showerHour(i) ? 1 : 0)),
-    snow_depth: Array.from({ length: hours }, () => 0),
     temperature_2m: Array.from({ length: hours }, () => 18),
     dew_point_2m: Array.from({ length: hours }, (_, i) => (wetHour(i) ? 16 : 6)),
-    vapour_pressure_deficit: Array.from({ length: hours }, (_, i) => (wetHour(i) ? 0.1 : 1.2)),
     wind_speed_10m: Array.from({ length: hours }, () => 4),
     wind_direction_10m: Array.from({ length: hours }, () => 180),
     cloud_cover: Array.from({ length: hours }, () => 10),
-    visibility: Array.from({ length: hours }, () => 20000),
-    shortwave_radiation: Array.from({ length: hours }, (_, i) => (daylight(i) ? 500 : 0)),
-    direct_normal_irradiance: Array.from({ length: hours }, (_, i) => (daylight(i) ? 500 : 0)),
+    shortwave_radiation: Array.from({ length: hours }, (_, i) => (radiated(i) ? 500 : 0)),
+    direct_normal_irradiance: Array.from({ length: hours }, (_, i) => (radiated(i) ? 500 : 0)),
     diffuse_radiation: Array.from({ length: hours }, () => 50),
-    is_day: Array.from({ length: hours }, (_, i) => (daylight(i) ? 1 : 0)),
-    soil_moisture_28_to_100cm: Array.from({ length: hours }, () => 0.1),
   };
 }
 
 function cellOf(hours: number, members: Record<string, Record<string, number[]>>): EnsembleCellForecast {
-  return { time: Array.from({ length: hours }, (_, i) => START + i * 3600), members };
+  return { time: Array.from({ length: hours }, (_, i) => timeAt(i)), members };
+}
+
+/** A headline for `hours` hours from START: dew point 6°C, no snow, and any overrides per input and per result. */
+function headlineOf(
+  hours: number,
+  input: (i: number) => Partial<CragHourlyInput> = () => ({}),
+  results: { time: number; state: Partial<HourResult> }[] = [],
+): EnsembleHeadline {
+  const inputsByTime = new Map<number, CragHourlyInput>();
+  for (let i = 0; i < hours; i++) {
+    inputsByTime.set(timeAt(i), { dewPointC: 6, snowDepthM: 0, visibilityM: 20000, soilMoistureDeep: null, ...input(i) } as CragHourlyInput);
+  }
+  return { inputsByTime, resultsByTime: new Map(results.map((r) => [r.time, { time: r.time, ...r.state } as HourResult])) };
 }
 
 describe('nearestRankPercentile', () => {
@@ -55,6 +67,36 @@ describe('nearestRankPercentile', () => {
   });
 });
 
+describe('firstUsableWindowStart (graded, §4.7)', () => {
+  const day = (dryness: number[], isDay: boolean[] = dryness.map(() => true)) => ({
+    inputs: isDay.map((d) => ({ isDay: d }) as CragHourlyInput),
+    results: dryness.map((d) => ({ dryness: d }) as HourResult),
+  });
+
+  it('is the first 3 dry daylight hours in a row when every hour is fully dry or wet', () => {
+    const { inputs, results } = day([0, 1, 1, 0, 1, 1, 1, 1]);
+    expect(firstUsableWindowStart(inputs, results, 0, 7)).toBe(4);
+  });
+
+  it('counts hours just damp inside as part of an hour, as the score does', () => {
+    // 0.5 + 0.5 + 1 + 1 = 3 hours' worth, reached at index 4; the window starts at index 1.
+    const { inputs, results } = day([0, 0.5, 0.5, 1, 1, 0]);
+    expect(firstUsableWindowStart(inputs, results, 0, 5)).toBe(1);
+    // A whole day at 0.4 still adds up to a session in an unbroken run: 8 hours of it.
+    const nearlyDry = day(Array.from({ length: 10 }, () => 0.4));
+    expect(firstUsableWindowStart(nearlyDry.inputs, nearlyDry.results, 0, 9)).toBe(0);
+    const tooShort = day(Array.from({ length: 7 }, () => 0.4));
+    expect(firstUsableWindowStart(tooShort.inputs, tooShort.results, 0, 6)).toBeNull();
+  });
+
+  it('never joins runs across a wet or night hour', () => {
+    const { inputs, results } = day([1, 1, 0, 1, 1], [true, true, true, true, true]);
+    expect(firstUsableWindowStart(inputs, results, 0, 4)).toBeNull();
+    const night = day([1, 1, 1, 1], [true, true, false, true]);
+    expect(firstUsableWindowStart(night.inputs, night.results, 0, 3)).toBeNull();
+  });
+});
+
 describe('runEnsembleForCrag (per day)', () => {
   it('reports, for each requested day, how many members give a 3h+ dry daylight window', () => {
     const hours = 24 * 3;
@@ -65,6 +107,7 @@ describe('runEnsembleForCrag (per day)', () => {
       member04: makeMemberVars(hours, { dry: false }),
     });
     const c = crag('portland-cuttings');
+    const firstLight = [...Array(24).keys()].find((h) => isDaylight(timeAt(24 + h), c.lat, c.lon))!;
     const result = runEnsembleForCrag(c, toModelConfig(c), cell, DAY_KEYS.slice(1, 3));
 
     expect(result).toHaveLength(2);
@@ -72,16 +115,17 @@ describe('runEnsembleForCrag (per day)', () => {
     for (const day of result) {
       expect(day.memberCount).toBe(4);
       expect(day.usableCount).toBe(2);
-      expect(day.dryByHourP50).toBe(6); // dry from the first daylight hour
-      expect(day.dryByHourP80).toBe(6);
+      expect(day.dryByHourP50).toBe(firstLight); // dry from the first daylight hour
+      expect(day.dryByHourP80).toBe(firstLight);
     }
   });
 
   it('gives dry-by times from the clock hour each usable member first has a 3h window', () => {
     const hours = 24 * 2;
     const c = crag('portland-cuttings');
-    // Two dry members (window from 06:00), two with an early-morning 3mm shower
-    // that keeps Portland's limestone wet inside until mid-afternoon, and one wet all day.
+    const firstLight = [...Array(24).keys()].find((h) => isDaylight(timeAt(24 + h), c.lat, c.lon))!;
+    // Two dry members (window from first light), two with an early-morning 3mm shower
+    // that keeps Portland's limestone wet inside until late morning, and one wet all day.
     const cell = cellOf(hours, {
       a: makeMemberVars(hours, { dry: true }),
       b: makeMemberVars(hours, { dry: true }),
@@ -92,30 +136,31 @@ describe('runEnsembleForCrag (per day)', () => {
     const [day] = runEnsembleForCrag(c, toModelConfig(c), cell, [DAY_KEYS[1]]);
     expect(day.memberCount).toBe(5);
     expect(day.usableCount).toBe(4);
-    // Half are dry by 06:00; 80% (rank 4 of 4, the later showered member) by 11:00. The
-    // Cuttings face south-east (135°, §5.4), so the morning sun dries the showered members
-    // before midday - at the old 180° the same member cleared at 15:00-16:00.
-    expect(day.dryByHourP50).toBe(6);
-    expect(day.dryByHourP80).toBe(11);
+    // Half are dry from first light; 80% (rank 4 of 4, the later showered member) a few
+    // hours later. The Cuttings face south-east (135°, §5.4), so the morning sun dries the
+    // showered members before midday.
+    expect(day.dryByHourP50).toBe(firstLight);
+    expect(day.dryByHourP80).toBeGreaterThan(8);
+    expect(day.dryByHourP80).toBeLessThan(13);
   });
 
-  it('counts a member as usable only in daylight, matching the score', () => {
+  it('counts a member as usable only in daylight - by the sun, matching the score', () => {
     // A "wet by day, dry by night" member: rain every daylight hour keeps the
     // rock wet all day, a dry windy night clears it. It must NOT count as
     // usable - no one climbs at 03:00. The dry member alongside it proves
     // members can still register, so 1 of 2 isolates the daylight gate.
     const hours = 24 * 2;
-    const wetByDayDryByNight = (): Record<string, number[]> => ({
+    const c = crag('slate');
+    const lit = (i: number) => isDaylight(timeAt(i), c.lat, c.lon);
+    const wetByDayDryByNight: Record<string, number[]> = {
       ...makeMemberVars(hours, { dry: true }),
-      precipitation: Array.from({ length: hours }, (_, i) => (daylight(i) ? 2 : 0)),
+      precipitation: Array.from({ length: hours }, (_, i) => (lit(i) ? 2 : 0)),
       temperature_2m: Array.from({ length: hours }, () => 10),
       dew_point_2m: Array.from({ length: hours }, () => 2),
-      vapour_pressure_deficit: Array.from({ length: hours }, (_, i) => (daylight(i) ? 0.3 : 1.2)),
-      wind_speed_10m: Array.from({ length: hours }, (_, i) => (daylight(i) ? 3 : 8)),
+      wind_speed_10m: Array.from({ length: hours }, (_, i) => (lit(i) ? 3 : 8)),
       cloud_cover: Array.from({ length: hours }, () => 0),
-    });
-    const cell = cellOf(hours, { member01: wetByDayDryByNight(), member02: makeMemberVars(hours, { dry: true }) });
-    const c = crag('slate');
+    };
+    const cell = cellOf(hours, { member01: wetByDayDryByNight, member02: makeMemberVars(hours, { dry: true }) });
     const [day] = runEnsembleForCrag(c, toModelConfig(c), cell, [DAY_KEYS[1]]);
     expect(day.memberCount).toBe(2);
     expect(day.usableCount).toBe(1);
@@ -135,41 +180,46 @@ describe('runEnsembleForCrag (per day)', () => {
     expect(day2.usableCount).toBe(1);
   });
 
-  it('judges daylight from the sun when a member carries no is_day (it is one shared series, not per member)', () => {
-    // Wet by day, dry by night, and no is_day: the old fallback treated every
-    // hour as daylight, so the dry night made this member "usable".
-    const hours = 24 * 2;
-    const vars: Record<string, number[]> = {
-      ...makeMemberVars(hours, { dry: true }),
-      precipitation: Array.from({ length: hours }, (_, i) => (daylight(i) ? 2 : 0)),
-      temperature_2m: Array.from({ length: hours }, () => 10),
-      dew_point_2m: Array.from({ length: hours }, () => 2),
-      vapour_pressure_deficit: Array.from({ length: hours }, (_, i) => (daylight(i) ? 0.3 : 1.2)),
-      wind_speed_10m: Array.from({ length: hours }, (_, i) => (daylight(i) ? 3 : 8)),
-      cloud_cover: Array.from({ length: hours }, () => 0),
-    };
-    delete vars.is_day;
-    const c = crag('slate');
-    const [day] = runEnsembleForCrag(c, toModelConfig(c), cellOf(hours, { m: vars }), [DAY_KEYS[1]]);
-    expect(day.memberCount).toBe(1);
-    expect(day.usableCount).toBe(0);
-  });
-
   it("uses the headline's dew point for members that publish no humidity (icon_eu), and skips them without one", () => {
     const hours = 24 * 2;
     const noHumidity = makeMemberVars(hours, { dry: true });
     delete noHumidity.dew_point_2m;
-    delete noHumidity.vapour_pressure_deficit;
     const cell = cellOf(hours, { m: noHumidity });
     const c = crag('portland-cuttings');
 
-    const withShared = new Map(cell.time.map((t) => [t, 6]));
-    const [day] = runEnsembleForCrag(c, toModelConfig(c), cell, [DAY_KEYS[1]], undefined, withShared);
+    const [day] = runEnsembleForCrag(c, toModelConfig(c), cell, [DAY_KEYS[1]], headlineOf(hours));
     expect(day.memberCount).toBe(1);
     expect(day.usableCount).toBe(1);
 
     const [without] = runEnsembleForCrag(c, toModelConfig(c), cell, [DAY_KEYS[1]]);
     expect(without.memberCount).toBe(0);
+  });
+
+  it("takes lying snow from the headline, which icon_eu doesn't publish, so no member reads a snowed-up crag as dry", () => {
+    const hours = 24 * 2;
+    const c = crag('stanage');
+    const cell = cellOf(hours, { m: makeMemberVars(hours, { dry: true }) });
+    const [clear] = runEnsembleForCrag(c, toModelConfig(c), cell, [DAY_KEYS[1]], headlineOf(hours));
+    expect(clear.usableCount).toBe(1);
+    const [snowed] = runEnsembleForCrag(c, toModelConfig(c), cell, [DAY_KEYS[1]], headlineOf(hours, () => ({ snowDepthM: 0.1 })));
+    expect(snowed.memberCount).toBe(1);
+    expect(snowed.usableCount).toBe(0);
+  });
+
+  it("starts each member from the headline's state, so it doesn't read dry after a wet spell the member never saw", () => {
+    // Kilnsey after a wet fortnight: the headline has the rock soaked and its lip
+    // drainage running. A member with a dry day ahead reads usable from a cold
+    // start, but not from the headline's state.
+    const hours = 24 * 2;
+    const c = crag('kilnsey');
+    const config = toModelConfig(c);
+    const cell = cellOf(hours, { m: makeMemberVars(hours, { dry: true }) });
+    const soaked = { S: config.Smax, M: config.Mmax, Trock: 14, Tbulk: 14, pfaceEwma: 1, precipEwma: 0.4 };
+    const [cold] = runEnsembleForCrag(c, config, cell, [DAY_KEYS[0]], headlineOf(hours));
+    const [warm] = runEnsembleForCrag(c, config, cell, [DAY_KEYS[0]], headlineOf(hours, () => ({}), [{ time: START - 3600, state: soaked }]));
+    expect(cold.usableCount).toBe(1);
+    expect(warm.memberCount).toBe(1);
+    expect(warm.usableCount).toBe(0);
   });
 
   it('leaves out members whose horizon ends before the day, and reports no members for days beyond them all', () => {

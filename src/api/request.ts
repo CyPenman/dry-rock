@@ -1,16 +1,21 @@
 // Open-Meteo forecast request - spec §3.1.
 
+/**
+ * Only what the model reads. Open-Meteo bills a request over 10 variables or
+ * 2 weeks as several calls, multiplied again by every model and location
+ * (§3.6), so each variable here costs about 100 calls per full load. Worked
+ * out in the app instead: vapour pressure deficit (from temperature and dew
+ * point) and `is_day` (from the sun's position, `isDaylight`). Dropped as
+ * never read: rain, snowfall, relative humidity, ET0, the shallow soil bands
+ * and every daily variable.
+ */
 export const HOURLY_VARS = [
   'precipitation',
   'precipitation_probability',
-  'rain',
   'showers',
-  'snowfall',
   'snow_depth',
   'temperature_2m',
   'dew_point_2m',
-  'relative_humidity_2m',
-  'vapour_pressure_deficit',
   'wind_speed_10m',
   'wind_direction_10m',
   'cloud_cover',
@@ -18,20 +23,12 @@ export const HOURLY_VARS = [
   'shortwave_radiation',
   'direct_normal_irradiance',
   'diffuse_radiation',
-  // Soil moisture depth naming varies by model (§3.5): request both the
-  // ECMWF/GFS/UKMO-family deep band and the ICON-native band that's closest to
-  // it, so the adapter has something to work with regardless of which model
-  // resolved. Whichever the response doesn't contain is simply absent - the
-  // adapter fails soft to the §4.5 fallback per model.
-  'soil_moisture_7_to_28cm',
+  // The deep soil band drives seepage (§4.5). Naming varies by model (§3.5):
+  // ECMWF's 28-100cm band and ICON's nearest, 27-81cm. Whichever a model
+  // doesn't publish comes back absent, and the adapter falls back per model.
   'soil_moisture_28_to_100cm',
-  'soil_moisture_9_to_27cm',
   'soil_moisture_27_to_81cm',
-  'et0_fao_evapotranspiration',
-  'is_day',
 ] as const;
-
-export const DAILY_VARS = ['precipitation_sum', 'sunrise', 'sunset'] as const;
 
 // Also the index of "today" within a CragForecastResult's `days` array.
 export const PAST_DAYS = 16;
@@ -41,6 +38,14 @@ export const FORECAST_DAYS = 16;
 // confidence signal (§4.10); the Ensemble API is a separate, opt-in request.
 export const MODELS = ['ukmo_seamless', 'ecmwf_ifs025', 'icon_seamless', 'gfs_seamless'] as const;
 export type ModelName = (typeof MODELS)[number];
+
+/** Short display names for the four deterministic models (§3.3). */
+export const MODEL_DISPLAY_NAME: Record<ModelName, string> = {
+  ukmo_seamless: 'UKMO',
+  ecmwf_ifs025: 'ECMWF',
+  icon_seamless: 'ICON',
+  gfs_seamless: 'GFS',
+};
 
 export interface RequestCoordinate {
   lat: number;
@@ -54,7 +59,6 @@ export function buildForecastUrl(cells: RequestCoordinate[]): string {
     longitude: cells.map((c) => c.lon).join(','),
     elevation: cells.map((c) => c.elevationM).join(','),
     hourly: HOURLY_VARS.join(','),
-    daily: DAILY_VARS.join(','),
     models: MODELS.join(','),
     past_days: String(PAST_DAYS), // §3.1 - 14-day seepage lookback plus reservoir spin-up
     forecast_days: String(FORECAST_DAYS),

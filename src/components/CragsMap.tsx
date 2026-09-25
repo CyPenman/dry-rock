@@ -4,7 +4,7 @@ import { MapContainer, Marker, Popup, useMap } from 'react-leaflet';
 import type { CragWithForecast } from '../hooks/useForecast';
 import { clampRangeToData, resolveDateRange, type DateRangeSelection } from '../model/dateRange';
 import { rankCragDays } from '../model/ranking';
-import { SCORE_BAND_COLOR_VAR, SCORE_BAND_LABEL, scoreBand } from '../model/scoreBand';
+import { displayBand, SCORE_BAND_COLOR_VAR, SCORE_BAND_LABEL } from '../model/scoreBand';
 import type { CragDayResult } from '../model/dayAggregate';
 import { ForecastAge, NoForecastNotice } from './ForecastStatus';
 import { VectorBasemap } from './VectorBasemap';
@@ -19,7 +19,7 @@ const DAY_NAME = new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'nume
 
 function dayBandColor(day: CragDayResult): string {
   if (day.verdict !== 'scored') return SCORE_BAND_COLOR_VAR.poor;
-  return SCORE_BAND_COLOR_VAR[scoreBand(Math.round(day.displayScore * 100))];
+  return SCORE_BAND_COLOR_VAR[displayBand(day)];
 }
 
 /**
@@ -149,7 +149,7 @@ export function CragsMap({
           {ranked.map((r) => {
             const scorePct = Math.round(r.day.displayScore * 100);
             const isGated = r.day.verdict !== 'scored';
-            const band = isGated ? 'poor' : scoreBand(scorePct);
+            const band = isGated ? 'poor' : displayBand(r.day);
             const color = SCORE_BAND_COLOR_VAR[band];
             return (
               <Marker key={r.crag.id} position={[r.crag.lat, r.crag.lon]} icon={markerIcon(color)}>

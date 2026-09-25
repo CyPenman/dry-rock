@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { CRAGS } from '../data/crags';
 import type { Crag } from '../model/types';
-import { dedupeCoordinates, sharedCellCragIds } from './dedupe';
+import { dedupeCoordinates, sharedPointPartners } from './dedupe';
 
 function makeCrag(overrides: Partial<Crag> & Pick<Crag, 'id' | 'lat' | 'lon'>): Crag {
   return {
@@ -45,16 +46,41 @@ describe('dedupeCoordinates', () => {
     expect(cragToCellKey.get('c')).not.toBe(cragToCellKey.get('a'));
   });
 
-  it('flags crags that share a cell so the UI can disclose it (§3.2)', () => {
+  it("shares a point within 500m and 30m of height, on the first crag's position (§3.2)", () => {
+    const crags = [
+      makeCrag({ id: 'a', lat: 53.3, lon: -1.8, elevationM: 200 }),
+      makeCrag({ id: 'near', lat: 53.303, lon: -1.8, elevationM: 220 }), // ~330m north, 20m higher
+      makeCrag({ id: 'higher', lat: 53.301, lon: -1.8, elevationM: 260 }), // ~110m, but 60m higher
+      makeCrag({ id: 'far', lat: 53.306, lon: -1.8, elevationM: 200 }), // ~670m
+    ];
+    const { cells, cragToCellKey } = dedupeCoordinates(crags);
+    expect(cells).toHaveLength(3);
+    expect(cragToCellKey.get('near')).toBe(cragToCellKey.get('a'));
+    expect(cragToCellKey.get('higher')).not.toBe(cragToCellKey.get('a'));
+    expect(cragToCellKey.get('far')).not.toBe(cragToCellKey.get('a'));
+    expect(cells.find((c) => c.cragIds.includes('near'))).toMatchObject({ lat: 53.3, lon: -1.8, elevationM: 200 });
+  });
+
+  it('merges exactly The Cornice with Chee Dale Upper and Lower Pen Trwyn with Parisella’s in the real crag list', () => {
+    const { cells } = dedupeCoordinates(CRAGS);
+    const shared = cells.filter((c) => c.cragIds.length > 1).map((c) => [...c.cragIds].sort());
+    expect(shared).toEqual([
+      ['cheedale-upper', 'cornice'],
+      ['lpt', 'parisellas'],
+    ]);
+    expect(cells).toHaveLength(CRAGS.length - 2);
+  });
+
+  it('lists the other crags on a shared point so the UI can say so (§3.2)', () => {
     const crags = [
       makeCrag({ id: 'a', lat: 53.336, lon: -3.845 }),
       makeCrag({ id: 'b', lat: 53.336, lon: -3.845 }),
       makeCrag({ id: 'c', lat: 51.0, lon: 0.0 }),
     ];
 
-    const shared = sharedCellCragIds(crags);
-    expect(shared.has('a')).toBe(true);
-    expect(shared.has('b')).toBe(true);
-    expect(shared.has('c')).toBe(false);
+    const partners = sharedPointPartners(crags);
+    expect(partners.get('a')).toEqual(['b']);
+    expect(partners.get('b')).toEqual(['a']);
+    expect(partners.has('c')).toBe(false);
   });
 });

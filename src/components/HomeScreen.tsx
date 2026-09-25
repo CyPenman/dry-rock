@@ -47,7 +47,8 @@ export function HomeScreen({
   const { range: coveredRange, clamped } = clampRangeToData([startIdx, endIdx], dayCount);
   const outOfData = !loading && dayCount > 0 && coveredRange == null;
 
-  const home = settings.homeLat != null && settings.homeLon != null ? { lat: settings.homeLat, lon: settings.homeLon } : null;
+  const { homeLat, homeLon } = settings;
+  const home = useMemo(() => (homeLat != null && homeLon != null ? { lat: homeLat, lon: homeLon } : null), [homeLat, homeLon]);
 
   const entries = useMemo(() => results.map(({ crag, forecast }) => ({ crag, days: forecast ? forecast.days : null })), [results]);
 
@@ -57,8 +58,8 @@ export function HomeScreen({
     () => (coveredStart != null && coveredEnd != null ? rankCragDays(entries, [coveredStart, coveredEnd], home) : []),
     [entries, coveredStart, coveredEnd, home],
   );
-  const scored = ranked.filter((r) => r.day.verdict === 'scored');
-  const gated = ranked.filter((r) => r.day.verdict !== 'scored');
+  const scored = useMemo(() => ranked.filter((r) => r.day.verdict === 'scored'), [ranked]);
+  const gated = useMemo(() => ranked.filter((r) => r.day.verdict !== 'scored'), [ranked]);
 
   const sorted: RankedCragDay[] = useMemo(() => sortRanked(scored, sortMode), [sortMode, scored]);
 
