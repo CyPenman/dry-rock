@@ -356,18 +356,22 @@ const SEEDS: CragSeed[] = [
     parkingNote: "The main Symonds Yat Rock car park is a fair walk from the crag, and we're not sure it's the one climbers actually use, so we haven't pinned it.",
   },
   {
-    id: 'avon',
-    name: 'Avon Gorge',
+    id: 'avon-main',
+    name: 'Avon Gorge: Main Wall',
     area: 'Bristol',
     region: 'Bristol & Somerset',
     // Checked 25 Sep 2026: moved from 51.462, -2.626, 380m south-east, 210m from the cliff, to
-    // UKC's location on the Main Wall.
+    // UKC's location on the Main Wall. Split from one 'avon' entry the same day: UKC lists
+    // Avon Gorge as three separate crag pages (Main Area, Suspension Bridge Area, Sea Walls
+    // Area) with different aspects, and Sea Walls' own page reads as a genuinely different
+    // venue (see avon-seawalls) - 660m away, so it doesn't share this forecast point.
+    // Aspect corrected to UKC's stated "Faces W" (was 230°, an old approximation).
     lat: 51.4644,
     lon: -2.6299,
     elevationM: 40,
     disciplines: ['trad', 'sport'],
     rock: 'limestone',
-    aspectDeg: 230,
+    aspectDeg: 270,
     steepness: 'vertical',
     windShelter: 0.6,
     canopyLight: 0.8,
@@ -377,11 +381,44 @@ const SEEDS: CragSeed[] = [
     catchmentAbove: 0.3,
     coastal: false,
     softRock: false,
-    notes: 'The city gorge, with a bit of seepage and a bit of shelter. A dependable middle-of-the-road choice.',
+    notes: 'The city gorge, with a bit of seepage and a bit of shelter. A dependable middle-of-the-road choice; the sunnier Sea Walls downstream dries faster (see avon-seawalls).',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/avon_gorge_main_area-31/',
     radUrl: 'https://services.thebmc.co.uk/modules/RAD/View.aspx?id=332',
     parkingLat: 51.46782,
     parkingLon: -2.6091,
+  },
+  {
+    id: 'avon-seawalls',
+    name: 'Avon Gorge: Sea Walls',
+    area: 'Bristol',
+    region: 'Bristol & Somerset',
+    // Split from one 'avon' entry 25 Sep 2026 - see avon-main. UKC's separate "Sea Walls
+    // Area" page: "Faces SW", "a real sun trap allowing year-round climbing... no shade",
+    // "many of the climbs dry quickly after rainfall" - a distinctly sunnier, faster-drying
+    // venue than the Main Wall. Point is the Sea Walls locality centre by its car park off
+    // the A4/Portway (OpenStreetMap; no separately named cliff way found there this
+    // session, so treat this as an approximate pin, not checked against a mapped cliff line
+    // the way most other crags are).
+    lat: 51.4694,
+    lon: -2.635,
+    elevationM: 30,
+    disciplines: ['trad', 'sport'],
+    rock: 'limestone',
+    aspectDeg: 225,
+    steepness: 'vertical',
+    windShelter: 0.85,
+    canopyLight: 1.0,
+    tauRock: 18,
+    seepIndex: 0.2,
+    tauSeep: 6,
+    catchmentAbove: 0.15,
+    coastal: false,
+    softRock: false,
+    notes:
+      "The gorge's sun trap: fully open to the sky, no shade, and quick to dry after rain. One sub-area (New Quarry) is a known exception where UKC notes seepage can be a problem regardless of the forecast.",
+    ukcUrl: 'https://www.ukclimbing.com/logbook/crags/avon_gorge_sea_walls_area-29/',
+    radUrl: 'https://services.thebmc.co.uk/modules/RAD/View.aspx?id=333',
+    parkingNote: 'The Sea Walls car park directly below the cliff, off the A4/Portway - not checked against a mapped point this session.',
   },
   {
     id: 'ansteys',
@@ -584,26 +621,68 @@ const SEEDS: CragSeed[] = [
     parkingNote: "Lay-bys along the road below the crag. The only satnav postcode covers a wide area rather than the lay-bys themselves, so we haven't pinned a spot.",
   },
   {
-    id: 'malham',
-    name: 'Malham Cove',
+    id: 'malham-left',
+    name: 'Malham Cove: Left Wing',
     area: 'Yorkshire',
     region: 'Yorkshire',
-    lat: 54.072,
-    lon: -2.156,
-    elevationM: 250,
+    // Split from one 'malham' entry 25 Sep 2026: UKC/Rockfax describe the Cove as three
+    // sectors (Left Wing trad, Central Walls sport under the Main Overhang, Right Wing
+    // trad), and forum + Rockfax conditions notes draw a hard line between a seepy,
+    // lip-drainage-prone left side and a sunnier, faster-drying centre/right (see
+    // malham-right). Point is OpenStreetMap's west end of the "Malham Cove" cliff line (way
+    // 431606462), which faces about 172° here, curving to about 149° at the east/right end.
+    // Elevation is UKC's stated altitude (was 250, the old single entry's estimate).
+    lat: 54.0726,
+    lon: -2.1605,
+    elevationM: 200,
     disciplines: ['trad', 'sport'],
     rock: 'limestone',
-    aspectDeg: 180,
-    steepness: 'steep',
-    windShelter: 0.75,
-    canopyLight: 1.0,
-    tauRock: 26,
-    seepIndex: 0.7,
-    tauSeep: 16,
-    catchmentAbove: 0.6,
+    aspectDeg: 175,
+    // Crack-and-corner trad terrain (Bobber Boots, Wall and Crack, Flake Wall...), not the
+    // overhung centre - closer to a plain vertical face than 'steep'.
+    steepness: 'vertical',
+    windShelter: 0.7,
+    canopyLight: 0.9,
+    tauRock: 25,
+    seepIndex: 0.8,
+    tauSeep: 18,
+    catchmentAbove: 0.75,
     coastal: false,
     softRock: false,
-    notes: 'The huge limestone amphitheatre. The left wing gets water running over the lip for hours after the rain stops.',
+    notes:
+      "The trad wing beside the beck. Takes water running over the lip for hours after rain stops - UKC's own Rockfax route names for the sport lines here (Big Drip, Rain Drops, Rain Clouds, Rain Dances) are not a coincidence.",
+    ukcUrl: 'https://www.ukclimbing.com/logbook/crags/malham_cove-610/',
+    radUrl: 'https://services.thebmc.co.uk/modules/RAD/View.aspx?id=264',
+    parkingLat: 54.06094,
+    parkingLon: -2.15256,
+  },
+  {
+    id: 'malham-right',
+    name: 'Malham Cove: Right Wing & Central Wall',
+    area: 'Yorkshire',
+    region: 'Yorkshire',
+    // Split from one 'malham' entry 25 Sep 2026 - see malham-left. Covers the Catwalk/Upper
+    // Wall sport routes under the huge Main Overhang plus the sunnier trad Right Wing
+    // (Carnage/Wombat Walls), which UKC's Rockfax description calls "sunny and tends not to
+    // seep much". Point is OpenStreetMap's east end of the same cliff line, which faces
+    // about 149° here. Elevation is UKC's stated altitude (was 250).
+    lat: 54.0727,
+    lon: -2.1595,
+    elevationM: 200,
+    disciplines: ['trad', 'sport'],
+    rock: 'limestone',
+    aspectDeg: 155,
+    steepness: 'steep',
+    windShelter: 0.8,
+    canopyLight: 1.0,
+    tauRock: 27,
+    seepIndex: 0.5,
+    tauSeep: 12,
+    catchmentAbove: 0.35,
+    coastal: false,
+    softRock: false,
+    notes:
+      "The huge overhung sport wall (the Main Overhang) and the sunny trad Right Wing. Sheds direct rain well and generally dries fast, though a known seep streak through Upper Wall (the Toadal Recall/Toad Licker routes) can stay damp regardless of the forecast - the model has no within-crag term for that single streak, so treat this as the drier half on average rather than uniformly dry.",
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/malham_cove-610/',
     radUrl: 'https://services.thebmc.co.uk/modules/RAD/View.aspx?id=264',
     parkingLat: 54.06094,

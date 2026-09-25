@@ -90,7 +90,7 @@ describe('sortAreas', () => {
     ranked('portland-cuttings', [day(0, 0.8)], 200),
     ranked('kilnsey', [day(0, 0.7)], 60),
     ranked('curbar', [day(0, 0.4)], 20),
-    ranked('malham', [day(0, 0, 'frozen')], 10),
+    ranked('malham-left', [day(0, 0, 'frozen')], 10),
   ]);
 
   it('keeps the score order for score', () => {
@@ -117,7 +117,7 @@ describe('sortAreas', () => {
     const peak = sortAreas(areas, 'distance').find((a) => a.region === 'Peak District')!;
     expect(peak.crags.map((r) => r.crag.id)).toEqual(['curbar', 'stanage']);
     const yorkshire = sortAreas(areas, 'distance').find((a) => a.region === 'Yorkshire')!;
-    expect(yorkshire.crags.map((r) => r.crag.id)).toEqual(['kilnsey', 'malham']);
+    expect(yorkshire.crags.map((r) => r.crag.id)).toEqual(['kilnsey', 'malham-left']);
   });
 
   it('puts regions with no known distance last when home is unset', () => {

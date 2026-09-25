@@ -61,14 +61,15 @@ describe('dedupeCoordinates', () => {
     expect(cells.find((c) => c.cragIds.includes('near'))).toMatchObject({ lat: 53.3, lon: -1.8, elevationM: 200 });
   });
 
-  it('merges exactly The Cornice with Chee Dale Upper and Lower Pen Trwyn with Parisella’s in the real crag list', () => {
+  it('merges exactly The Cornice with Chee Dale Upper, Lower Pen Trwyn with Parisella’s, and Malham’s two wings in the real crag list', () => {
     const { cells } = dedupeCoordinates(CRAGS);
     const shared = cells.filter((c) => c.cragIds.length > 1).map((c) => [...c.cragIds].sort());
     expect(shared).toEqual([
       ['cheedale-upper', 'cornice'],
+      ['malham-left', 'malham-right'],
       ['lpt', 'parisellas'],
     ]);
-    expect(cells).toHaveLength(CRAGS.length - 2);
+    expect(cells).toHaveLength(CRAGS.length - 3);
   });
 
   it('lists the other crags on a shared point so the UI can say so (§3.2)', () => {

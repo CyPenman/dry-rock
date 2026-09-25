@@ -17,10 +17,11 @@ export interface GridCell {
  * Crags this close share one forecast point (§3.2): well inside the finest
  * model's 2km grid, and near enough in height that Open-Meteo's temperature
  * correction differs by at most about 0.2°C. Today that merges The Cornice with Chee
- * Dale Upper (180m apart, 16m of height) and Lower Pen Trwyn with Parisella's
- * Cave (330m, 5m). The next closest pair, Cheddar's two sides, is 950m and
- * 120m apart, which is real difference in height. Each merged point saves a
- * location's worth of calls, about 1/34 of a load (§3.6).
+ * Dale Upper (180m apart, 16m of height), Lower Pen Trwyn with Parisella's
+ * Cave (330m, 5m), and Malham Cove's two wings (66m, 0m of height). The next
+ * closest pair, Cheddar's two sides, is 950m and 120m apart, which is real
+ * difference in height. Each merged point saves a location's worth of calls,
+ * about 1/34 of a load (§3.6).
  */
 export const SHARED_POINT_MAX_M = 500;
 export const SHARED_POINT_MAX_HEIGHT_M = 30;
