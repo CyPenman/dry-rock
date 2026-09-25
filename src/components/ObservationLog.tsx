@@ -1,33 +1,44 @@
 import { useEffect, useState } from 'react';
-import { formatDayLabel, formatTimeOfDay, LIMITING_FACTOR_LABEL } from '../lib/format';
+import { APP_BUILD, modelSaid, sendPendingObservations } from '../api/reports';
+import { formatDayLabel, formatTimeOfDay } from '../lib/format';
 import type { CragForecastResult } from '../model/dayAggregate';
-import { buildObservationSnapshot, OBSERVED_CONDITIONS, type Observation, type ObservedCondition } from '../model/observation';
+import {
+  buildObservationContext,
+  buildObservationSnapshot,
+  OBSERVED_CONDITIONS,
+  type Observation,
+  type ObservedCondition,
+} from '../model/observation';
 import type { Crag } from '../model/types';
-import type { LimitingFactor } from '../model/wetness';
 import { addObservation, listObservations } from '../storage/db';
 
 const RECENT_COUNT = 5;
-
-/** "dry" or "wet, limited by rain" - the model's side of an observation, in words. */
-function modelSaid(snapshot: Observation['snapshot']): string {
-  if (snapshot.climbable) return 'dry';
-  const reason = LIMITING_FACTOR_LABEL[snapshot.limitingFactor as LimitingFactor];
-  return reason ? `wet, ${reason}` : 'wet';
-}
 
 function conditionLabel(condition: ObservedCondition): string {
   return OBSERVED_CONDITIONS.find((c) => c.value === condition)?.label ?? condition;
 }
 
+type SendState = 'sending' | 'sent' | 'waiting';
+
 /**
  * "Log conditions" (spec §8.1): what the rock is actually like right now, saved
  * with the model's view of the same hour so the two can be compared later.
- * Stays on the device; exported from the About screen.
+ * Kept on the device and emailed to the developer - straight away, or on the
+ * next open with signal (`sendPendingObservations`).
  */
-export function ObservationLog({ crag, forecast }: { crag: Crag; forecast: CragForecastResult }) {
+export function ObservationLog({
+  crag,
+  forecast,
+  fetchedAt,
+}: {
+  crag: Crag;
+  forecast: CragForecastResult;
+  fetchedAt: number | null;
+}) {
   const [condition, setCondition] = useState<ObservedCondition | null>(null);
   const [note, setNote] = useState('');
   const [saved, setSaved] = useState<Observation | null>(null);
+  const [sendState, setSendState] = useState<SendState | null>(null);
   const [recent, setRecent] = useState<Observation[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,12 +55,13 @@ export function ObservationLog({ crag, forecast }: { crag: Crag; forecast: CragF
     return () => {
       cancelled = true;
     };
-  }, [crag.id, saved]);
+  }, [crag.id, saved, sendState]);
 
   async function save() {
     if (!condition) return;
     const observedAtSec = Math.floor(Date.now() / 1000);
     const current = buildObservationSnapshot(crag, forecast, observedAtSec);
+    const context = buildObservationContext(crag, forecast, observedAtSec, fetchedAt, APP_BUILD);
     if (!current) {
       setError("the saved forecast doesn't cover right now - refresh first");
       return;
@@ -61,16 +73,21 @@ export function ObservationLog({ crag, forecast }: { crag: Crag; forecast: CragF
       condition,
       ...(note.trim() ? { note: note.trim() } : {}),
       snapshot: current,
+      ...(context ? { context } : {}),
     };
     try {
       await addObservation(observation);
-      setSaved(observation);
-      setCondition(null);
-      setNote('');
-      setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
+      return;
     }
+    setSaved(observation);
+    setCondition(null);
+    setNote('');
+    setError(null);
+    setSendState('sending');
+    const waiting = await sendPendingObservations().catch(() => 1);
+    setSendState(waiting === 0 ? 'sent' : 'waiting');
   }
 
   return (
@@ -121,9 +138,15 @@ export function ObservationLog({ crag, forecast }: { crag: Crag; forecast: CragF
           Save
         </button>
       </div>
+      <p className="mt-2 text-xs" style={{ color: 'var(--text-dim)' }}>
+        Saved on this phone and sent to Dry Rock's developer, with the forecast for the same hour, to help fix the model.
+      </p>
       {saved && (
         <p className="mt-2 text-sm" style={{ color: 'var(--text)' }}>
-          Saved - the model said: {modelSaid(saved.snapshot)}
+          Saved - the model said: {modelSaid(saved.snapshot)}.{' '}
+          {sendState === 'sending' && 'Sending...'}
+          {sendState === 'sent' && 'Sent, thanks.'}
+          {sendState === 'waiting' && "Couldn't send yet - it'll go next time you open the app with signal."}
         </p>
       )}
       {error && (
@@ -139,6 +162,7 @@ export function ObservationLog({ crag, forecast }: { crag: Crag; forecast: CragF
               <li key={o.id}>
                 {formatDayLabel(when)} {formatTimeOfDay(when)} &middot; you said {conditionLabel(o.condition).toLowerCase()}{' '}
                 &middot; the model said {modelSaid(o.snapshot)}
+                {o.sentAtSec == null && ' · not sent yet'}
               </li>
             );
           })}

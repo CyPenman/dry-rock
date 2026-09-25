@@ -342,7 +342,7 @@ export function CragDetailScreen({
             </div>
           )}
 
-          <ObservationLog crag={crag} forecast={forecast} />
+          <ObservationLog crag={crag} forecast={forecast} fetchedAt={fetchedAt} />
 
           <div className="px-4 pt-4">
             <h2 className="pb-1 text-xs uppercase tracking-wide" style={{ color: 'var(--text-dim)' }}>

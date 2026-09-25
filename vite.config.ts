@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig, type Plugin } from 'vite'
@@ -20,6 +21,17 @@ function keepMaplibreWorker(): Plugin {
   }
 }
 
+// Stamped into every emailed report (src/api/reports.ts) so it can be replayed
+// against the model that produced it: short commit hash plus build date.
+function appBuild(): string {
+  const date = new Date().toISOString().slice(0, 10)
+  try {
+    return `${execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim()} ${date}`
+  } catch {
+    return `unknown ${date}`
+  }
+}
+
 // GitHub Pages serves project sites from /<repo-name>/ - name the repo
 // "dry-rock" to match, or change this to "/<your-repo-name>/".
 const BASE_PATH = '/dry-rock/'
@@ -27,6 +39,9 @@ const BASE_PATH = '/dry-rock/'
 // https://vite.dev/config/
 export default defineConfig({
   base: BASE_PATH,
+  define: {
+    __APP_BUILD__: JSON.stringify(appBuild()),
+  },
   server: {
     port: process.env.PORT ? Number(process.env.PORT) : 5173,
   },

@@ -72,10 +72,17 @@ export async function writeCachedEnsemble<T>(cragId: string, data: T): Promise<v
 
 // Observation log (§8.1) - the user's own conditions reports, each with the
 // model's view of the same hour. Unlike the caches above this is the user's
-// data: never expired, never sent anywhere, only exported on request.
+// data: never expired. Each one is also emailed to the developer
+// (src/api/reports.ts), and `sentAtSec` records when that succeeded.
 export async function addObservation(observation: Observation): Promise<void> {
   const db = await getDB();
   await db.put(OBSERVATION_STORE_NAME, observation);
+}
+
+export async function markObservationSent(id: string, sentAtSec: number): Promise<void> {
+  const db = await getDB();
+  const observation = (await db.get(OBSERVATION_STORE_NAME, id)) as Observation | undefined;
+  if (observation) await db.put(OBSERVATION_STORE_NAME, { ...observation, sentAtSec });
 }
 
 /** Observations for one crag (or all, without an id), newest first. */

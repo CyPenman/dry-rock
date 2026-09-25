@@ -1,4 +1,5 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { sendPendingObservations } from './api/reports';
 import { AboutScreen } from './components/AboutScreen';
 import { AreasScreen } from './components/AreasScreen';
 import { CragDetailScreen } from './components/CragDetailScreen';
@@ -27,6 +28,14 @@ function App() {
   const { settings, update, togglePinned } = useSettings();
   const { loading, error, fetchedAt, stale, results, todayIndex, dayCount, refresh } = useForecast(CRAGS);
   const touchRef = useRef<{ x: number; y: number } | null>(null);
+
+  // Conditions logged without signal (§8.1) go out on the next open, or as soon as the phone reconnects.
+  useEffect(() => {
+    const send = () => void sendPendingObservations().catch(() => {});
+    send();
+    window.addEventListener('online', send);
+    return () => window.removeEventListener('online', send);
+  }, []);
 
   const activeIndex = TABS.indexOf(activeTab);
   const detailEntry = view.name === 'detail' ? results.find((r) => r.crag.id === view.cragId) : undefined;

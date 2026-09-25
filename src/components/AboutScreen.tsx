@@ -8,10 +8,11 @@ import { verdictMessage, type Verdict } from '../model/score';
 import { SCORE_BAND_COLOR_VAR, SCORE_BAND_LABEL, type ScoreBand } from '../model/scoreBand';
 import type { LimitingFactor } from '../model/wetness';
 import { listAllObservations } from '../storage/db';
+import { FeedbackForm } from './FeedbackForm';
 
 const LINK_STYLE = { color: 'var(--signal)' } as const;
 
-/** Save every logged observation as a JSON file (§8.1) via a temporary download link - nothing leaves the device otherwise. */
+/** Save every logged observation as a JSON file (§8.1) via a temporary download link. */
 function downloadObservations(observations: Observation[]) {
   const blob = new Blob([JSON.stringify(observations, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
@@ -103,6 +104,7 @@ const BANDS: ScoreBand[] = ['good', 'fair', 'poor'];
  */
 export function AboutScreen({ onBack }: { onBack: () => void }) {
   const [observations, setObservations] = useState<Observation[] | null>(null);
+  const unsent = observations?.filter((o) => o.sentAtSec == null).length ?? 0;
 
   useEffect(() => {
     listAllObservations()
@@ -371,12 +373,13 @@ export function AboutScreen({ onBack }: { onBack: () => void }) {
           <SectionHeading>Your observations</SectionHeading>
           <p>
             Conditions you log on a crag's page are saved on this device with what the model said about the same hour,
-            so its settings can be checked against what the rock was really like. Every log helps.{' '}
+            and sent to Dry Rock's developer so its settings can be checked against what the rock was really like. Every
+            log helps. Logged with no signal, they go the next time the app opens online.{' '}
             {observations == null
               ? ''
               : observations.length === 0
                 ? 'None logged yet.'
-                : `${observations.length} logged so far.`}
+                : `${observations.length} logged so far${unsent > 0 ? `, ${unsent} waiting to send` : ''}.`}
           </p>
           <button
             type="button"
@@ -390,11 +393,21 @@ export function AboutScreen({ onBack }: { onBack: () => void }) {
         </section>
 
         <section>
+          <SectionHeading>Send feedback</SectionHeading>
+          <p className="pb-2">
+            Found a bug, got an idea, or know a crag the app gets wrong? It goes straight to the developer. Add an email
+            address if you'd like a reply.
+          </p>
+          <FeedbackForm />
+        </section>
+
+        <section>
           <SectionHeading>Your data</SectionHeading>
           <p>
-            There are no accounts. Your home address, pinned crags and observations stay on this device. The app asks
-            Open-Meteo for weather at the crags, OpenFreeMap for the map, and, when you set a home, postcodes.io to find
-            it.
+            There are no accounts. Your home address and pinned crags stay on this device. The app asks Open-Meteo for
+            weather at the crags, OpenFreeMap for the map, and, when you set a home, postcodes.io to find it. Conditions
+            you log and feedback you send are emailed to the developer through FormSubmit - a log carries the crag, the
+            time, what you saw, the forecast and your browser type, never your home address.
           </p>
         </section>
 

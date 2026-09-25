@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { CellForecast } from '../api/client';
 import { CRAGS } from '../data/crags';
 import { computeCragForecast } from './dayAggregate';
-import { buildObservationSnapshot } from './observation';
+import { buildObservationContext, buildObservationSnapshot, OBSERVED_HOURS_AFTER, OBSERVED_HOURS_BEFORE } from './observation';
 
 // London midnight on 1 June 2024 (BST), two days of hourly data.
 const START = Date.UTC(2024, 4, 31, 23) / 1000;
@@ -55,6 +55,21 @@ describe('buildObservationSnapshot (§8.1)', () => {
     expect(snapshot.dayScore).toBe(forecast.days[1].score);
     expect(snapshot.sourceModel).toBe('ukmo_seamless');
     expect(snapshot.frictionHourScore).toBeGreaterThanOrEqual(0);
+  });
+
+  it('builds the report context: the day from every model and the hours either side', () => {
+    const idx = 33;
+    const context = buildObservationContext(crag, forecast, START + idx * 3600 + 20 * 60, 12345, 'abc1234 2026-09-25')!;
+    expect(context.cragName).toBe(crag.name);
+    expect(context.appBuild).toBe('abc1234 2026-09-25');
+    expect(context.forecastFetchedAt).toBe(12345);
+    expect(context.headlineDay.displayScore).toBeCloseTo(forecast.days[1].displayScore, 2);
+    expect(context.perModelDay.map((d) => d.model)).toEqual(Object.keys(forecast.perModelDays));
+    // 24h before to 6h after, clipped to the 48h series
+    expect(context.hours[0].time).toBe(forecast.inputs[idx - OBSERVED_HOURS_BEFORE].time);
+    expect(context.hours).toHaveLength(OBSERVED_HOURS_BEFORE + OBSERVED_HOURS_AFTER + 1);
+    expect(context.hours[OBSERVED_HOURS_BEFORE].S).toBeCloseTo(forecast.hourly[idx].S, 2);
+    expect(buildObservationContext(crag, forecast, START - 60, null, 'x')).toBeNull();
   });
 
   it('returns null outside the series', () => {

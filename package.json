@@ -9,7 +9,8 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "test": "vitest run",
-    "calibrate:soil": "node scripts/calibrate-soil-moisture.mjs"
+    "calibrate:soil": "node scripts/calibrate-soil-moisture.mjs",
+    "extract:reports": "node scripts/extract-reports.mjs"
   },
   "dependencies": {
     "@maplibre/maplibre-gl-leaflet": "^0.1.4",
