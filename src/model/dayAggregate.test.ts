@@ -317,9 +317,14 @@ describe('computeCragForecast', () => {
     expect(toModelConfig(c, 'gfs_seamless').smCalibration).toEqual(DEFAULT_SM_CALIBRATION);
     expect(toModelConfig({ ...c, id: 'not-a-crag' }, 'ecmwf_ifs025').smCalibration).toEqual(DEFAULT_SM_CALIBRATION);
     expect(soilMoistureCalibrationFor('not-a-crag', 'ecmwf_ifs025')).toBeNull();
-    // A degenerate (sea-point) range is ignored rather than used.
-    expect(SOIL_MOISTURE_CALIBRATION['portland-cheyne']?.icon_seamless?.p95).toBe(0);
-    expect(soilMoistureCalibrationFor('portland-cheyne', 'icon_seamless')).toBeNull();
+    // A degenerate (sea-point) range is ignored rather than used. No crag has one now that
+    // Cheyne Wears sits on land (§5.4), so a temporary entry stands in for one.
+    SOIL_MOISTURE_CALIBRATION['sea-point'] = { icon_seamless: { p5: 0, p95: 0 } };
+    try {
+      expect(soilMoistureCalibrationFor('sea-point', 'icon_seamless')).toBeNull();
+    } finally {
+      delete SOIL_MOISTURE_CALIBRATION['sea-point'];
+    }
   });
 
   it('slices days on local dates and labels hours from timestamps across the October clock change (§3.1)', () => {

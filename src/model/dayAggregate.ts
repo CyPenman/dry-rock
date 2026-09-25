@@ -252,7 +252,7 @@ export function soilMoistureCalibrationFor(
 ): SoilMoistureCalibration | null {
   if (source !== 'ecmwf_ifs025' && source !== 'icon_seamless') return null;
   const calibration = SOIL_MOISTURE_CALIBRATION[cragId]?.[source];
-  // A degenerate range is not a climatology - e.g. ICON's cell for Cheyne Wears
+  // A degenerate range is not a climatology - e.g. a coastal crag whose ICON cell
   // is sea, where soil moisture is 0 all year - and normalising against it would
   // pin seepage at zero. Same threshold the calibration script warns on.
   if (!calibration || calibration.p95 - calibration.p5 < MIN_CALIBRATION_RANGE) return null;

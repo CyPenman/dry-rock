@@ -92,11 +92,11 @@ describe('runEnsembleForCrag (per day)', () => {
     const [day] = runEnsembleForCrag(c, toModelConfig(c), cell, [DAY_KEYS[1]]);
     expect(day.memberCount).toBe(5);
     expect(day.usableCount).toBe(4);
-    // First-window hours are [6, 6, 14, 15]: half are dry by 06:00, 80% (rank 4 of 4) by 15:00.
-    // (16 and 16 before the two-layer rock temperature, P3-16: the sunlit surface now runs
-    // warmer than the air, so the showered members dry an hour or two sooner.)
+    // Half are dry by 06:00; 80% (rank 4 of 4, the later showered member) by 11:00. The
+    // Cuttings face south-east (135°, §5.4), so the morning sun dries the showered members
+    // before midday - at the old 180° the same member cleared at 15:00-16:00.
     expect(day.dryByHourP50).toBe(6);
-    expect(day.dryByHourP80).toBe(15);
+    expect(day.dryByHourP80).toBe(11);
   });
 
   it('counts a member as usable only in daylight, matching the score', () => {

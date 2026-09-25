@@ -50,14 +50,20 @@ const SEEDS: CragSeed[] = [
     name: 'Portland: The Cuttings',
     area: 'Dorset',
     region: 'Dorset',
-    lat: 50.5326,
-    lon: -2.4305,
-    elevationM: 30,
+    // Checked 25 Sep 2026: moved from 50.5326, -2.4305, 1.2km south, 300m from any mapped
+    // cliff, to UKC's location on the Main Cliff of the cutting. Elevation is UKC's (was 30).
+    lat: 50.5425,
+    lon: -2.4247,
+    elevationM: 74,
     disciplines: ['sport', 'trad', 'boulder'],
     rock: 'limestone',
-    aspectDeg: 180,
+    // UKC "Faces SE", "plenty of morning sun"; the cutting walls OpenStreetMap maps beside
+    // UKC's location face 136-143°. Was 180°.
+    aspectDeg: 135,
     steepness: 'vertical',
-    windShelter: 0.85,
+    // UKC: a "sheltered position" that gives "welcome shelter on days when a cold westerly wind
+    // is blowing". Was 0.85.
+    windShelter: 0.6,
     canopyLight: 1.0,
     tauRock: 14,
     seepIndex: 0.05,
@@ -65,7 +71,7 @@ const SEEDS: CragSeed[] = [
     catchmentAbove: 0.1,
     coastal: true,
     softRock: false,
-    notes: 'Fast-drying south-facing limestone sport. Dries within hours of a summer shower.',
+    notes: 'Sheltered old railway cutting on the east coast, facing south-east: plenty of morning sun, out of a cold westerly, and dries within hours of a shower.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/the_cuttings-276/',
     radUrl: 'https://services.thebmc.co.uk/modules/RAD/View.aspx?id=299',
     parkingLat: 50.5387,
@@ -76,9 +82,12 @@ const SEEDS: CragSeed[] = [
     name: 'Portland: Blacknor',
     area: 'Dorset',
     region: 'Dorset',
-    lat: 50.548,
-    lon: -2.453,
-    elevationM: 40,
+    // Checked 25 Sep 2026: moved from 50.548, -2.453, 580m north of the crag's Far North end,
+    // 170m from any mapped cliff, to UKC's location by the Reptile Smile area. Elevation is
+    // UKC's (was 40).
+    lat: 50.5429,
+    lon: -2.4548,
+    elevationM: 61,
     disciplines: ['sport', 'boulder'],
     rock: 'limestone',
     aspectDeg: 265,
@@ -102,8 +111,10 @@ const SEEDS: CragSeed[] = [
     name: 'Portland: Cheyne Wears',
     area: 'Dorset',
     region: 'Dorset',
-    lat: 50.523,
-    lon: -2.426,
+    // Checked 25 Sep 2026: moved from 50.523, -2.426, 1.15km south-east, off the coast (ICON's
+    // cell for it was sea), to UKC's location between its Coralized and Road Rage areas.
+    lat: 50.5315,
+    lon: -2.4353,
     elevationM: 25,
     disciplines: ['sport'],
     rock: 'limestone',
@@ -127,9 +138,12 @@ const SEEDS: CragSeed[] = [
     name: 'Cheddar: sunny side',
     area: 'Somerset',
     region: 'Bristol & Somerset',
-    lat: 51.281,
-    lon: -2.765,
-    elevationM: 100,
+    // Checked 25 Sep 2026: moved from 51.281, -2.765, 400m south-west, beside a north-facing
+    // wall on the shady side of the gorge, to UKC's location on the north side among Lion Rock,
+    // Pride Evans Cave and The Wave. Elevation is UKC's (was 100).
+    lat: 51.2844,
+    lon: -2.7628,
+    elevationM: 64,
     disciplines: ['sport', 'trad'],
     rock: 'limestone',
     aspectDeg: 200,
@@ -158,9 +172,11 @@ const SEEDS: CragSeed[] = [
     name: 'Cheddar: shady side',
     area: 'Somerset',
     region: 'Bristol & Somerset',
-    lat: 51.279,
-    lon: -2.762,
-    elevationM: 110,
+    // Checked 25 Sep 2026: moved from 51.279, -2.762, 1.26km down the gorge, no mapped cliff
+    // within 350m, to UKC's location for the south side. Elevation is UKC's (was 110).
+    lat: 51.2875,
+    lon: -2.75,
+    elevationM: 186,
     disciplines: ['sport', 'trad'],
     rock: 'limestone',
     aspectDeg: 20,
@@ -251,9 +267,12 @@ const SEEDS: CragSeed[] = [
     name: 'Shorn Cliff',
     area: 'Wye Valley',
     region: 'Wye Valley',
-    lat: 51.68,
-    lon: -2.65,
-    elevationM: 120,
+    // Checked 25 Sep 2026: moved from 51.68, -2.65, 1.4km south-east, no mapped cliff within
+    // 350m, to UKC's location, 180m from OpenStreetMap's "Shorn Cliff" (faces 288°). Elevation
+    // is UKC's (was 120).
+    lat: 51.6898,
+    lon: -2.6627,
+    elevationM: 222,
     disciplines: ['trad'],
     rock: 'limestone',
     aspectDeg: 270,
@@ -276,8 +295,10 @@ const SEEDS: CragSeed[] = [
     name: 'Ban-y-gor',
     area: 'Wye Valley',
     region: 'Wye Valley',
-    lat: 51.66,
-    lon: -2.67,
+    // Checked 25 Sep 2026: moved from 51.66, -2.67, 1.07km south-west to UKC's location, 330m
+    // from OpenStreetMap's mapped escarpment (faces 269°).
+    lat: 51.6689,
+    lon: -2.6641,
     elevationM: 80,
     disciplines: ['sport', 'trad'],
     rock: 'limestone',
@@ -301,22 +322,29 @@ const SEEDS: CragSeed[] = [
     name: 'Symonds Yat',
     area: 'Wye Valley',
     region: 'Wye Valley',
-    lat: 51.838,
-    lon: -2.641,
+    // Checked 25 Sep 2026: moved from 51.838, -2.641, 280m to UKC's location, 60m from the
+    // OpenStreetMap cliff facing 294°.
+    lat: 51.8373,
+    lon: -2.6371,
     elevationM: 90,
     disciplines: ['trad'],
     rock: 'limestone',
-    aspectDeg: 180,
-    steepness: 'vertical',
-    windShelter: 0.55,
-    canopyLight: 0.65,
+    // UKC "Faces NW"; the OpenStreetMap cliff at UKC's location faces 294°. Was 180°.
+    aspectDeg: 300,
+    // UKC: "steep and juggy"; "because of the tree cover and steepness of the rock, most of the
+    // crag remains dry after long spells of rain in the Summer". Was vertical.
+    steepness: 'steep',
+    // UKC: "it can get very sheltered under the trees (cold)". Was 0.55; canopyLight was 0.65,
+    // lowered for the same tree cover.
+    windShelter: 0.4,
+    canopyLight: 0.5,
     tauRock: 20,
     seepIndex: 0.45,
     tauSeep: 10,
     catchmentAbove: 0.25,
     coastal: false,
     softRock: false,
-    notes: 'The most open of the Wye Valley venues; still slow relative to the coast.',
+    notes: 'North-west facing and steep under tree cover: most of it stays dry through summer rain, but it is shaded and cold under the trees.',
     // Months as the note already gives them (roughly March-August) - not more precise dates.
     seasonalRestriction: {
       fromMonth: 3,
@@ -332,8 +360,10 @@ const SEEDS: CragSeed[] = [
     name: 'Avon Gorge',
     area: 'Bristol',
     region: 'Bristol & Somerset',
-    lat: 51.462,
-    lon: -2.626,
+    // Checked 25 Sep 2026: moved from 51.462, -2.626, 380m south-east, 210m from the cliff, to
+    // UKC's location on the Main Wall.
+    lat: 51.4644,
+    lon: -2.6299,
     elevationM: 40,
     disciplines: ['trad', 'sport'],
     rock: 'limestone',
@@ -358,8 +388,10 @@ const SEEDS: CragSeed[] = [
     name: "Anstey's Cove",
     area: 'Torbay',
     region: 'Devon',
-    lat: 50.47,
-    lon: -3.512,
+    // Checked 25 Sep 2026: moved from 50.47, -3.512, 890m south-west, no mapped cliff within
+    // 350m, to UKC's location on the cove's walls.
+    lat: 50.475,
+    lon: -3.5022,
     elevationM: 30,
     disciplines: ['sport', 'trad', 'boulder'],
     rock: 'limestone',
@@ -582,8 +614,10 @@ const SEEDS: CragSeed[] = [
     name: 'Lower Pen Trwyn',
     area: 'Llandudno',
     region: 'North Wales',
-    lat: 53.336,
-    lon: -3.845,
+    // Checked 25 Sep 2026: moved from 53.336, -3.845, 840m west along Marine Drive, on
+    // north-east-facing cliffs, to UKC's location on the crag.
+    lat: 53.3352,
+    lon: -3.8324,
     elevationM: 15,
     disciplines: ['sport', 'trad'],
     rock: 'limestone',
@@ -609,8 +643,10 @@ const SEEDS: CragSeed[] = [
     name: "Parisella's Cave",
     area: 'Llandudno',
     region: 'North Wales',
-    lat: 53.336,
-    lon: -3.843,
+    // Checked 25 Sep 2026: moved from 53.336, -3.843, 870m west along Marine Drive to UKC's
+    // location for the cave.
+    lat: 53.3323,
+    lon: -3.8314,
     elevationM: 20,
     disciplines: ['sport', 'boulder'],
     rock: 'limestone',
@@ -657,9 +693,11 @@ const SEEDS: CragSeed[] = [
     name: 'Trevor Rocks',
     area: 'Llangollen',
     region: 'North Wales',
-    lat: 52.985,
-    lon: -3.147,
-    elevationM: 220,
+    // Checked 25 Sep 2026: moved from 52.985, -3.147, 480m north-west, 270m from any mapped
+    // cliff, to UKC's location in the main quarry. Elevation is UKC's (was 220).
+    lat: 52.9811,
+    lon: -3.1439,
+    elevationM: 286,
     disciplines: ['sport', 'trad'],
     rock: 'limestone',
     aspectDeg: 175,
@@ -740,8 +778,10 @@ const SEEDS: CragSeed[] = [
     name: 'The Roaches',
     area: 'Staffordshire',
     region: 'Peak District',
-    lat: 53.153,
-    lon: -2.0,
+    // Checked 25 Sep 2026: moved from 53.153, -2.0, 760m south-west, no mapped cliff within
+    // 350m, to UKC's location on the Upper Tier (OpenStreetMap faces 245°).
+    lat: 53.1582,
+    lon: -1.9926,
     elevationM: 400,
     disciplines: ['trad', 'boulder'],
     rock: 'gritstone',
@@ -766,8 +806,10 @@ const SEEDS: CragSeed[] = [
     name: 'Almscliff',
     area: 'Yorkshire',
     region: 'Yorkshire',
-    lat: 53.921,
-    lon: -1.598,
+    // Checked 25 Sep 2026: moved from 53.921, -1.598, 1.74km south, no mapped cliff within
+    // 350m, to UKC's location on the outcrop beside its own car park.
+    lat: 53.9364,
+    lon: -1.5933,
     elevationM: 200,
     disciplines: ['boulder', 'trad'],
     rock: 'gritstone',
@@ -957,8 +999,10 @@ const SEEDS: CragSeed[] = [
     name: 'Bowles Rocks',
     area: 'Southern Sandstone',
     region: 'Southern Sandstone',
-    lat: 51.085,
-    lon: 0.183,
+    // Checked 25 Sep 2026: moved from 51.085, 0.183, 1.5km west, no mapped cliff within 350m,
+    // to UKC's location on the rocks beside its own car park.
+    lat: 51.0755,
+    lon: 0.1989,
     elevationM: 110,
     disciplines: ['boulder', 'trad'],
     rock: 'sandstone',
