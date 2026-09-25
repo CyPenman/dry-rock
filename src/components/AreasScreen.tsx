@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { CragWithForecast } from '../hooks/useForecast';
+import { dayStripColumns } from '../lib/dayStrip';
 import { formatAgeWords, formatDayLabel, formatDistanceMiles } from '../lib/format';
 import { nearestKm, sortAreas, summariseAreas, type AreaDay, type AreaSummary } from '../model/areas';
 import { clampRangeToData, resolveDateRange, type DateRangeSelection } from '../model/dateRange';
@@ -7,7 +8,7 @@ import { rankCragDays, type RankedCragDay, type SortMode } from '../model/rankin
 import { SCORE_BAND_COLOR_VAR, SCORE_BAND_LABEL, type ScoreBand } from '../model/scoreBand';
 import type { Region } from '../model/types';
 import type { Settings } from '../state/settings';
-import { DayStrip, dayStripColumns } from './CragRow';
+import { DayStrip } from './CragRow';
 import { DateRangeControls } from './DateRangeControls';
 import { Explain } from './Explain';
 import { HomeAddressSection } from './HomeAddressSection';

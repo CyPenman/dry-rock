@@ -1,3 +1,4 @@
+import { dayStripColumns } from '../lib/dayStrip';
 import { dayReason, formatDayLabel, formatDistanceMiles, formatDriveTime, formatDryTiming } from '../lib/format';
 import { estimateDriveMinutes } from '../model/distance';
 import type { RankedCragDay } from '../model/ranking';
@@ -5,15 +6,6 @@ import { confidenceSentence, verdictMessage } from '../model/score';
 import { SCORE_BAND_COLOR_VAR, scoreBand } from '../model/scoreBand';
 
 const DAY_LETTER = new Intl.DateTimeFormat('en-GB', { weekday: 'short' });
-
-/**
- * Columns for a day-cell strip. Past a week the cells get too narrow to read on
- * a phone, so longer ranges wrap onto two even rows (12 days as 6 + 6, 9 as
- * 5 + 4) - shared by the crag rows here and the Areas tab's area cards.
- */
-export function dayStripColumns(dayCount: number): number {
-  return dayCount > 7 ? Math.ceil(dayCount / 2) : dayCount;
-}
 
 /**
  * Day-by-day score strip - score cells (design study "Crag Charts", option
