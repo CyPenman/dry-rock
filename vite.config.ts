@@ -102,6 +102,37 @@ export default defineConfig({
               expiration: { maxEntries: 10 },
             },
           },
+          // OpenFreeMap basemap, kept for offline use so a crag car park with
+          // no signal still shows the map around any area viewed before.
+          // The style and the TileJSON (/planet) are unversioned - fetch them
+          // fresh when online, fall back to the saved copy when not. The
+          // TileJSON names the dated tile set, so offline it keeps pointing
+          // at the tiles already saved.
+          {
+            urlPattern: ({ url }) =>
+              url.origin === 'https://tiles.openfreemap.org' && (url.pathname.startsWith('/styles/') || url.pathname === '/planet'),
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'map-style',
+              networkTimeoutSeconds: 5,
+              cacheableResponse: { statuses: [200] },
+              expiration: { maxEntries: 10 },
+            },
+          },
+          // Tiles (under a dated /planet/<version>/ path, so never changed in
+          // place), fonts, sprites and the shaded-relief overview: served from
+          // the phone once saved. Capped by count and age so the cache can't
+          // grow without end; dropped first if the phone runs short of space.
+          {
+            urlPattern: ({ url }) =>
+              url.origin === 'https://tiles.openfreemap.org' && /^\/(planet\/|fonts\/|sprites\/|natural_earth\/)/.test(url.pathname),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'map-tiles',
+              cacheableResponse: { statuses: [200] },
+              expiration: { maxEntries: 1500, maxAgeSeconds: 60 * 60 * 24 * 30, purgeOnQuotaError: true },
+            },
+          },
         ],
       },
     }),
