@@ -68,7 +68,7 @@ function App() {
       >
         <div className="flex shrink-0 justify-end gap-4 px-4 pt-2">
           <button type="button" onClick={() => setView({ name: 'about' })} className="text-sm" style={{ color: 'var(--signal)' }}>
-            About
+            Guide/About
           </button>
           <button type="button" onClick={() => setView({ name: 'search' })} className="text-sm" style={{ color: 'var(--signal)' }}>
             Search
