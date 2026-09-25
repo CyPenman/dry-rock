@@ -456,7 +456,8 @@ export function AboutScreen({ onBack }: { onBack: () => void }) {
             There are no accounts. Your home address and pinned crags stay on this device. The app asks Open-Meteo for
             weather at the crags, OpenFreeMap for the map, and, when you set a home, postcodes.io to find it. Conditions
             you log and feedback you send are emailed to the developer through FormSubmit - a log carries the crag, the
-            time, what you saw, the forecast and your browser type, never your home address.
+            time, what you saw, the forecast and your browser type, never your home address. GoatCounter counts
+            visits and which screens and crags are opened, without cookies and without identifying you.
           </p>
         </section>
 

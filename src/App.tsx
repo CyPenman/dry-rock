@@ -8,6 +8,7 @@ import { HomeScreen } from './components/HomeScreen';
 import { SearchScreen } from './components/SearchScreen';
 import { CRAGS } from './data/crags';
 import { useForecast } from './hooks/useForecast';
+import { countEvent } from './lib/analytics';
 import { DEFAULT_DATE_RANGE, type DateRangeSelection } from './model/dateRange';
 import { useSettings } from './state/settings';
 
@@ -37,6 +38,19 @@ function App() {
     return () => window.removeEventListener('online', send);
   }, []);
 
+  // Screen opens, for the usage counts (src/lib/analytics.ts). The app open itself is counted by count.js.
+  const detailCragId = view.name === 'detail' ? view.cragId : undefined;
+  useEffect(() => {
+    if (view.name === 'home') return;
+    if (detailCragId) countEvent(`crag/${detailCragId}`, CRAGS.find((c) => c.id === detailCragId)?.name);
+    else countEvent(view.name);
+  }, [view.name, detailCragId]);
+
+  function switchTab(tab: Tab) {
+    if (tab !== activeTab) countEvent(`tab/${tab}`, TAB_LABEL[tab]);
+    setActiveTab(tab);
+  }
+
   const activeIndex = TABS.indexOf(activeTab);
   const detailEntry = view.name === 'detail' ? results.find((r) => r.crag.id === view.cragId) : undefined;
 
@@ -62,7 +76,7 @@ function App() {
     const dy = t.clientY - start.y;
     if (Math.abs(dx) > SWIPE_THRESHOLD_PX && Math.abs(dx) > Math.abs(dy) * SWIPE_HORIZONTAL_BIAS) {
       const next = activeIndex + (dx < 0 ? 1 : -1);
-      if (next >= 0 && next < TABS.length) setActiveTab(TABS[next]);
+      if (next >= 0 && next < TABS.length) switchTab(TABS[next]);
     }
   }
 
@@ -163,7 +177,7 @@ function App() {
             <button
               key={tab}
               type="button"
-              onClick={() => setActiveTab(tab)}
+              onClick={() => switchTab(tab)}
               aria-current={activeTab === tab ? 'page' : undefined}
               className="min-h-11 flex-1 py-3 text-sm"
               style={{ color: activeTab === tab ? 'var(--signal)' : 'var(--text-dim)', fontWeight: activeTab === tab ? 500 : 400 }}
