@@ -8,11 +8,12 @@ import { fetchFrom, readJson, UserFacingError } from './serviceError';
 // general feedback, emailed through FormSubmit's AJAX endpoint. The app has no
 // backend, and FormSubmit needs no account or key - the first submission sends
 // an "Activate Form" email to the inbox, and nothing is delivered until that
-// link is clicked. After activation FormSubmit offers a random alias for the
-// address; swap it into REPORT_ENDPOINT to keep the address out of the source.
+// link is clicked. The form is activated; REPORT_ENDPOINT uses the random
+// alias FormSubmit gave for the developer's inbox, so the address itself is
+// not in the public bundle.
 
-export const REPORT_EMAIL = 'UKDryRock@gmail.com';
-const REPORT_ENDPOINT = `https://formsubmit.co/ajax/${REPORT_EMAIL}`;
+const REPORT_ALIAS = '14cbcb0f104a3817baddd132d9a7ce2f';
+const REPORT_ENDPOINT = `https://formsubmit.co/ajax/${REPORT_ALIAS}`;
 
 /**
  * Every email carries one line starting with this marker followed by the
