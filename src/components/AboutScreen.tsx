@@ -84,8 +84,8 @@ export function AboutScreen({ onBack }: { onBack: () => void }) {
             <li>Sea state and tide are not modelled, so spray and tidal access at sea cliffs are invisible.</li>
             <li>Local effects such as sea breezes, rain shadows and valley inversions are mostly missed.</li>
             <li>
-              Drive times are estimates from straight-line distance (roads about 1.3 times longer, 65 km/h on average,
-              plus 15 minutes), not a route - traffic, ferries and mountain roads are not known.
+              Drive times are estimates from straight-line distance (slower for the first 50 km, faster beyond, as
+              motorways take over), not a route - traffic, ferries and slow cross-country roads are not known.
             </li>
           </ul>
         </section>
