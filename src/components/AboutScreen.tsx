@@ -2,9 +2,9 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { BMC_RAD_URL } from '../data/crags';
 import { FRICTION_REASON_LABEL, LIMITING_FACTOR_LABEL } from '../lib/format';
 import { toLocalIsoDate } from '../model/dateRange';
-import type { FrictionReason } from '../model/friction';
+import { FRICTION_BLOCK_LENGTH_HOURS, type FrictionReason } from '../model/friction';
 import type { Observation } from '../model/observation';
-import { verdictMessage, type Verdict } from '../model/score';
+import { SESSION_HOURS, verdictMessage, type Verdict } from '../model/score';
 import { SCORE_BAND_COLOR_VAR, SCORE_BAND_LABEL, type ScoreBand } from '../model/scoreBand';
 import type { LimitingFactor } from '../model/wetness';
 import { listAllObservations } from '../storage/db';
@@ -243,6 +243,55 @@ export function AboutScreen({ onBack }: { onBack: () => void }) {
               ],
             ]}
           />
+
+          <div className="mt-3">
+            <GuideDetails title="What the score means">
+              <p>Each day is scored out of 100 from two parts:</p>
+              <TermList
+                items={[
+                  [
+                    'Dryness - up to 60',
+                    `How much of a ${SESSION_HOURS}-hour session the rock is dry for in daylight. Half comes from the total dry hours, half from the longest unbroken dry stretch, so three scattered dry hours score less than three in a row. ${SESSION_HOURS} hours or more gets full marks - a long summer day doesn't outscore a shorter one that still gives a full session.`,
+                  ],
+                  [
+                    'Friction - up to 40',
+                    `How good the grip is in the day's best ${FRICTION_BLOCK_LENGTH_HOURS}-hour dry window. Full marks for rock in the crag's ideal temperature range, dry air and a light breeze. It loses marks for humid air, rock close to the dew point, rock too warm or too cold, strong wind, sun baking the face, and salt on sea cliffs.`,
+                  ],
+                  [
+                    'Confidence',
+                    'When the weather models disagree about a day, its score is trimmed a little - by up to 15% - so an uncertain day reads lower than a sure one.',
+                  ],
+                ]}
+              />
+              <p className="pt-1">
+                A high score only happens one way. An 89 needs a long dry spell <em>and</em> good grip, with most models
+                agreeing - just go.
+              </p>
+              <p>A middling score can be very different days. A 63 could be:</p>
+              <ul className="list-disc space-y-1 pl-5" style={{ color: 'var(--text-dim)' }}>
+                <li>
+                  <span style={{ color: 'var(--text)' }}>Dry but greasy</span> - dry all day, but humid or close to the
+                  dew point, so the holds feel slick. Fine for mileage, not for a project.
+                </li>
+                <li>
+                  <span style={{ color: 'var(--text)' }}>A short window with great grip</span> - only two or three dry
+                  hours, but crisp while they last. Good for a quick hit if you can be there at the right time.
+                </li>
+                <li>
+                  <span style={{ color: 'var(--text)' }}>Middling on both</span> - five or so dry hours, a bit warm or
+                  breezy. A usable day.
+                </li>
+                <li>
+                  <span style={{ color: 'var(--text)' }}>A good day the models disagree about</span> - it might be a
+                  74, or it might not.
+                </li>
+              </ul>
+              <p>
+                On a crag's page, tap the day to see which: the dryness and friction bars, the dry window and the reason
+                tell them apart.
+              </p>
+            </GuideDetails>
+          </div>
         </section>
 
         <section>
