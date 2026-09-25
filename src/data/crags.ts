@@ -1,9 +1,9 @@
 import { IDEAL_TEMP_C, ROCK_DEFAULTS } from '../model/rockDefaults';
 import type { Crag, Discipline, Region, RockType, Steepness } from '../model/types';
 
-// Raw seed data - spec §5.4. Coordinates and elevations are approximate (to the
-// parking or crag centre); good enough to select the right forecast grid cell,
-// but worth verifying against a map before relying on them.
+// Raw seed data - spec §5.4. Each crag's lat/lon is UKC's location for it, checked
+// against OpenStreetMap's cliff lines (all but Dinorwig, which has no single UKC
+// page); it picks the forecast grid cell, so keep it on the rock, never the car park.
 type CragSeed = {
   id: string;
   name: string;
