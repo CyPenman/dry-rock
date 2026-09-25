@@ -1,20 +1,19 @@
 import { useMemo, useState } from 'react';
 import type { CragWithForecast } from '../hooks/useForecast';
-import { formatAgeWords } from '../lib/format';
 import { clampRangeToData, resolveDateRange, type DateRangeSelection } from '../model/dateRange';
 import { rankCragDays, sortRanked, type RankedCragDay, type SortMode } from '../model/ranking';
 import type { Settings } from '../state/settings';
 import { CragRow } from './CragRow';
 import { DateRangeControls } from './DateRangeControls';
+import { ForecastAge, NoForecastNotice } from './ForecastStatus';
 import { HomeAddressSection } from './HomeAddressSection';
 import { SortControl } from './SortControl';
 
 export function HomeScreen({
   results,
   loading,
-  error,
+  failure,
   fetchedAt,
-  stale,
   onRefresh,
   settings,
   updateSettings,
@@ -27,9 +26,8 @@ export function HomeScreen({
 }: {
   results: CragWithForecast[];
   loading: boolean;
-  error: string | null;
+  failure: string | null;
   fetchedAt: number | null;
-  stale: boolean;
   onRefresh: () => void;
   settings: Settings;
   updateSettings: (patch: Partial<Settings>) => void;
@@ -78,8 +76,7 @@ export function HomeScreen({
           </button>
         </div>
         <p className="mt-0.5 text-xs" style={{ color: 'var(--text-dim)' }}>
-          {fetchedAt ? formatAgeWords(fetchedAt) : 'loading...'}
-          {stale && ", showing cached data as we couldn't reach the network"}
+          <ForecastAge loading={loading} fetchedAt={fetchedAt} failure={failure} />
         </p>
 
         <HomeAddressSection settings={settings} updateSettings={updateSettings} />
@@ -89,15 +86,11 @@ export function HomeScreen({
         <SortControl id="sortMode" value={sortMode} onChange={setSortMode} hasHome={home != null} />
       </header>
 
-      {error && (
-        <div className="mx-4 mt-2 rounded border px-3 py-2 text-sm" style={{ borderColor: 'var(--warning)', color: 'var(--warning)' }}>
-          Couldn't load the forecast: {error}
-        </div>
-      )}
+      <NoForecastNotice loading={loading} fetchedAt={fetchedAt} failure={failure} />
 
       {outOfData && (
         <p className="mx-4 mt-3 rounded border px-3 py-2 text-sm" style={{ borderColor: 'var(--warning)', color: 'var(--warning)' }}>
-          Your saved forecast doesn't reach these dates - refresh when you have signal.
+          Your saved forecast doesn't reach these dates. Refresh to get a newer one.
         </p>
       )}
       {!outOfData && clamped && coveredRange && (
@@ -117,26 +110,28 @@ export function HomeScreen({
         </section>
       )}
 
-      <section>
-        <h2 className="px-4 pb-1 pt-3 text-xs uppercase tracking-wide" style={{ color: 'var(--text-dim)' }}>
-          Ranked
-        </h2>
-        {!loading && !outOfData && sorted.length === 0 && (
-          <p className="px-4 py-6 text-sm" style={{ color: 'var(--text-dim)' }}>
-            Nothing qualifies in this window. Check the sheltered venues below: caves and roofs are their whole
-            value when the forecast is bad everywhere.
-          </p>
-        )}
-        {sorted.map((r) => (
-          <CragRow
-            key={r.crag.id}
-            ranked={r}
-            pinned={settings.pinnedCragIds.includes(r.crag.id)}
-            onSelect={() => onSelectCrag(r.crag.id)}
-            onTogglePin={() => togglePinned(r.crag.id)}
-          />
-        ))}
-      </section>
+      {fetchedAt != null && (
+        <section>
+          <h2 className="px-4 pb-1 pt-3 text-xs uppercase tracking-wide" style={{ color: 'var(--text-dim)' }}>
+            Ranked
+          </h2>
+          {!loading && !outOfData && sorted.length === 0 && (
+            <p className="px-4 py-6 text-sm" style={{ color: 'var(--text-dim)' }}>
+              Nothing qualifies in this window. Check the sheltered venues below: caves and roofs are their whole
+              value when the forecast is bad everywhere.
+            </p>
+          )}
+          {sorted.map((r) => (
+            <CragRow
+              key={r.crag.id}
+              ranked={r}
+              pinned={settings.pinnedCragIds.includes(r.crag.id)}
+              onSelect={() => onSelectCrag(r.crag.id)}
+              onTogglePin={() => togglePinned(r.crag.id)}
+            />
+          ))}
+        </section>
+      )}
 
       {gated.length > 0 && (
         <details className="mt-3">

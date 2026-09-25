@@ -26,7 +26,7 @@ function App() {
   const [activeTab, setActiveTab] = useState<Tab>('areas');
   const [dateRange, setDateRange] = useState<DateRangeSelection>(DEFAULT_DATE_RANGE);
   const { settings, update, togglePinned } = useSettings();
-  const { loading, error, fetchedAt, stale, results, todayIndex, dayCount, refresh } = useForecast(CRAGS);
+  const { loading, failure, fetchedAt, results, todayIndex, dayCount, refresh } = useForecast(CRAGS);
   const touchRef = useRef<{ x: number; y: number } | null>(null);
 
   // Conditions logged without signal (§8.1) go out on the next open, or as soon as the phone reconnects.
@@ -112,9 +112,8 @@ function App() {
               <AreasScreen
                 results={results}
                 loading={loading}
-                error={error}
+                failure={failure}
                 fetchedAt={fetchedAt}
-                stale={stale}
                 onRefresh={refresh}
                 settings={settings}
                 updateSettings={update}
@@ -129,9 +128,8 @@ function App() {
               <HomeScreen
                 results={results}
                 loading={loading}
-                error={error}
+                failure={failure}
                 fetchedAt={fetchedAt}
-                stale={stale}
                 onRefresh={refresh}
                 settings={settings}
                 updateSettings={update}
@@ -152,7 +150,7 @@ function App() {
                 active={activeTab === 'map'}
                 loading={loading}
                 fetchedAt={fetchedAt}
-                stale={stale}
+                failure={failure}
                 onRefresh={refresh}
                 onSelectCrag={(id) => setView({ name: 'detail', cragId: id })}
               />
@@ -201,7 +199,7 @@ function App() {
             dayCount={dayCount}
             loading={loading}
             fetchedAt={fetchedAt}
-            stale={stale}
+            failure={failure}
             onRefresh={refresh}
             homeSettings={settings}
           />

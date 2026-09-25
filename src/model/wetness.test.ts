@@ -190,7 +190,7 @@ describe('§8.4 validation cases', () => {
     // A short burst, isolating the roof-shedding mechanism (rainExposure 0.15)
     // from the lip-drainage mechanism (catchmentAbove 0.65, §4.2's EWMA of Pface)
     // that the *next* test is specifically about - a longer sustained rain would
-    // give that EWMA time to build up and start pulling this case toward the
+    // give that EWMA time to build up and start pulling this case towards the
     // "seepage and lip drainage" case instead of testing what it's meant to.
     const config = toConfig(crag('kilnsey'));
     const dryDays = 24 * 14;

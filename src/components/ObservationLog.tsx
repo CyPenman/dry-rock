@@ -139,14 +139,14 @@ export function ObservationLog({
         </button>
       </div>
       <p className="mt-2 text-xs" style={{ color: 'var(--text-dim)' }}>
-        Saved on this phone and sent to Dry Rock's developer, with the forecast for the same hour, to help fix the model.
+        Saved on this device and sent to Dry Rock's developer, with the forecast for the same hour, to help fix the model.
       </p>
       {saved && (
         <p className="mt-2 text-sm" style={{ color: 'var(--text)' }}>
           Saved - the model said: {modelSaid(saved.snapshot)}.{' '}
           {sendState === 'sending' && 'Sending...'}
           {sendState === 'sent' && 'Sent, thanks.'}
-          {sendState === 'waiting' && "Couldn't send yet - it'll go next time you open the app with signal."}
+          {sendState === 'waiting' && "Couldn't send yet - it's saved and will try again next time you open the app."}
         </p>
       )}
       {error && (

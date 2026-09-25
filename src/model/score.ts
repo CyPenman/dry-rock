@@ -101,7 +101,7 @@ export function verdictMessage(verdict: Verdict): string {
     case 'under_snow':
       return 'Under snow';
     case 'frozen':
-      return 'Frozen / verglas';
+      return 'Frozen or verglassed';
     case 'rock_damage':
       return 'Do not climb: a freeze-thaw in the last 48 hours can loosen soft sandstone even when the surface looks dry';
     case 'soft_rock_wet':

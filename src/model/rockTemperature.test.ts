@@ -57,7 +57,7 @@ describe('updateRockTemperature (two-layer, §4.2)', () => {
     for (const t of surface) expect(t).toBeLessThan(13);
   });
 
-  it('relaxes toward the target temperature rather than jumping to it', () => {
+  it('relaxes towards the target temperature rather than jumping to it', () => {
     const [surface] = run(5, [{ airTemp: 20, gtiFace: 0, cloudCoverPct: 100, isDay: true, windSpeedMs: 2, tauRock: 20 }]);
     expect(surface).toBeGreaterThan(5);
     expect(surface).toBeLessThan(20);

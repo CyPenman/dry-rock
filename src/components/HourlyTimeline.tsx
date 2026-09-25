@@ -182,15 +182,15 @@ export function HourlyTimeline({
       <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm" style={{ color: 'var(--text-dim)' }}>
         <span className="flex items-center gap-1.5">
           <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: 'var(--signal)' }} />
-          climbable
+          Climbable
         </span>
         <span className="flex items-center gap-1.5">
           <span className="inline-block h-0.5 w-3.5" style={{ background: 'var(--chart-water)' }} />
-          surface film
+          Surface film
         </span>
         <span className="flex items-center gap-1.5">
           <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: 'var(--chart-water-soft)', opacity: 0.6 }} />
-          inside the rock
+          Inside the rock
         </span>
       </div>
 

@@ -1,6 +1,7 @@
 import type { Crag } from '../model/types';
 import { dedupeCoordinates } from './dedupe';
 import { buildForecastUrl, MODELS, type ModelName } from './request';
+import { fetchFrom, readJson, ServiceError } from './serviceError';
 import type { OpenMeteoResponse } from './types';
 
 export interface CellForecast {
@@ -49,15 +50,14 @@ export async function fetchCellForecasts(
   const { cells, cragToCellKey } = dedupeCoordinates(crags);
   const url = buildForecastUrl(cells);
 
-  const res = await fetch(url);
-  if (!res.ok) {
-    throw new Error(`Open-Meteo request failed: ${res.status} ${res.statusText}`);
-  }
-  const body: unknown = await res.json();
+  const res = await fetchFrom('Open-Meteo', url);
+  const body = await readJson<unknown>('Open-Meteo', res);
   const responses: OpenMeteoResponse[] = Array.isArray(body) ? body : [body as OpenMeteoResponse];
 
-  if (responses.length !== cells.length) {
-    throw new Error(`Open-Meteo returned ${responses.length} coordinates for ${cells.length} requested`);
+  // One answer per requested cell, each with an hourly series - anything else
+  // can't be matched back onto crags.
+  if (responses.length !== cells.length || responses.some((r) => !r?.hourly?.time)) {
+    throw new ServiceError('Open-Meteo', 'unreadable');
   }
 
   const cellForecasts = new Map<string, CellForecast>();

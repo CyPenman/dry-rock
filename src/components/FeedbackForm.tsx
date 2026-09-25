@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { FEEDBACK_TOPICS, sendFeedback, type FeedbackTopic } from '../api/reports';
+import { describeError } from '../api/serviceError';
 
 const FIELD_STYLE = { borderColor: 'var(--border)', background: 'var(--ground-raised)', color: 'var(--text)' } as const;
 
@@ -31,7 +32,7 @@ export function FeedbackForm() {
       setStatus({ state: 'sent' });
       setMessage('');
     } catch (err) {
-      setStatus({ state: 'failed', reason: err instanceof Error ? err.message : String(err) });
+      setStatus({ state: 'failed', reason: describeError(err) });
     }
   }
 
@@ -116,7 +117,7 @@ export function FeedbackForm() {
       </button>
       {status.state === 'failed' && (
         <p style={{ color: 'var(--warning)' }}>
-          Couldn't send - check your signal and try again. ({status.reason})
+          Couldn't send: {status.reason}. Your message is still here to try again.
         </p>
       )}
     </form>

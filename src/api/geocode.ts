@@ -8,6 +8,8 @@
 // Street addresses aren't searchable, but a postcode anywhere in the text is
 // picked out, and drive times (§6 Home) only need a postcode's precision.
 
+import { fetchFrom, readJson, UserFacingError } from './serviceError';
+
 export interface GeocodeResult {
   lat: number;
   lon: number;
@@ -18,7 +20,7 @@ const POSTCODES_BASE = 'https://api.postcodes.io';
 
 const FULL_POSTCODE = /\b([A-Z]{1,2}\d[A-Z\d]?)\s*(\d[A-Z]{2})\b/i;
 const OUTCODE_ONLY = /^[A-Z]{1,2}\d[A-Z\d]?$/i;
-const NOT_FOUND = "Couldn't find that - try a postcode or a town name";
+const NOT_FOUND = "Couldn't find that - try a postcode or a town name.";
 
 /** Settlement types from OS Open Names, biggest first: "Sheffield" means the city, not the Cornish village. */
 const PLACE_TYPE_RANK: Record<string, number> = {
@@ -58,10 +60,9 @@ interface PlaceResult {
 
 /** GET a postcodes.io endpoint's `result`; null on 404 (not found), throws on anything else. */
 async function getResult<T>(path: string): Promise<T | null> {
-  const res = await fetch(`${POSTCODES_BASE}${path}`, { headers: { Accept: 'application/json' } });
+  const res = await fetchFrom('postcodes.io', `${POSTCODES_BASE}${path}`, { headers: { Accept: 'application/json' } }, [404]);
   if (res.status === 404) return null;
-  if (!res.ok) throw new Error(`Address lookup failed: ${res.status} ${res.statusText}`);
-  const body = (await res.json()) as { result: T | null };
+  const body = await readJson<{ result: T | null }>('postcodes.io', res);
   return body.result;
 }
 
@@ -168,7 +169,7 @@ export async function geocodeAddress(query: string): Promise<GeocodeResult> {
     : OUTCODE_ONLY.test(trimmed)
       ? await lookupOutcode(trimmed)
       : await lookupPlace(trimmed);
-  if (!result) throw new Error(NOT_FOUND);
+  if (!result) throw new UserFacingError(NOT_FOUND);
   return result;
 }
 

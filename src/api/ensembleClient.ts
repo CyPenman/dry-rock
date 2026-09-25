@@ -1,3 +1,4 @@
+import { fetchFrom, readJson, ServiceError } from './serviceError';
 import type { OpenMeteoResponse } from './types';
 
 export interface EnsembleCellForecast {
@@ -27,11 +28,9 @@ function splitVariablesByMember(hourly: Record<string, number[]>): Record<string
  * multi-model payload §2 sizes the persisted cache around.
  */
 export async function fetchEnsembleForecast(url: string): Promise<EnsembleCellForecast> {
-  const res = await fetch(url);
-  if (!res.ok) {
-    throw new Error(`Open-Meteo ensemble request failed: ${res.status} ${res.statusText}`);
-  }
-  const body = (await res.json()) as OpenMeteoResponse;
+  const res = await fetchFrom('Open-Meteo', url);
+  const body = await readJson<OpenMeteoResponse>('Open-Meteo', res);
+  if (!body?.hourly?.time) throw new ServiceError('Open-Meteo', 'unreadable');
   return {
     time: body.hourly.time,
     members: splitVariablesByMember(body.hourly),

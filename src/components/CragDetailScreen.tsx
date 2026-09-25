@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
 import { buildEnsembleUrl } from '../api/ensembleRequest';
 import { fetchEnsembleForecast, type EnsembleCellForecast } from '../api/ensembleClient';
+import { describeError } from '../api/serviceError';
 import { FORECAST_DAYS, PAST_DAYS } from '../api/request';
 import { BMC_RAD_URL } from '../data/crags';
 import type { CragWithForecast } from '../hooks/useForecast';
-import { daySummarySentence, formatAgeWords, formatDayLabel, formatSunOnFace } from '../lib/format';
+import { daySummarySentence, formatDayLabel, formatSunOnFace } from '../lib/format';
 import {
   clampRangeToData,
   dayIndexToDate,
@@ -23,6 +24,7 @@ import type { Settings } from '../state/settings';
 import { isStale, readCachedEnsemble, writeCachedEnsemble } from '../storage/db';
 import { DayScoreChart } from './DayScoreChart';
 import { Explain } from './Explain';
+import { ForecastAge } from './ForecastStatus';
 import { HourlyTimeline } from './HourlyTimeline';
 import { ObservationLog } from './ObservationLog';
 import { RockTempChart } from './RockTempChart';
@@ -61,7 +63,7 @@ function EnsembleSection({
       )}
       {state.status === 'error' && (
         <p className="text-sm" style={{ color: 'var(--warning)' }}>
-          Couldn't fetch the ensemble: {state.message}
+          Couldn't run the ensemble: {state.message}.
         </p>
       )}
       {state.status === 'done' && (
@@ -84,7 +86,7 @@ function EnsembleSection({
           <Explain>
             <p>
               Each member runs the same wetness model against a slightly different, equally plausible weather
-              sequence (icon_eu, ~40 members) - a real probability, not a hedge. A member counts when it gives at least
+              sequence (ICON-EU, ~40 members) - a real probability, not a hedge. A member counts when it gives at least
               3 dry daylight hours in a row, long enough for a session; "dry by" is when that window starts. Members
               only reach about 5 days ahead, so later days may have none.
             </p>
@@ -137,7 +139,7 @@ export function CragDetailScreen({
   dayCount,
   loading,
   fetchedAt,
-  stale,
+  failure,
   onRefresh,
   homeSettings,
 }: {
@@ -150,7 +152,7 @@ export function CragDetailScreen({
   dayCount: number;
   loading: boolean;
   fetchedAt: number | null;
-  stale: boolean;
+  failure: string | null;
   onRefresh: () => void;
   homeSettings: Pick<Settings, 'homeLat' | 'homeLon'>;
 }) {
@@ -217,7 +219,7 @@ export function CragDetailScreen({
       const result = runEnsembleForCrag(crag, config, cell, dateKeys, sharedSoilMoistureByTime, sharedDewPointByTime);
       setEnsembleState({ status: 'done', result });
     } catch (err) {
-      setEnsembleState({ status: 'error', message: err instanceof Error ? err.message : String(err) });
+      setEnsembleState({ status: 'error', message: describeError(err) });
     }
   }
 
@@ -281,8 +283,7 @@ export function CragDetailScreen({
         {crag.area} &middot; {crag.rock} &middot; {crag.steepness}
       </div>
       <div className="px-4 text-xs" style={{ color: 'var(--text-dim)' }}>
-        {fetchedAt ? formatAgeWords(fetchedAt) : 'loading...'}
-        {stale && ", showing cached data as we couldn't reach the network"}
+        <ForecastAge loading={loading} fetchedAt={fetchedAt} failure={failure} />
         {' · '}
         <button type="button" onClick={onRefresh} style={{ color: 'var(--signal)' }}>
           {loading ? 'Refreshing...' : 'Refresh'}
@@ -297,7 +298,7 @@ export function CragDetailScreen({
 
       {forecast && outOfData && (
         <p className="mx-4 mt-3 rounded border px-3 py-2 text-sm" style={{ borderColor: 'var(--warning)', color: 'var(--warning)' }}>
-          Your saved forecast doesn't reach these dates - refresh when you have signal.
+          Your saved forecast doesn't reach these dates. Refresh to get a newer one.
         </p>
       )}
       {forecast && !outOfData && covered.clamped && (
@@ -428,10 +429,10 @@ export function CragDetailScreen({
           className="flex h-11 items-center text-sm font-medium"
           style={{ color: 'var(--signal)' }}
         >
-          {crag.radUrl ? 'Current access on the BMC access database' : 'Check access on the BMC access database'} &rarr;
+          {crag.radUrl ? 'Current access on the BMC Regional Access Database' : 'Check access on the BMC Regional Access Database'} &rarr;
         </a>
         <p className="pt-1 text-xs" style={{ color: 'var(--text-dim)' }}>
-          A forecast, not an inspection: check the rock, and any access restrictions, yourself before you climb.
+          A forecast, not an inspection - check the rock and current access yourself before you climb.
         </p>
       </div>
 
@@ -469,7 +470,7 @@ export function CragDetailScreen({
           </a>
         ) : (
           <p className="py-2 text-sm" style={{ color: 'var(--text-dim)' }}>
-            Parking location unclear{crag.parkingNote ? `: ${crag.parkingNote}` : ' - not yet confirmed for this crag.'}
+            Parking: {crag.parkingNote ?? "we haven't pinned down where to park for this crag yet."}
           </p>
         )}
       </div>

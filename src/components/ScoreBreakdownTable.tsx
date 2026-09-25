@@ -9,6 +9,7 @@ import {
   FRICTION_REASON_LABEL,
   LIMITING_FACTOR_LABEL,
   MODEL_DISPLAY_NAME,
+  sentenceCase,
 } from '../lib/format';
 import type { CragDayResult } from '../model/dayAggregate';
 import { FRICTION_BLOCK_LENGTH_HOURS } from '../model/friction';
@@ -91,7 +92,7 @@ function formatHourOfDay(hour: number): string {
 }
 
 function frictionWindowRange(startHour: number): string {
-  return `${formatHourOfDay(startHour)}–${formatHourOfDay(startHour + FRICTION_BLOCK_LENGTH_HOURS)}`;
+  return `${formatHourOfDay(startHour)}-${formatHourOfDay(startHour + FRICTION_BLOCK_LENGTH_HOURS)}`;
 }
 
 /** A window of rock just damp inside (§4.7) is scored at reduced grip. */
@@ -105,7 +106,7 @@ function frictionWindowLabel(startHour: number, dryness: number | null): string 
   return `best window: ${frictionWindowRange(startHour)}, ${state}`;
 }
 
-/** "best 16:00–19:00 · rock damp inside" - the glanceable friction caption. */
+/** "best 16:00-19:00 · rock damp inside" - the glanceable friction caption. */
 function frictionShortLabel(day: CragDayResult, startHour: number): string {
   const parts = [`best ${frictionWindowRange(startHour)}`];
   if (frictionWindowIsDamp(day.frictionWindowDryness)) parts.push('rock damp inside');
@@ -270,7 +271,7 @@ export function ScoreBreakdownTable({ days, bestDayIndex }: { days: CragDayResul
                             </div>
                             {windChill && (
                               <p className="text-sm" style={{ color: 'var(--warning)' }}>
-                                {windChill}
+                                {sentenceCase(windChill)}
                               </p>
                             )}
                             <div
@@ -304,8 +305,8 @@ export function ScoreBreakdownTable({ days, bestDayIndex }: { days: CragDayResul
                                 label="Sun on face"
                                 value={
                                   day.sunOnFaceHours
-                                    ? `${formatHourOfDay(day.sunOnFaceHours.start)}–${formatHourOfDay(day.sunOnFaceHours.end)}`
-                                    : 'none'
+                                    ? `${formatHourOfDay(day.sunOnFaceHours.start)}-${formatHourOfDay(day.sunOnFaceHours.end)}`
+                                    : 'None'
                                 }
                               />
                             </div>
@@ -325,7 +326,7 @@ export function ScoreBreakdownTable({ days, bestDayIndex }: { days: CragDayResul
                               {showNumbers ? 'Hide the numbers ▴' : 'Show the numbers ▾'}
                             </button>
                           )}
-                          <span>forecast: {MODEL_DISPLAY_NAME[day.sourceModel]}</span>
+                          <span>Forecast: {MODEL_DISPLAY_NAME[day.sourceModel]}</span>
                         </div>
                       </td>
                     </tr>
@@ -339,7 +340,7 @@ export function ScoreBreakdownTable({ days, bestDayIndex }: { days: CragDayResul
 
       <Explain>
         <p>
-          <strong>Crag dryness</strong>: how many dry daylight hours there are, weighted toward one unbroken block over
+          <strong>Crag dryness</strong>: how many dry daylight hours there are, weighted towards one unbroken block over
           the same hours scattered in gaps - which is why the line underneath mentions the longest run when the dry hours
           are scattered. It is judged against a {SESSION_HOURS}-hour session (or the whole of a shorter winter day), so a
           day with a full session of dry rock scores full marks however long the daylight. Equal scores can mean one

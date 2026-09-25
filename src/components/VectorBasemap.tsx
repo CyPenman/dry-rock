@@ -106,7 +106,7 @@ export function VectorBasemap({ active }: { active: boolean }) {
       className="absolute left-14 right-3 top-3 rounded-lg px-3 py-2 text-xs"
       style={{ zIndex: 1000, background: 'var(--ground-raised)', border: '1px solid var(--border)', color: 'var(--text-dim)' }}
     >
-      The map background couldn't load ({error.message}). The crag pins are still in the right places.{' '}
+      The map background couldn't load ({error.message}). The crag markers are still in the right places.{' '}
       <button
         type="button"
         style={{ color: 'var(--signal)' }}

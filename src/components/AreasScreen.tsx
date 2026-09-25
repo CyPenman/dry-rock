@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { CragWithForecast } from '../hooks/useForecast';
 import { dayStripColumns } from '../lib/dayStrip';
-import { formatAgeWords, formatDayLabel, formatDistanceMiles } from '../lib/format';
+import { formatDayLabel, formatDistanceMiles } from '../lib/format';
 import { nearestKm, sortAreas, summariseAreas, type AreaDay, type AreaSummary } from '../model/areas';
 import { clampRangeToData, resolveDateRange, type DateRangeSelection } from '../model/dateRange';
 import { rankCragDays, type RankedCragDay, type SortMode } from '../model/ranking';
@@ -11,6 +11,7 @@ import type { Settings } from '../state/settings';
 import { DayStrip } from './CragRow';
 import { DateRangeControls } from './DateRangeControls';
 import { Explain } from './Explain';
+import { ForecastAge, NoForecastNotice } from './ForecastStatus';
 import { HomeAddressSection } from './HomeAddressSection';
 import { SortControl } from './SortControl';
 
@@ -100,7 +101,7 @@ function CompactCragRow({ ranked, onSelect }: { ranked: RankedCragDay; onSelect:
         </span>
         {isGated ? (
           <span className="shrink-0 text-xs" style={{ color: 'var(--warning)' }}>
-            ruled out
+            Ruled out
           </span>
         ) : (
           <span className="shrink-0 font-mono text-sm font-medium">
@@ -176,9 +177,8 @@ function AreaCard({
 export function AreasScreen({
   results,
   loading,
-  error,
+  failure,
   fetchedAt,
-  stale,
   onRefresh,
   settings,
   updateSettings,
@@ -190,9 +190,8 @@ export function AreasScreen({
 }: {
   results: CragWithForecast[];
   loading: boolean;
-  error: string | null;
+  failure: string | null;
   fetchedAt: number | null;
-  stale: boolean;
   onRefresh: () => void;
   settings: Settings;
   updateSettings: (patch: Partial<Settings>) => void;
@@ -243,8 +242,7 @@ export function AreasScreen({
           </button>
         </div>
         <p className="mt-0.5 text-xs" style={{ color: 'var(--text-dim)' }}>
-          {fetchedAt ? formatAgeWords(fetchedAt) : 'loading...'}
-          {stale && ", showing cached data as we couldn't reach the network"}
+          <ForecastAge loading={loading} fetchedAt={fetchedAt} failure={failure} />
         </p>
 
         <HomeAddressSection settings={settings} updateSettings={updateSettings} />
@@ -268,15 +266,11 @@ export function AreasScreen({
         </Explain>
       </header>
 
-      {error && (
-        <div className="mx-4 mt-2 rounded border px-3 py-2 text-sm" style={{ borderColor: 'var(--warning)', color: 'var(--warning)' }}>
-          Couldn't load the forecast: {error}
-        </div>
-      )}
+      <NoForecastNotice loading={loading} fetchedAt={fetchedAt} failure={failure} />
 
       {outOfData && (
         <p className="mx-4 mt-3 rounded border px-3 py-2 text-sm" style={{ borderColor: 'var(--warning)', color: 'var(--warning)' }}>
-          Your saved forecast doesn't reach these dates - refresh when you have signal.
+          Your saved forecast doesn't reach these dates. Refresh to get a newer one.
         </p>
       )}
       {!outOfData && clamped && coveredRange && (

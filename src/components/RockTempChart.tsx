@@ -137,7 +137,7 @@ export function RockTempChart({
                 padding: '2px 4px',
               }}
             >
-              IDEAL {idealLo}&ndash;{idealHi}&deg;C
+              IDEAL {idealLo}-{idealHi}&deg;C
             </div>
             {dot(f, Y(cur.Trock), 'var(--text)', 10, 'd')}
           </>
@@ -177,23 +177,23 @@ export function RockTempChart({
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm" style={{ marginTop: 10, marginLeft: 34, color: 'var(--text-dim)' }}>
         <span className="flex items-center gap-1.5">
           <span className="inline-block h-0.5 w-3.5" style={{ background: 'var(--text)' }} />
-          rock temperature
+          Rock temperature
         </span>
         <span className="flex items-center gap-1.5">
           <span className="inline-block h-px w-3.5" style={{ background: 'var(--text-dim)' }} />
-          air temperature
+          Air temperature
         </span>
         <span className="flex items-center gap-1.5">
           <span className="inline-block h-0.5 w-3.5" style={{ background: 'var(--chart-condensation)' }} />
-          dew point
+          Dew point
         </span>
         <span className="flex items-center gap-1.5">
           <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: 'var(--signal)' }} />
-          ideal {idealLo}&ndash;{idealHi}&deg;C
+          Ideal {idealLo}-{idealHi}&deg;C
         </span>
         <span className="flex items-center gap-1.5">
           <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: 'var(--ground-sunken)' }} />
-          dark hours
+          Dark hours
         </span>
       </div>
 

@@ -2,11 +2,11 @@ import { divIcon } from 'leaflet';
 import { useEffect, useMemo } from 'react';
 import { MapContainer, Marker, Popup, useMap } from 'react-leaflet';
 import type { CragWithForecast } from '../hooks/useForecast';
-import { formatAgeWords } from '../lib/format';
 import { clampRangeToData, resolveDateRange, type DateRangeSelection } from '../model/dateRange';
 import { rankCragDays } from '../model/ranking';
 import { SCORE_BAND_COLOR_VAR, SCORE_BAND_LABEL, scoreBand } from '../model/scoreBand';
 import type { CragDayResult } from '../model/dayAggregate';
+import { ForecastAge, NoForecastNotice } from './ForecastStatus';
 import { VectorBasemap } from './VectorBasemap';
 
 // Centred on England & Wales - spec §6 "Map".
@@ -83,7 +83,7 @@ export function CragsMap({
   active,
   loading,
   fetchedAt,
-  stale,
+  failure,
   onRefresh,
   onSelectCrag,
 }: {
@@ -94,7 +94,7 @@ export function CragsMap({
   active: boolean;
   loading: boolean;
   fetchedAt: number | null;
-  stale: boolean;
+  failure: string | null;
   onRefresh: () => void;
   onSelectCrag: (id: string) => void;
 }) {
@@ -113,14 +113,13 @@ export function CragsMap({
     <div className="flex h-full flex-col">
       <header className="px-4 pb-2.5 pt-4" style={{ background: 'var(--ground)' }}>
         <div className="flex items-baseline justify-between">
-          <h1 className="text-xl font-medium tracking-tight">Crags Map</h1>
+          <h1 className="text-xl font-medium tracking-tight">Crag Map</h1>
           <button type="button" onClick={onRefresh} className="text-sm" style={{ color: 'var(--signal)' }}>
             {loading ? 'Refreshing...' : 'Refresh'}
           </button>
         </div>
         <p className="mt-0.5 text-xs" style={{ color: 'var(--text-dim)' }}>
-          {fetchedAt ? formatAgeWords(fetchedAt) : 'loading...'}
-          {stale && ", showing cached data as we couldn't reach the network"}
+          <ForecastAge loading={loading} fetchedAt={fetchedAt} failure={failure} />
         </p>
         <div className="mt-2.5 flex gap-3.5 text-xs" style={{ color: 'var(--text-dim)' }}>
           {(['good', 'fair', 'poor'] as const).map((band) => (
@@ -134,6 +133,9 @@ export function CragsMap({
           ))}
         </div>
       </header>
+      <div className="pb-2 empty:hidden">
+        <NoForecastNotice loading={loading} fetchedAt={fetchedAt} failure={failure} />
+      </div>
 
       <div className="relative flex-1">
         <MapContainer
@@ -158,7 +160,7 @@ export function CragsMap({
                   <div className="popup-area">{r.crag.area}</div>
                   <div className="popup-stats">
                     <span className="popup-score" style={{ color }}>
-                      {isGated ? '-' : scorePct}
+                      {isGated ? '×' : scorePct}
                     </span>
                     <span>
                       {Math.round(r.day.avgDaylightTempC)}&deg;C &middot; {r.day.rainChancePct}% rain

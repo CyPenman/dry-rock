@@ -114,7 +114,7 @@ export function DayScoreChart({
   return (
     <div>
       <p className="text-sm" style={{ color: 'var(--text)' }}>
-        Score out of 100 for each day, as the spread across every resolved model
+        Score out of 100 for each day, as the spread across every resolved model.
       </p>
 
       <div style={{ marginTop: 12 }}>
@@ -219,8 +219,8 @@ export function DayScoreChart({
       <Explain>
         <p>Score is 0 to 100, higher is better - see the score breakdown table above for what makes up each number.</p>
         <p>
-          Days hatched with a label (frozen, under snow, or rock damage) are ruled out entirely for at least one
-          model, not just scored low.
+          Days hatched with a label (snow, frozen, damage or damp) are ruled out entirely for at least one model,
+          not just scored low.
         </p>
       </Explain>
     </div>

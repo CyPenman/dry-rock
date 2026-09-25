@@ -36,10 +36,10 @@ const PERIOD_OPTIONS = [
 // the word "rain" for both was read as a data bug when comparing the two
 // charts side by side - they're intentionally different quantities.
 const SERIES = [
-  { key: 'rain', label: 'rain at rock', colour: 'var(--chart-water)' },
-  { key: 'seepage', label: 'seepage', colour: 'var(--chart-seepage)' },
-  { key: 'condensation', label: 'condensation', colour: 'var(--chart-condensation)' },
-  { key: 'melt', label: 'snowmelt', colour: 'var(--chart-melt)' },
+  { key: 'rain', label: 'Rain at rock', colour: 'var(--chart-water)' },
+  { key: 'seepage', label: 'Seepage', colour: 'var(--chart-seepage)' },
+  { key: 'condensation', label: 'Condensation', colour: 'var(--chart-condensation)' },
+  { key: 'melt', label: 'Snowmelt', colour: 'var(--chart-melt)' },
 ] as const;
 
 type SeriesKey = (typeof SERIES)[number]['key'];

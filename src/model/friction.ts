@@ -168,7 +168,7 @@ export function frictionBreakdownHour(inputs: FrictionHourInputs): FrictionBreak
 
   // Coastal salt is hygroscopic and holds damp in a humid onshore breeze - a
   // friction effect even when the rock is dry by any direct measurement (§4.8:
-  // "high humidity AND the wind is onshore"). Onshore = wind blowing toward the
+  // "high humidity AND the wind is onshore"). Onshore = wind blowing towards the
   // face, same alignment test as wind-driven rain (§4.2). Without a wind
   // direction to judge (older callers/fixtures), fall back to humidity alone
   // rather than silently dropping the effect.

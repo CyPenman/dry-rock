@@ -53,7 +53,7 @@ describe('computeTodayIndex', () => {
     expect(computeTodayIndex(seriesStart, new Date(2024, 5, 10, 9, 30))).toBe(16);
   });
 
-  it('is 17 for the same series checked a day later (yesterday’s cache)', () => {
+  it("is 17 for the same series checked a day later (yesterday's cache)", () => {
     expect(computeTodayIndex(seriesStart, new Date(2024, 5, 11, 0, 5))).toBe(17);
   });
 });

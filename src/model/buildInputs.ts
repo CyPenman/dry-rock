@@ -31,7 +31,7 @@ export function buildHourlyInputsForModel(
   // point flows straight into the physics model's arithmetic (e.g. §4.2's
   // `airTemp + solarGain - nightLoss`), where JS silently coerces `null` to
   // `0` - quietly treating an unresolved hour as 0degC air temperature and
-  // dragging the rock-temperature simulation toward a false "frozen" verdict
+  // dragging the rock-temperature simulation towards a false "frozen" verdict
   // for every crag once the primary model's real horizon is exceeded.
   // Truncate to the model's actually-resolved prefix instead.
   let resolvedLength = cell.time.length;

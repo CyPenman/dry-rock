@@ -2,6 +2,7 @@ import { LIMITING_FACTOR_LABEL } from '../lib/format';
 import { OBSERVED_CONDITIONS, type Observation } from '../model/observation';
 import type { LimitingFactor } from '../model/wetness';
 import { listAllObservations, markObservationSent } from '../storage/db';
+import { fetchFrom, readJson, UserFacingError } from './serviceError';
 
 // Reports to the developer (spec §8.1, §6 Guide & about): conditions logs and
 // general feedback, emailed through FormSubmit's AJAX endpoint. The app has no
@@ -122,21 +123,16 @@ async function postReport(fields: Record<string, string>): Promise<void> {
   // logged instead and stays queued (the dev origin has its own IndexedDB).
   if (import.meta.env.DEV) {
     console.info('[dry-rock] report not sent from a dev build:', fields);
-    throw new Error('reports are not sent from a dev build');
+    throw new UserFacingError("reports aren't sent from a development build");
   }
-  const res = await fetch(REPORT_ENDPOINT, {
+  const res = await fetchFrom('the report service', REPORT_ENDPOINT, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify(fields),
   });
-  let body: { success?: string | boolean; message?: string } = {};
-  try {
-    body = await res.json();
-  } catch {
-    // leave empty - the status code decides
-  }
-  if (!res.ok || String(body.success) !== 'true') {
-    throw new Error(body.message || `the report service answered ${res.status}`);
+  const body = await readJson<{ success?: string | boolean; message?: string }>('the report service', res);
+  if (String(body.success) !== 'true') {
+    throw new UserFacingError(body.message ? `the report service said: ${body.message}` : "the report service didn't accept it");
   }
 }
 

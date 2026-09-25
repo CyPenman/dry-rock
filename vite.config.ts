@@ -55,7 +55,7 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['apple-touch-icon.png', 'icons/*.png'],
       manifest: {
-        name: 'Dry Rock - UK Crag Conditions',
+        name: 'Dry Rock - UK crag conditions',
         short_name: 'Dry Rock',
         description: 'Where in England and Wales is the rock most likely to be dry and climbable, and on which day.',
         theme_color: '#22262A',

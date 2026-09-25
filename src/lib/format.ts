@@ -40,14 +40,20 @@ export function formatHeadlineModelCaption(dates: Date[], models: ModelName[]): 
   return `Headline uses ${parts.join(', ')}`;
 }
 
+/** The first letter capitalised, for a lowercase fragment (e.g. `windChillCaveat`) shown on its own. */
+export function sentenceCase(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/** The status line under each header: "Data is 5 minutes old". */
 export function formatAgeWords(fetchedAt: number): string {
   const mins = Math.round((Date.now() - fetchedAt) / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `data is ${mins} minute${mins === 1 ? '' : 's'} old`;
+  if (mins < 1) return 'Updated just now';
+  if (mins < 60) return `Data is ${mins} minute${mins === 1 ? '' : 's'} old`;
   const hours = Math.round(mins / 60);
-  if (hours < 24) return `data is ${hours} hour${hours === 1 ? '' : 's'} old`;
+  if (hours < 24) return `Data is ${hours} hour${hours === 1 ? '' : 's'} old`;
   const days = Math.round(hours / 24);
-  return `data is ${days} day${days === 1 ? '' : 's'} old`;
+  return `Data is ${days} day${days === 1 ? '' : 's'} old`;
 }
 
 export function formatDayLabel(date: Date): string {

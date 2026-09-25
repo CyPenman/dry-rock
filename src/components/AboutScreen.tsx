@@ -124,7 +124,7 @@ export function AboutScreen({ onBack }: { onBack: () => void }) {
           >
             <span aria-hidden="true">&larr;</span> Back
           </button>
-          <h1 className="text-xl font-medium">Guide &amp; about</h1>
+          <h1 className="text-xl font-medium">Guide/About</h1>
         </div>
       </header>
 
@@ -158,7 +158,7 @@ export function AboutScreen({ onBack }: { onBack: () => void }) {
             </li>
             <li>
               <span className="font-medium">Open a crag.</span> Tap any crag, on any tab, for the day-by-day breakdown,
-              the hour-by-hour charts, sun on the face, and access notes.
+              the hour-by-hour charts, sun on the face and access notes.
             </li>
             <li>
               <span className="font-medium">Check before you go.</span> Look at the access link on the crag's page, and
@@ -224,7 +224,7 @@ export function AboutScreen({ onBack }: { onBack: () => void }) {
                 'dry from 13:00',
                 <>
                   When the rock is dry in daylight: <em>dry all day</em>, <em>dry from</em> an hour until dark, a window
-                  such as <em>dry 09:00-14:00</em>, <em>nearly dry</em> (damp but close), or <em>no dry window</em>.
+                  such as <em>dry 09:00-14:00</em>, <em>nearly dry</em> (damp but close) or <em>no dry window</em>.
                 </>,
               ],
               [
@@ -255,7 +255,7 @@ export function AboutScreen({ onBack }: { onBack: () => void }) {
                   ],
                   [
                     'Friction - up to 40',
-                    `How good the grip is in the day's best ${FRICTION_BLOCK_LENGTH_HOURS}-hour dry window. Full marks for rock in the crag's ideal temperature range, dry air and a light breeze. It loses marks for humid air, rock close to the dew point, rock too warm or too cold, strong wind, sun baking the face, and salt on sea cliffs.`,
+                    `How good the grip is in the day's best ${FRICTION_BLOCK_LENGTH_HOURS}-hour dry window. Full marks for rock in the crag's ideal temperature range, dry air and a light breeze. It loses marks for humid air, rock close to the dew point, rock too warm or too cold, strong wind, sun baking the face and salt on sea cliffs.`,
                   ],
                   [
                     'Confidence',
@@ -346,7 +346,7 @@ export function AboutScreen({ onBack }: { onBack: () => void }) {
           <GuideDetails title="On a crag's page">
             <TermList
               items={[
-                ['Summary', 'One sentence on the best day in your dates: when it is dry, the main reason, and how far the models agree.'],
+                ['Summary', 'One sentence on the best day in your dates: when it is dry, the main reason and how far the models agree.'],
                 [
                   'Day-by-day breakdown',
                   <>
@@ -362,12 +362,12 @@ export function AboutScreen({ onBack }: { onBack: () => void }) {
                 [
                   'Charts',
                   <>
-                    Rain, water on and in the rock, rock temperature against the dew point, each model's score, and
+                    Rain, water on and in the rock, rock temperature against the dew point, each model's score and
                     where the water comes from. Tap <em>What am I looking at?</em> beside any chart for a short
                     explanation.
                   </>,
                 ],
-                ['Notes and links', 'Seasonal restrictions and access notes, with links to UKClimbing and the BMC access database.'],
+                ['Notes and links', 'Seasonal restrictions and access notes, with links to UKClimbing and the BMC Regional Access Database.'],
               ]}
             />
           </GuideDetails>
@@ -402,7 +402,7 @@ export function AboutScreen({ onBack }: { onBack: () => void }) {
           <SectionHeading>Where it's wrong</SectionHeading>
           <ul className="list-disc space-y-1 pl-5">
             <li>
-              Resolution: the models see the weather in 2km squares for the next two days and 10km squares after that,
+              Resolution: the models see the weather in 2 km squares for the next two days and 10 km squares after that,
               so a sheltered gorge or a single buttress can differ from its square.
             </li>
             <li>Every crag setting (shade, shelter, seepage, how fast it dries) is an estimate, not a measurement.</li>
@@ -444,7 +444,7 @@ export function AboutScreen({ onBack }: { onBack: () => void }) {
         <section>
           <SectionHeading>Send feedback</SectionHeading>
           <p className="pb-2">
-            Found a bug, got an idea, or know a crag the app gets wrong? It goes straight to the developer. Add an email
+            Found a bug, got an idea or know a crag the app gets wrong? It goes straight to the developer. Add an email
             address if you'd like a reply.
           </p>
           <FeedbackForm />

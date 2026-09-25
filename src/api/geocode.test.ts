@@ -141,12 +141,12 @@ describe('geocodeAddress - places', () => {
 
   it('says so when nothing matches', async () => {
     mockPostcodesIo({ '/places?q=Nowhereville&limit=100': [] });
-    await expect(geocodeAddress('Nowhereville')).rejects.toThrow("Couldn't find that - try a postcode or a town name");
+    await expect(geocodeAddress('Nowhereville')).rejects.toThrow("Couldn't find that - try a postcode or a town name.");
   });
 
   it('reports a server error rather than "not found"', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response('busy', { status: 503, statusText: 'Service Unavailable' })));
-    await expect(geocodeAddress('Sheffield')).rejects.toThrow('Address lookup failed: 503 Service Unavailable');
+    await expect(geocodeAddress('Sheffield')).rejects.toThrow("postcodes.io isn't working right now (error 503)");
   });
 });
 

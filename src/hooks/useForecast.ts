@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { getForecast } from '../api/forecastService';
+import { describeError } from '../api/serviceError';
 import { FORECAST_DAYS, PAST_DAYS } from '../api/request';
 import { computeCragForecast, type CragForecastResult } from '../model/dayAggregate';
 import { computeTodayIndex } from '../model/dateRange';
@@ -12,9 +13,14 @@ export interface CragWithForecast {
 
 interface ForecastState {
   loading: boolean;
-  error: string | null;
+  /**
+   * Why the last load or refresh failed, in the user's words (`describeError`),
+   * or null if it worked. With `fetchedAt` set, data is still showing and this
+   * is why it couldn't be updated; with `fetchedAt` null there's no data at all.
+   */
+  failure: string | null;
+  /** When the data showing was downloaded; null until any has loaded. */
   fetchedAt: number | null;
-  stale: boolean;
   results: CragWithForecast[];
   /** Today's day index in the loaded series, derived from its timestamps (not assumed to be PAST_DAYS). */
   todayIndex: number;
@@ -25,9 +31,8 @@ interface ForecastState {
 // Only used before any data has loaded, when nothing is shown against them anyway.
 const INITIAL_STATE: ForecastState = {
   loading: true,
-  error: null,
+  failure: null,
   fetchedAt: null,
-  stale: false,
   results: [],
   todayIndex: PAST_DAYS,
   dayCount: PAST_DAYS + FORECAST_DAYS,
@@ -38,9 +43,9 @@ export function useForecast(crags: Crag[]) {
 
   const load = useCallback(
     async (forceRefresh: boolean) => {
-      setState((s) => ({ ...s, loading: true, error: null }));
+      setState((s) => ({ ...s, loading: true, failure: null }));
       try {
-        const { fetchedAt, stale, bundle } = await getForecast(crags, { forceRefresh });
+        const { fetchedAt, bundle, refreshError } = await getForecast(crags, { forceRefresh });
         // Every cell in one response starts at the same local midnight (§3.1), so
         // any cell's first hour fixes today's index for the whole bundle.
         const firstCell = bundle.cellForecasts.values().next().value;
@@ -54,15 +59,15 @@ export function useForecast(crags: Crag[]) {
         const first = results.find((r) => r.forecast && r.forecast.inputs.length > 0)?.forecast;
         setState({
           loading: false,
-          error: null,
+          failure: refreshError ? describeError(refreshError) : null,
           fetchedAt,
-          stale,
           results,
           todayIndex: first ? computeTodayIndex(first.inputs[0].time) : todayIndex,
           dayCount: first ? first.days.length : 0,
         });
       } catch (err) {
-        setState((s) => ({ ...s, loading: false, error: err instanceof Error ? err.message : String(err) }));
+        // Anything already showing stays showing; `failure` says why it wasn't updated.
+        setState((s) => ({ ...s, loading: false, failure: describeError(err) }));
       }
     },
     [crags],

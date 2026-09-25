@@ -16,7 +16,7 @@ export const PARAMS = {
   kSolar: 12, // degC above air on a fully sunlit face
   kNight: 2.5, // degC below air under clear skies
   tauSurface: 1.5, // hours - rock skin responds quickly
-  kWindCoupling: 0.15, // per m/s - wind pulls the surface back toward air temperature
+  kWindCoupling: 0.15, // per m/s - wind pulls the surface back towards air temperature
 
   // Drying law
   stageIIExp: 1.5,

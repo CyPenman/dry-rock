@@ -1,6 +1,6 @@
 @import 'tailwindcss';
 
-/* Design tokens — spec §7. Dense, instrument-like, dark ground for early-morning use. */
+/* Design tokens - spec §7. Dense, instrument-like, dark ground for early-morning use. */
 :root {
   --dry: #d6cfc2;
   --wet: #3d4348;
@@ -15,7 +15,7 @@
   --border: #3a3f44;
   --grid: #343a3f;
 
-  /* Chart series colours — brightened for the redesigned charts (design study
+  /* Chart series colours - brightened for the redesigned charts (design study
    * "Crag Charts"): the previous set read too dim once type/strokes stopped
    * shrinking with the plot. Validated for CVD/contrast against --ground
    * (#22262a) with scripts/validate_palette.js from the dataviz skill. Kept

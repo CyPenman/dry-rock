@@ -10,7 +10,7 @@ export interface PfaceInputs {
   steepness: Steepness;
   windSpeedMs: number;
   windDirectionDeg: number; // meteorological convention: direction the wind comes FROM
-  aspectDeg: number; // compass bearing the crag face looks toward
+  aspectDeg: number; // compass bearing the crag face looks towards
   kWDR: number;
 }
 

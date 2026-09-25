@@ -179,7 +179,7 @@ export function stepHour(
   let condensation = 0;
   let pfaceEwma: number;
   if (underSnow) {
-    // Let the drainage EWMA decay toward zero rather than freeze, so the crag
+    // Let the drainage EWMA decay towards zero rather than freeze, so the crag
     // isn't hit with stale lip-drainage the hour the snow clears.
     pfaceEwma = updatePfaceEwma(state.pfaceEwma, 0, PFACE_EWMA_TAU_HOURS);
   } else {

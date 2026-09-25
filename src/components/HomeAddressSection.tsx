@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { geocodeAddress, reverseGeocode } from '../api/geocode';
+import { describeError, ServiceError, UserFacingError } from '../api/serviceError';
 import type { Settings } from '../state/settings';
 
 /**
@@ -40,7 +41,7 @@ export function HomeAddressSection({
     e?.preventDefault();
     const query = input.trim();
     if (!query) {
-      setError('Enter a postcode or town first');
+      setError('Enter a postcode or town first.');
       return;
     }
     setBusy(true);
@@ -50,7 +51,9 @@ export function HomeAddressSection({
       updateSettings({ homeLat: result.lat, homeLon: result.lon, homeAddress: result.displayName });
       setEditing(false);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Couldn't find that - try a postcode or a town name");
+      // "Couldn't find that" is already a sentence; a lookup that failed says why.
+      const complete = e instanceof UserFacingError && !(e instanceof ServiceError);
+      setError(complete ? e.message : `Couldn't look that up: ${describeError(e)}.`);
     } finally {
       setBusy(false);
     }
@@ -58,7 +61,7 @@ export function HomeAddressSection({
 
   function useCurrentLocation() {
     if (!navigator.geolocation) {
-      setError('Location is not available on this device');
+      setError('Location is not available on this device.');
       return;
     }
     setBusy(true);
@@ -80,7 +83,7 @@ export function HomeAddressSection({
       },
       () => {
         setBusy(false);
-        setError('Location access was denied or is unavailable');
+        setError('Location access was denied or is unavailable.');
       },
     );
   }
