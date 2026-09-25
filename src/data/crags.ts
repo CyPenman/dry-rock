@@ -223,17 +223,25 @@ const SEEDS: CragSeed[] = [
     elevationM: 153,
     disciplines: ['sport', 'trad', 'boulder'],
     rock: 'limestone',
-    aspectDeg: 225,
+    // Checked 25 Sep 2026: UKC "Faces SW", but OpenStreetMap's Upper and Lower Tier face
+    // 172-185° on every segment, and aerial imagery shows the quarried strip running
+    // east-west above the A466 (about 188°). Was 225°.
+    aspectDeg: 180,
     steepness: 'vertical',
-    windShelter: 0.35,
-    canopyLight: 0.45,
-    tauRock: 22,
-    seepIndex: 0.85,
-    tauSeep: 20,
-    catchmentAbove: 0.3,
+    // Retuned 25 Sep 2026 to UKC's "Sunny, quick-drying", "plenty of sun", "a reliable
+    // winter venue" - the old values (0.35, 0.45, 22, 0.85, 20, 0.3) described a dripping
+    // wooded gorge. Set beside Horseshoe and Trevor, the other quick-drying limestone
+    // quarries, with some tree cover and a trace of seepage left for the woods around it
+    // and the Lower Lift's flowstone.
+    windShelter: 0.6,
+    canopyLight: 0.85,
+    tauRock: 18,
+    seepIndex: 0.15,
+    tauSeep: 4,
+    catchmentAbove: 0.15,
     coastal: false,
     softRock: false,
-    notes: 'Wooded gorge: little sun reaches the rock, wind is weak, trees drip for hours after rain.',
+    notes: 'Sunny, south-facing quarried wall above the A466: quick-drying and a reliable winter venue, but no shelter from rain.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/wyndcliff_quarry-2731/',
     parkingLat: 51.67129,
     parkingLon: -2.68595,
@@ -423,16 +431,22 @@ const SEEDS: CragSeed[] = [
     notes: 'Open quarry, low seepage. One of the faster-drying Peak limestone venues.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/horseshoe_quarry-148/',
     radUrl: 'https://services.thebmc.co.uk/modules/RAD/View.aspx?id=205',
-    parkingNote:
-      "Roadside parking off the A623 near the quarry entrance is described in approach notes, but a precise, verifiable coordinate couldn't be confirmed.",
+    // The ~12-car parking at the quarry entrance off the A623 (UKC: SK 205760): an
+    // OpenStreetMap parking point 47m from UKC's parking pin. Lay-bys further west take the
+    // overflow.
+    parkingLat: 53.28065,
+    parkingLon: -1.69126,
   },
   {
     id: 'rubicon',
     name: 'Rubicon Wall',
     area: 'Peak',
     region: 'Peak District',
-    lat: 53.243,
-    lon: -1.755,
+    // Checked 25 Sep 2026: moved from 53.243, -1.755, on the plateau south of the dale with
+    // no cliff near it, to UKC's "Rubicon - Left" buttress on its Water-cum-Jolly page, 90m
+    // from the middle of OpenStreetMap's "Rubicon Wall" (faces 200°).
+    lat: 53.2528,
+    lon: -1.7453,
     elevationM: 200,
     disciplines: ['sport', 'boulder'],
     rock: 'limestone',
