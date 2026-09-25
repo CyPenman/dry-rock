@@ -1,12 +1,13 @@
 import { divIcon } from 'leaflet';
 import { useEffect, useMemo } from 'react';
-import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet';
+import { MapContainer, Marker, Popup, useMap } from 'react-leaflet';
 import type { CragWithForecast } from '../hooks/useForecast';
 import { formatAgeWords } from '../lib/format';
 import { clampRangeToData, resolveDateRange, type DateRangeSelection } from '../model/dateRange';
 import { rankCragDays } from '../model/ranking';
 import { SCORE_BAND_COLOR_VAR, SCORE_BAND_LABEL, scoreBand } from '../model/scoreBand';
 import type { CragDayResult } from '../model/dayAggregate';
+import { VectorBasemap } from './VectorBasemap';
 
 // Centred on England & Wales - spec §6 "Map".
 const CENTER: [number, number] = [52.4, -2.9];
@@ -142,7 +143,7 @@ export function CragsMap({
           style={{ background: 'var(--ground-sunken)' }}
         >
           <MapSizeInvalidator active={active} />
-          <TileLayer url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap contributors" maxZoom={18} />
+          <VectorBasemap active={active} />
           {ranked.map((r) => {
             const scorePct = Math.round(r.day.displayScore * 100);
             const isGated = r.day.verdict !== 'scored';

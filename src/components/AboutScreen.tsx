@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { BMC_RAD_URL } from '../data/crags';
 import { toLocalIsoDate } from '../model/dateRange';
 import type { Observation } from '../model/observation';
 import { listAllObservations } from '../storage/db';
@@ -70,6 +71,19 @@ export function AboutScreen({ onBack }: { onBack: () => void }) {
 
         <section>
           <h2 className="pb-1 text-xs uppercase tracking-wide" style={{ color: 'var(--text-dim)' }}>
+            Before you climb
+          </h2>
+          <p>
+            Dry Rock is a forecast, not an inspection. It can be wrong (see below), and it knows nothing about loose
+            rock, fixed gear, landings or who else is there. Look at the rock yourself when you arrive. Access
+            arrangements and bird restrictions change at short notice, so check the{' '}
+            <ExternalLink href={BMC_RAD_URL}>BMC Regional Access Database</ExternalLink> before you go. Climbing is
+            dangerous, and the decision to climb is always yours.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="pb-1 text-xs uppercase tracking-wide" style={{ color: 'var(--text-dim)' }}>
             Where it's wrong
           </h2>
           <ul className="list-disc space-y-1 pl-5">
@@ -123,8 +137,19 @@ export function AboutScreen({ onBack }: { onBack: () => void }) {
               <ExternalLink href="https://open-meteo.com/">Weather data by Open-Meteo.com</ExternalLink>, licensed under{' '}
               <ExternalLink href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</ExternalLink>.
             </li>
-            <li>Map tiles &copy; OpenStreetMap contributors.</li>
-            <li>Address search by OpenStreetMap Nominatim.</li>
+            <li>
+              Map: <ExternalLink href="https://openfreemap.org/">OpenFreeMap</ExternalLink> &copy;{' '}
+              <ExternalLink href="https://www.openmaptiles.org/">OpenMapTiles</ExternalLink>, data &copy;{' '}
+              <ExternalLink href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</ExternalLink>.
+            </li>
+            <li>
+              Postcode and town search by <ExternalLink href="https://postcodes.io/">postcodes.io</ExternalLink>. Contains
+              OS data &copy; Crown copyright and database right; Royal Mail data &copy; Royal Mail copyright and database
+              right; National Statistics data &copy; Crown copyright and database right.
+            </li>
+            <li>
+              Access links to the <ExternalLink href={BMC_RAD_URL}>BMC Regional Access Database</ExternalLink>.
+            </li>
           </ul>
         </section>
       </div>

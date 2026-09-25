@@ -56,13 +56,11 @@ body {
   overscroll-behavior-x: none;
 }
 
-/* Crags map (§6) - dark-mode tile treatment so OSM tiles sit inside the
- * app's dark ground, plus restyled Leaflet chrome to match app tokens. */
-.leaflet-tile {
-  /* leaflet.css (imported before this file, in main.tsx) has its own
-   * `.leaflet-tile { filter: inherit }` at equal specificity - !important
-   * so this always wins regardless of import order elsewhere. */
-  filter: invert(1) hue-rotate(180deg) brightness(0.94) contrast(0.92) saturate(0.9) !important;
+/* Crags map (§6) - dark-mode treatment so the light basemap sits inside the
+ * app's dark ground, plus restyled Leaflet chrome to match app tokens. The
+ * basemap is one MapLibre canvas (VectorBasemap.tsx), not Leaflet tiles. */
+.leaflet-gl-layer canvas {
+  filter: invert(1) hue-rotate(180deg) brightness(0.94) contrast(0.92) saturate(0.9);
 }
 .leaflet-container {
   background: var(--ground-sunken);

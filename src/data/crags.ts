@@ -28,6 +28,10 @@ type CragSeed = {
   accessNote?: string;
   seasonalRestriction?: { fromMonth: number; toMonth: number; text: string };
   ukcUrl?: string;
+  // The crag's BMC Regional Access Database page - confirmed against the RAD's
+  // own name and position, and the UKC page, never guessed from an id. Absent
+  // where no one RAD page matches the venue (the crag detail links the RAD home).
+  radUrl?: string;
   dryingRate?: number; // default 1.0
   // Parking - only set where a specific car park could be confirmed; otherwise
   // leave unset and use parkingNote to say why (spec: no guessing coordinates).
@@ -63,6 +67,7 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: 'Fast-drying south-facing limestone sport. Dries within hours of a summer shower.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/the_cuttings-276/',
+    radUrl: 'https://services.thebmc.co.uk/modules/RAD/View.aspx?id=299',
     parkingLat: 50.5387,
     parkingLon: -2.43198,
   },
@@ -88,6 +93,7 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: 'West-facing, fully exposed. Wind-driven rain in a westerly; otherwise dries fast.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/blacknor_north-260/',
+    radUrl: 'https://services.thebmc.co.uk/modules/RAD/View.aspx?id=1824',
     parkingLat: 50.53987,
     parkingLon: -2.44991,
   },
@@ -113,6 +119,7 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: 'South-east facing steep limestone. Catches the morning sun.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/cheyne_cliff-275/',
+    radUrl: 'https://services.thebmc.co.uk/modules/RAD/View.aspx?id=296',
     parkingNote: 'Shared with the Cheyne Weares viewing-area car park on the Easton-Southwell road, but its exact coordinates could not be confirmed.',
   },
   {
@@ -143,6 +150,7 @@ const SEEDS: CragSeed[] = [
       text: 'Seasonal bird nesting restrictions on some buttresses, roughly March–August.',
     },
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/cheddar_gorge_north-2280/',
+    radUrl: 'https://services.thebmc.co.uk/modules/RAD/View.aspx?id=929',
     parkingNote: 'Several pay-and-display car parks line the gorge road; none is specific to this wall, so no single coordinate could be confirmed.',
   },
   {
@@ -173,6 +181,7 @@ const SEEDS: CragSeed[] = [
       text: 'Seasonal bird nesting restrictions on some buttresses, roughly March–August.',
     },
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/cheddar_gorge_south-240/',
+    radUrl: 'https://services.thebmc.co.uk/modules/RAD/View.aspx?id=930',
     parkingNote: 'Several pay-and-display car parks line the gorge road; none is specific to this wall, so no single coordinate could be confirmed.',
   },
   {
@@ -197,6 +206,7 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: 'Exposed coastal limestone headland. Dries fast; wind-driven rain and spray in onshore weather.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/brean_down-75/',
+    radUrl: 'https://services.thebmc.co.uk/modules/RAD/View.aspx?id=574',
     parkingLat: 51.32126,
     parkingLon: -3.01076,
   },
@@ -247,6 +257,7 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: 'Deeply sheltered Wye Valley venue. Among the slowest to dry in the dataset.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/shorn_cliff-39/',
+    radUrl: 'https://services.thebmc.co.uk/modules/RAD/View.aspx?id=4654',
     parkingNote: 'Approach notes describe several possible options (a Forestry Commission car park to the north, or parking in Tintern) with no single agreed spot, so no coordinate could be confirmed.',
   },
   {
@@ -271,6 +282,7 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: 'Wooded gorge venue; steep enough to shed some rain but slow to dry in shade.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/ban-y-gor-70/',
+    radUrl: 'https://services.thebmc.co.uk/modules/RAD/View.aspx?id=740',
     parkingNote: 'Approach notes point to a few small laybys on Lancaut Lane rather than one named car park, so no single coordinate could be confirmed.',
   },
   {
@@ -301,6 +313,7 @@ const SEEDS: CragSeed[] = [
       text: 'Seasonal bird nesting restrictions on some buttresses, roughly March–August.',
     },
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/symonds_yat-403/',
+    radUrl: 'https://services.thebmc.co.uk/modules/RAD/View.aspx?id=249',
     parkingNote: "The main Symonds Yat Rock visitor car park is some distance from the crag and it's unclear whether it's the one climbers actually use, so no coordinate could be confirmed.",
   },
   {
@@ -325,6 +338,7 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: 'Urban gorge, moderate seepage and shelter. Reliable mid-table venue.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/avon_gorge_main_area-31/',
+    radUrl: 'https://services.thebmc.co.uk/modules/RAD/View.aspx?id=332',
     parkingLat: 51.46782,
     parkingLon: -2.6091,
   },
@@ -350,6 +364,7 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: 'Coastal Devon limestone, dries quickly. Salt spray affects friction in onshore humidity.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/ansteys_cove-285/',
+    radUrl: 'https://services.thebmc.co.uk/modules/RAD/View.aspx?id=572',
     parkingLat: 50.46962,
     parkingLon: -3.50351,
   },
@@ -375,6 +390,7 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: 'Wooded Devon limestone, moderate drying speed.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/chudleigh_rocks_-_south_face-291/',
+    radUrl: 'https://services.thebmc.co.uk/modules/RAD/View.aspx?id=25',
     parkingNote: 'Approach notes describe informal roadside parking by a kissing gate on Rock Road rather than a fixed car park, so no coordinate could be confirmed.',
   },
   {
@@ -399,6 +415,7 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: 'Open quarry, low seepage. One of the faster-drying Peak limestone venues.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/horseshoe_quarry-148/',
+    radUrl: 'https://services.thebmc.co.uk/modules/RAD/View.aspx?id=205',
     parkingNote:
       "Roadside parking off the A623 near the quarry entrance is described in approach notes, but a precise, verifiable coordinate couldn't be confirmed.",
   },
@@ -424,6 +441,7 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: 'South-facing Peak limestone, moderate seepage.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/water-cum-jolly-140/',
+    radUrl: 'https://services.thebmc.co.uk/modules/RAD/View.aspx?id=559',
     parkingNote: 'Approach notes mention limited roadside parking near the dale, or the Monsal Head/Cressbrook Mill car parks a mile off, with no single agreed spot to confirm a coordinate for.',
   },
   {
@@ -448,6 +466,7 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: "North-facing and notoriously seepy: a summer venue that stays wet deep into the year. The dataset's seepage calibration anchor.",
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/chee_dale_lower-10866/',
+    radUrl: 'https://services.thebmc.co.uk/modules/RAD/View.aspx?id=21',
     parkingLat: 53.2563,
     parkingLon: -1.7932,
   },
@@ -473,6 +492,7 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: 'Steep, powerful Peak limestone. Seepy enough to stay wet well after rain in winter.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/raven_tor_millers_dale-146/',
+    radUrl: 'https://services.thebmc.co.uk/modules/RAD/View.aspx?id=4398',
     parkingNote: 'Parking here is a known problem spot with several contested, informal options (small laybys, Tideswell Dale) rather than one agreed car park, so no coordinate could be confirmed.',
   },
   {
@@ -502,6 +522,7 @@ const SEEDS: CragSeed[] = [
     notes:
       'The roof sheds active rain well, but high catchment-above and seepage mean it stays wet for a long time after a wet spell. A top pick when the forecast is bad everywhere.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/kilnsey-608/',
+    radUrl: 'https://services.thebmc.co.uk/modules/RAD/View.aspx?id=218',
     parkingNote: 'Parking is layby-based along the road below the crag; the only postcode found for sat nav purposes is explicitly a wide-area one, not the layby itself, so no coordinate could be confirmed.',
   },
   {
@@ -526,6 +547,7 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: 'Big limestone amphitheatre. The left wing takes drainage over the lip for hours after rain stops.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/malham_cove-610/',
+    radUrl: 'https://services.thebmc.co.uk/modules/RAD/View.aspx?id=264',
     parkingLat: 54.06094,
     parkingLon: -2.15256,
   },
@@ -553,6 +575,7 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: 'Fully exposed coastal limestone. Dries quickly once the rain stops.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/lower_pen_trwyn-1004/',
+    radUrl: 'https://services.thebmc.co.uk/modules/RAD/View.aspx?id=3779',
     parkingNote: "This tidal crag is reached on foot along Marine Drive from Parisella's Cave rather than via its own car park, so no coordinate could be confirmed.",
   },
   {
@@ -577,6 +600,7 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: 'A true cave: rain barely reaches it. Surfaces as a top result specifically when the forecast is bad everywhere.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/parisellas_cave-3422/',
+    radUrl: 'https://services.thebmc.co.uk/modules/RAD/View.aspx?id=899',
     parkingNote: 'Access is via informal, contested roadside parking on the one-way Marine Drive, so no fixed coordinate could be confirmed.',
   },
   {
@@ -624,6 +648,7 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: 'Open, quick-drying North Wales limestone.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/trevor_quarry-427/',
+    radUrl: 'https://services.thebmc.co.uk/modules/RAD/View.aspx?id=880',
     parkingNote: 'Approach notes describe an informal parking bay along a narrow lane rather than a named car park, so no coordinate could be confirmed.',
   },
   {
@@ -648,6 +673,7 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: 'Fully exposed grit edge, thin thermal mass. Dries fast but condenses readily on clear still nights.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/stanage_plantation-101/',
+    radUrl: 'https://services.thebmc.co.uk/modules/RAD/View.aspx?id=150',
     parkingLat: 53.35328,
     parkingLon: -1.63861,
   },
@@ -675,6 +701,7 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: 'Exposed grit edge above Curbar and Calver, facing west-south-west; gets the sun from late morning.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/curbar_edge-21/',
+    radUrl: 'https://services.thebmc.co.uk/modules/RAD/View.aspx?id=549',
     parkingLat: 53.27049,
     parkingLon: -1.61659,
   },
@@ -700,6 +727,7 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: 'Exposed gritstone edge, south-west facing.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/roaches_upper_tier-797/',
+    radUrl: 'https://services.thebmc.co.uk/modules/RAD/View.aspx?id=314',
     parkingLat: 53.15714,
     parkingLon: -1.99499,
   },
@@ -725,6 +753,7 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: 'Isolated gritstone bouldering outcrop, fully exposed. Very fast drying.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/almscliff-373/',
+    radUrl: 'https://services.thebmc.co.uk/modules/RAD/View.aspx?id=465',
     parkingLat: 53.9340,
     parkingLon: -1.59145,
   },
@@ -754,6 +783,7 @@ const SEEDS: CragSeed[] = [
     notes:
       'Soft sandstone: climbing it wet or shortly after a freeze-thaw cycle permanently damages holds. Longest drying requirement in the dataset; hard-blocked, never just low-scored.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/harrisons_rocks-57/',
+    radUrl: 'https://services.thebmc.co.uk/modules/RAD/View.aspx?id=119',
     parkingLat: 51.10413,
     parkingLon: 0.19005,
     // Soft-rock drying (§5.5), set so the strict 0.15 "dry inside" test clears
@@ -788,6 +818,7 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: 'Sheltered, mostly quick-drying roadside limestone, but seepage varies noticeably buttress to buttress after a wet spell.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/stoney_middleton-138',
+    radUrl: 'https://services.thebmc.co.uk/modules/RAD/View.aspx?id=155',
     parkingNote: 'A large layby on the A623 opposite the crag serves as the main parking, but no single coordinate for it could be confirmed.',
   },
   {
@@ -812,6 +843,7 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: 'Riverside and wooded, covering Two Tier and the rest of the dale approached from the Topley Pike end. Notoriously slow to dry, extending the seepage character already seen at the Cornice sector downstream.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/chee_dale_upper-10865',
+    radUrl: 'https://services.thebmc.co.uk/modules/RAD/View.aspx?id=459',
     parkingNote: 'Approached from the Topley Pike / Blackwell Mill end of the Monsal Trail via several informal paths, with no single agreed car park to confirm a coordinate for.',
   },
   {
@@ -836,6 +868,7 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: 'Steep, west-facing limestone above the Derwent gorge at Matlock. Moderate seepage after wet spells; a major trad/sport venue where the conditions call genuinely matters.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/high_tor_derbyshire-119',
+    radUrl: 'https://services.thebmc.co.uk/modules/RAD/View.aspx?id=134',
     parkingNote: 'Reached via the riverside path from Matlock or roadside stops on the A6; no single car park could be confirmed as the one climbers use.',
   },
   {
@@ -861,6 +894,7 @@ const SEEDS: CragSeed[] = [
     notes: 'Fully exposed quartzite sea cliff (modelled here on granite defaults - hard, low-porosity rock with similar fast-draining behaviour). Tidal access on top of the usual weather call makes this a genuinely committing decision; treated as west-facing.',
     accessNote: 'Access to parts of the Main Cliff and Easter Island is tide-dependent - check tide tables before relying on a conditions verdict alone.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/gogarth_north_stack_and_main_cliff-598',
+    radUrl: 'https://services.thebmc.co.uk/modules/RAD/View.aspx?id=5544',
     parkingNote: 'Reached on foot from the South Stack car park and café; the exact approach path coordinate could not be confirmed.',
   },
   {
@@ -885,6 +919,7 @@ const SEEDS: CragSeed[] = [
     softRock: false,
     notes: 'South-facing dolerite sun-trap, but the wooded, tree-lined base ("jungle-bashing" approach per its own guidebook notes) drips for hours after rain and slows drying - the classic go-to when the mountains are out of condition.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/craig_bwlch_y_moch_tremadog-221',
+    radUrl: 'https://services.thebmc.co.uk/modules/RAD/View.aspx?id=989',
     parkingNote: 'Parking is either the fee-paying café car park or a layby under Vector Buttress; no single coordinate could be confirmed as definitive.',
   },
   {
@@ -910,6 +945,7 @@ const SEEDS: CragSeed[] = [
     notes:
       "Soft sandstone: same rules as Harrison's. Hard-blocked when wet or after a freeze-thaw cycle, regardless of surface dryness.",
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/bowles_rocks-54/',
+    radUrl: 'https://services.thebmc.co.uk/modules/RAD/View.aspx?id=365',
     parkingLat: 51.07581,
     parkingLon: 0.19699,
     // Soft-rock drying - same values and reasoning as Harrison's above.
@@ -949,6 +985,7 @@ function resolveCrag(seed: CragSeed): Crag {
     accessNote: seed.accessNote,
     seasonalRestriction: seed.seasonalRestriction,
     ukcUrl: seed.ukcUrl,
+    radUrl: seed.radUrl,
     parkingLat: seed.parkingLat,
     parkingLon: seed.parkingLon,
     parkingNote: seed.parkingNote,
@@ -956,3 +993,6 @@ function resolveCrag(seed: CragSeed): Crag {
 }
 
 export const CRAGS: Crag[] = SEEDS.map(resolveCrag);
+
+/** The BMC Regional Access Database - the authority on current access, for crags without their own `radUrl`. */
+export const BMC_RAD_URL = 'https://services.thebmc.co.uk/modules/rad/';

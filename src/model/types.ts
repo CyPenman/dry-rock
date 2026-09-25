@@ -69,6 +69,8 @@ export interface Crag {
    */
   seasonalRestriction?: { fromMonth: number; toMonth: number; text: string };
   ukcUrl?: string;
+  /** BMC Regional Access Database page, where one RAD page matches the venue. */
+  radUrl?: string;
 
   // Parking - only set where a specific car park could be confirmed from
   // the crag's approach description; otherwise omitted (see parkingNote).

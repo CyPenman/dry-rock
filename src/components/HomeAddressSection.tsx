@@ -36,10 +36,11 @@ export function HomeAddressSection({
     setError(null);
   }
 
-  async function confirmAddress() {
+  async function confirmAddress(e?: React.FormEvent) {
+    e?.preventDefault();
     const query = input.trim();
     if (!query) {
-      setError('Enter an address first');
+      setError('Enter a postcode or town first');
       return;
     }
     setBusy(true);
@@ -49,7 +50,7 @@ export function HomeAddressSection({
       updateSettings({ homeLat: result.lat, homeLon: result.lon, homeAddress: result.displayName });
       setEditing(false);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Couldn't find that address");
+      setError(e instanceof Error ? e.message : "Couldn't find that - try a postcode or a town name");
     } finally {
       setBusy(false);
     }
@@ -105,39 +106,42 @@ export function HomeAddressSection({
               Close
             </button>
           </div>
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Street, town or postcode..."
-            className="mt-2 h-11 w-full rounded border px-3 text-sm"
-            style={{ borderColor: 'var(--border)', background: 'var(--ground-raised)', color: 'var(--text)' }}
-          />
-          {error && (
-            <p className="mt-1 text-sm" style={{ color: 'var(--warning)' }}>
-              {error}
-            </p>
-          )}
-          <div className="mt-2 flex gap-2">
-            <button
-              type="button"
-              onClick={confirmAddress}
-              disabled={busy}
-              className="flex-1 rounded px-3 py-2 text-sm font-medium"
-              style={{ background: 'var(--signal)', color: 'var(--ground)', opacity: busy ? 0.6 : 1 }}
-            >
-              {busy ? 'Looking up...' : 'Confirm'}
-            </button>
-            <button
-              type="button"
-              onClick={useCurrentLocation}
-              disabled={busy}
-              className="flex-1 rounded border px-3 py-2 text-sm"
-              style={{ borderColor: 'var(--border)', color: 'var(--text)', opacity: busy ? 0.6 : 1 }}
-            >
-              Use current location
-            </button>
-          </div>
+          <form onSubmit={confirmAddress}>
+            <input
+              type="text"
+              enterKeyHint="search"
+              autoComplete="postal-code"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Postcode or town..."
+              className="mt-2 h-11 w-full rounded border px-3 text-sm"
+              style={{ borderColor: 'var(--border)', background: 'var(--ground-raised)', color: 'var(--text)' }}
+            />
+            {error && (
+              <p className="mt-1 text-sm" style={{ color: 'var(--warning)' }}>
+                {error}
+              </p>
+            )}
+            <div className="mt-2 flex gap-2">
+              <button
+                type="submit"
+                disabled={busy}
+                className="flex-1 rounded px-3 py-2 text-sm font-medium"
+                style={{ background: 'var(--signal)', color: 'var(--ground)', opacity: busy ? 0.6 : 1 }}
+              >
+                {busy ? 'Looking up...' : 'Confirm'}
+              </button>
+              <button
+                type="button"
+                onClick={useCurrentLocation}
+                disabled={busy}
+                className="flex-1 rounded border px-3 py-2 text-sm"
+                style={{ borderColor: 'var(--border)', color: 'var(--text)', opacity: busy ? 0.6 : 1 }}
+              >
+                Use current location
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>

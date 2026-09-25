@@ -12,8 +12,10 @@
     "calibrate:soil": "node scripts/calibrate-soil-moisture.mjs"
   },
   "dependencies": {
+    "@maplibre/maplibre-gl-leaflet": "^0.1.4",
     "idb": "^8.0.3",
     "leaflet": "^1.9.4",
+    "maplibre-gl": "^6.11.2",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-leaflet": "^5.0.0"

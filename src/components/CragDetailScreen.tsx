@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { buildEnsembleUrl } from '../api/ensembleRequest';
 import { fetchEnsembleForecast, type EnsembleCellForecast } from '../api/ensembleClient';
 import { FORECAST_DAYS, PAST_DAYS } from '../api/request';
+import { BMC_RAD_URL } from '../data/crags';
 import type { CragWithForecast } from '../hooks/useForecast';
 import { daySummarySentence, formatAgeWords, formatDayLabel, formatSunOnFace } from '../lib/format';
 import {
@@ -408,8 +409,8 @@ export function CragDetailScreen({
           ))}
       </div>
 
-      {crag.ukcUrl && (
-        <div className="mx-4 mt-5 border-t pt-4" style={{ borderColor: 'var(--border)' }}>
+      <div className="mx-4 mt-5 border-t pt-4" style={{ borderColor: 'var(--border)' }}>
+        {crag.ukcUrl && (
           <a
             href={crag.ukcUrl}
             target="_blank"
@@ -419,8 +420,20 @@ export function CragDetailScreen({
           >
             View {crag.name} on UKClimbing &rarr;
           </a>
-        </div>
-      )}
+        )}
+        <a
+          href={crag.radUrl ?? BMC_RAD_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="flex h-11 items-center text-sm font-medium"
+          style={{ color: 'var(--signal)' }}
+        >
+          {crag.radUrl ? 'Current access on the BMC access database' : 'Check access on the BMC access database'} &rarr;
+        </a>
+        <p className="pt-1 text-xs" style={{ color: 'var(--text-dim)' }}>
+          A forecast, not an inspection: check the rock, and any access restrictions, yourself before you climb.
+        </p>
+      </div>
 
       <div className="mx-4 mt-2 space-y-1 border-t pt-4" style={{ borderColor: 'var(--border)' }}>
         {homeSettings.homeLat != null && homeSettings.homeLon != null ? (

@@ -156,6 +156,9 @@ export function HomeScreen({
       )}
 
       <p className="px-4 pt-6 text-xs" style={{ color: 'var(--text-dim)' }}>
+        A forecast, not an inspection - check the rock and current access yourself before you climb.
+      </p>
+      <p className="px-4 pt-1 text-xs" style={{ color: 'var(--text-dim)' }}>
         Weather data:{' '}
         <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: 'var(--text-dim)' }}>
           Open-Meteo.com
