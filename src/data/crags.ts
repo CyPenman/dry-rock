@@ -215,9 +215,12 @@ const SEEDS: CragSeed[] = [
     name: 'Wyndcliffe Quarry',
     area: 'Wye Valley',
     region: 'Wye Valley',
-    lat: 51.641,
-    lon: -2.669,
-    elevationM: 100,
+    // Checked 25 Sep 2026: moved from 51.641, -2.669, 3.7km south with no mapped cliff
+    // near it, to UKC's location, on OpenStreetMap's Upper and Lower Tier beside the
+    // Lower Wyndcliff car park below. Elevation is UKC's (was 100).
+    lat: 51.6736,
+    lon: -2.6815,
+    elevationM: 153,
     disciplines: ['sport', 'trad', 'boulder'],
     rock: 'limestone',
     aspectDeg: 225,
@@ -373,8 +376,10 @@ const SEEDS: CragSeed[] = [
     name: 'Chudleigh Rocks',
     area: 'Devon',
     region: 'Devon',
-    lat: 50.608,
-    lon: -3.601,
+    // Checked 25 Sep 2026: moved from 50.608, -3.601, 1.3km north in Chudleigh town, to
+    // UKC's location, on OpenStreetMap's south-facing cliff line.
+    lat: 50.5967,
+    lon: -3.6055,
     elevationM: 60,
     disciplines: ['sport', 'trad'],
     rock: 'limestone',
@@ -398,8 +403,10 @@ const SEEDS: CragSeed[] = [
     name: 'Horseshoe Quarry',
     area: 'Peak',
     region: 'Peak District',
-    lat: 53.288,
-    lon: -1.723,
+    // Checked 25 Sep 2026: moved from 53.288, -1.723, 2.4km west with no mapped cliff near
+    // it, to UKC's location, on OpenStreetMap's "Horseshoe Quarry" (faces 192°).
+    lat: 53.2819,
+    lon: -1.6879,
     elevationM: 260,
     disciplines: ['sport'],
     rock: 'limestone',
@@ -449,8 +456,11 @@ const SEEDS: CragSeed[] = [
     name: 'The Cornice',
     area: 'Peak',
     region: 'Peak District',
-    lat: 53.245,
-    lon: -1.757,
+    // Checked 25 Sep 2026: moved from 53.245, -1.757, on the plateau above Water-cum-Jolly
+    // (which has its own, different "Cornice" buttress), to UKC's "The Cornice" buttress on
+    // its Chee Dale Lower page. OpenStreetMap's "The Cornice" there faces 356°.
+    lat: 53.2552,
+    lon: -1.8167,
     elevationM: 250,
     disciplines: ['sport', 'trad'],
     rock: 'limestone',
@@ -475,8 +485,10 @@ const SEEDS: CragSeed[] = [
     name: 'Raven Tor',
     area: 'Peak',
     region: 'Peak District',
-    lat: 53.253,
-    lon: -1.76,
+    // Checked 25 Sep 2026: moved from 53.253, -1.76, 1.1km east in Water-cum-Jolly, to
+    // UKC's location, on OpenStreetMap's "Raven's Tor".
+    lat: 53.2563,
+    lon: -1.776,
     elevationM: 230,
     disciplines: ['sport', 'trad', 'boulder'],
     rock: 'limestone',
@@ -656,8 +668,10 @@ const SEEDS: CragSeed[] = [
     name: 'Stanage Plantation',
     area: 'Peak',
     region: 'Peak District',
-    lat: 53.345,
-    lon: -1.635,
+    // Checked 25 Sep 2026: moved from 53.345, -1.635, in the fields 250m below the edge
+    // and 0.9km south-east of the Plantation, to UKC's location.
+    lat: 53.353,
+    lon: -1.6392,
     elevationM: 400,
     disciplines: ['trad', 'boulder'],
     rock: 'gritstone',
@@ -674,8 +688,10 @@ const SEEDS: CragSeed[] = [
     notes: 'Fully exposed grit edge, thin thermal mass. Dries fast but condenses readily on clear still nights.',
     ukcUrl: 'https://www.ukclimbing.com/logbook/crags/stanage_plantation-101/',
     radUrl: 'https://services.thebmc.co.uk/modules/RAD/View.aspx?id=150',
-    parkingLat: 53.35328,
-    parkingLon: -1.63861,
+    // Was 53.35328, -1.63861, which is the crag itself. Now OpenStreetMap's Hollin Bank
+    // ("Stanage Plantation") pay car park, matching UKC's parking pin.
+    parkingLat: 53.35045,
+    parkingLon: -1.64497,
   },
   {
     id: 'curbar',
